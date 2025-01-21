@@ -206,7 +206,7 @@ cav_car <- spaMM::fitme(N_ACC ~ 1 + TEP_th + adjacency(1|PRO_COM) +
 summary(cav_car)
 # rho close to zero - likely iid residuals
 
-# Code stolen from INLAMSM (https://github.com/becarioprecario/INLAMSM/tree/master/R)
+# Code taken from INLAMSM (https://github.com/becarioprecario/INLAMSM/tree/master/R)
 # since INLA has no built-in model for the PCAR - only ICAR, BYM, Leroux and BYM2
 
 inla.rgeneric.PCAR.model <- function (cmd = c("graph", "Q", "mu", "initial", "log.norm.const", 
@@ -283,7 +283,7 @@ m_0_INLA <- inla(N_ACC ~ 1 ,
                  verbose = T)
 
 # Replicates the glm quite well
-m_0_INLA_th <- inla(N_ACC ~ 1 + TEP_th,
+m_0_INLA <- inla(N_ACC ~ 1 + TEP_th,
                  family = "poisson",  data =dd_con, offset = log(nn),
                  num.threads = 1, control.compute = 
                    list(internal.opt = F, cpo = T, waic = T), 
@@ -291,7 +291,7 @@ m_0_INLA_th <- inla(N_ACC ~ 1 + TEP_th,
 
 
 
-cav_icar_INLA_th <- inla(N_ACC ~ 1 + TEP_th + f(ID, model = "besag", graph = W_con,
+cav_icar_INLA <- inla(N_ACC ~ 1 + TEP_th + f(ID, model = "besag", graph = W_con,
                                                 scale.model = T, prior = "pc.prec"),
                          family = "poisson", offset = log(nn), data =dd_con,
                          num.threads = 1, control.compute = 
@@ -300,53 +300,22 @@ cav_icar_INLA_th <- inla(N_ACC ~ 1 + TEP_th + f(ID, model = "besag", graph = W_c
                          control.predictor = list(compute = T),
                          verbose = T) # better
 
-cav_bym_INLA_th <- inla(N_ACC ~ 1 + TEP_th + f(ID, model = "bym", graph = W_con,
-                                                scale.model = T, prior = "pc.prec"),
-                         family = "poisson", offset = log(nn), data =dd_con,
-                         num.threads = 1, control.compute = 
-                           list(internal.opt = F, cpo = T, waic = T), 
-                         inla.mode = "classic", control.inla = list(strategy = "laplace"),
-                         control.predictor = list(compute = T),
-                         verbose = T) 
-
-cav_icar_INLA_th_zip0 <- inla(N_ACC ~ 1 + TEP_th + f(ID, model = "besag", graph = W_con,
-                                                scale.model = T, prior = "pc.prec"),
-                         family = "zeroinflatedpoisson0", offset = log(nn), data =dd_con,
-                         num.threads = 1, control.compute = 
-                           list(internal.opt = F, cpo = T, waic = T), 
-                         inla.mode = "classic", control.inla = list(strategy = "laplace"),
-                         control.predictor = list(compute = T),
-                         verbose = T) # not better
 
 
-cav_icar_INLA_th_zip1 <- inla(N_ACC ~ 1 + TEP_th + f(ID, model = "besag", graph = W_con,
-                                                     scale.model = T, prior = "pc.prec"),
-                              family = "zeroinflatedpoisson1", offset = log(nn), data =dd_con,
-                              num.threads = 1, control.compute = 
-                                list(internal.opt = F, cpo = T, waic = T), 
-                              inla.mode = "classic", control.inla = list(strategy = "laplace"),
-                              control.predictor = list(compute = T),
-                              verbose = T) # neither
 
-library(brms)
-cav_icar_brms <- brm(N_ACC ~ 1 + TEP_th + offset(log(nn)) +
-                            car(W, gr = PRO_COM, type = "icar"),
-                data = dd_con, data2 = list(W = W_con),
-                family = poisson())
 
 
 ## usque adeo
 
 dd_con %>%
-  #dplyr::mutate(zcol = cav_zip_autoicar_INLA$summary.random$ID$mean) %>% 
-  dplyr::mutate(zcol = cav_autoicar_INLA$summary.fitted.values$mean) %>% 
+  dplyr::mutate(zcol = cav_icar_INLA$summary.fitted.values$mean) %>% 
   mapview::mapview(zcol = "zcol")
 
 
-plot(dd_con$F_ACC, cav_zip_autoicar_INLA$summary.fitted.values$mean/dd_con$nn)
+plot(dd_con$F_ACC, cav_icar_INLA$summary.fitted.values$mean/dd_con$nn)
 
 
-cav_pcar_INLA_th <- inla(N_ACC ~ 1 + TEP_th + f(ID, model = PCAR.model(W = W_con, k = 1, lambda = 1.5)),
+cav_pcar_INLA <- inla(N_ACC ~ 1 + TEP_th + f(ID, model = PCAR.model(W = W_con, k = 1, lambda = 1.5)),
                          family = "poisson", offset = log(nn), data =dd_con,
                          num.threads = 1, control.compute = 
                            list(internal.opt = F, cpo = T, waic = T), 
@@ -354,7 +323,12 @@ cav_pcar_INLA_th <- inla(N_ACC ~ 1 + TEP_th + f(ID, model = PCAR.model(W = W_con
                          control.predictor = list(compute = T),
                          verbose = T) 
 
-
+## TBD: model fitting with BRMS ------------------------------------------------
+library(brms)
+cav_icar_brms <- brm(N_ACC ~ 1 + TEP_th + offset(log(nn)) +
+                       car(W, gr = PRO_COM, type = "icar"),
+                     data = dd_con, data2 = list(W = W_con),
+                     family = poisson())
 
 
 
