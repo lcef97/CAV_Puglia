@@ -2,8 +2,6 @@
 ## Input -----------------------------------------------------------------------
 library(magrittr)
 
-
-
 #'  ---------------------------------------------------------------------------#
 #' 
 #'  Do not delete!! Code used to build input data from excel files
@@ -194,6 +192,10 @@ while(length(covs.in) < length(covariates)){
 covs.in 
 # We only consider the distance from closest CAV
 # Also because AES is another distance indicator. 
+
+
+                             ## USQUE ADEO
+                             ## 2025 January 21
 
 ## Spatial Poisson regression: spaMM -------------------------------------------
 
