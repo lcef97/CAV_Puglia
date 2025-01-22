@@ -126,7 +126,15 @@ load("input/dists_th.RData")
 # This is the dataset we will concretely work on:
 dd_con <- dd_con %>% 
   dplyr::left_join(dists_th, by = "PRO_COM") %>% 
-  dplyr::mutate(TEP_th = as.vector(scale(.data$TEP_th)))
+  dplyr::mutate(TEP_th = as.vector(scale(.data$TEP_th))) %>% 
+  dplyr::mutate(AES = as.vector(scale(.data$AES))) 
+  dplyr::mutate(MFI = as.vector(scale(.data$MFI)))  %>% 
+  dplyr::mutate(PDI = as.vector(scale(.data$PDI)))  %>% 
+  dplyr::mutate(ELL = as.vector(scale(.data$ELL)))  %>% 
+  dplyr::mutate(ER = as.vector(scale(.data$ER)))  %>% 
+  dplyr::mutate(PGR = as.vector(scale(.data$PGR)))  %>% 
+  dplyr::mutate(UIS = as.vector(scale(.data$UIS)))  %>% 
+  dplyr::mutate(ELI = as.vector(scale(.data$ELI))) 
 
 # sd of travel time: almost 16 minutes
 attr(scale(dists_th$TEP_th), "scaled:scale")

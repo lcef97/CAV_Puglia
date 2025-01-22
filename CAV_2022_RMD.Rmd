@@ -1,0 +1,498 @@
+---
+title: "CAV_explorative"
+
+
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(magrittr)
+library(sf)
+```
+
+```{r input, echo = FALSE, message = FALSE, warning = FALSE, output = FALSE}
+load("input/CAV_input_mun.RData")
+
+#' 2022 municipalities shapefiles; easily obtainable by scraping with the following 
+#' commented code:
+#' Mun22_shp <- SchoolDataIT::Get_Shapefile(2022)
+#' Shp <- Mun22_shp %>% dplyr::filter(.data$COD_REG == 16) %>% 
+#'  dplyr::select(.data$COD_PROV, .data$PRO_COM, .data$COMUNE)
+#'
+#' Still, we leave the static shapefile in order NOT to need internet connection:
+load("input/Shp.RData")
+
+# Function to extract numeric digits from a strings vector (needed to filter age):
+nn_extract <- function(string){
+  nn <- gregexpr("([0-9])", string)
+  ls.out <- regmatches(as.list(string), nn)
+  res <- unlist(lapply(ls.out, function(x) as.numeric(paste(x, collapse = ""))))  
+  return(res)
+}
+
+# Female population aged >= 15 years.
+# Source data: http://dati.istat.it/Index.aspx?DataSetCode=DCIS_POPRES1#
+Popolazione_Puglia_2022 <- readr::read_csv("input/Popolazione_Puglia_2022.csv") %>% 
+  dplyr::select(.data$ITTER107, .data$Territorio, .data$SEXISTAT1, .data$ETA1, .data$Value) %>% 
+  dplyr::filter(.data$ETA1 != "TOTAL") %>% 
+  dplyr::mutate(ETA1 = nn_extract(ETA1)) %>% 
+  dplyr::mutate(ITTER107 = as.numeric(ITTER107))
+names(Popolazione_Puglia_2022) <- c("PRO_COM", "Comune", "Sesso", "Eta", "Popolazione")
+
+# Filter and aggregate:
+Pop_f_15 <- Popolazione_Puglia_2022 %>% dplyr::filter(.data$Sesso == 2) %>% 
+  dplyr::filter(.data$Eta > 14) %>% 
+  dplyr::group_by(.data$PRO_COM, .data$Comune) %>% 
+  dplyr::summarise(nn = sum(.data$Popolazione)) %>% dplyr::ungroup()
+
+# Complete dataset:
+dd <- Shp %>% dplyr::left_join(Pop_f_15[,c(1,3)],
+                               by = "PRO_COM") %>% 
+  dplyr::left_join(dplyr::select(CAV_mun_22, -.data$comune),by = "PRO_COM") %>% 
+  dplyr::left_join(dplyr::select(Indicators, -.data$Comune), by = "PRO_COM")
+
+# Municipalities from which no woman reported violence --> count == 0
+dd$N_ACC[is.na(dd$N_ACC)] <- 0 
+# "access ratio"
+dd$F_ACC <- dd$N_ACC/dd$nn
+
+munWcav <- munWcav <- c (71020,71024,71051,72004,72006,72011,72014,
+                         72019,72021,72029,72031,72033,72035,73013,
+                         73027,74001,74009,75018,75029,75035,75059,
+                         110001,110002,110009)
+
+# Tremiti Islands are a singleton --> need to remove them
+# in order to perform spatial analysis
+suppressWarnings({
+  singletons <- which(unlist(lapply(spdep::poly2nb(dd), function(x) x[1L] == 0)))
+})
+
+
+# Filter out singletons
+dd_con <- dd[-singletons, ]
+
+load("input/dists_th.RData")
+
+# This is the dataset we will concretely work on:
+dd_con <- dd_con %>% 
+  dplyr::left_join(dists_th, by = "PRO_COM") %>% 
+  dplyr::mutate(TEP_th = as.vector(scale(.data$TEP_th)))  %>% 
+  dplyr::mutate(AES = as.vector(scale(.data$AES))) %>% 
+  dplyr::mutate(MFI = as.vector(scale(.data$MFI)))  %>% 
+  dplyr::mutate(PDI = as.vector(scale(.data$PDI)))  %>% 
+  dplyr::mutate(ELL = as.vector(scale(.data$ELL)))  %>% 
+  dplyr::mutate(ER = as.vector(scale(.data$ER)))  %>% 
+  dplyr::mutate(PGR = as.vector(scale(.data$PGR)))  %>% 
+  dplyr::mutate(UIS = as.vector(scale(.data$UIS)))  %>% 
+  dplyr::mutate(ELI = as.vector(scale(.data$ELI))) 
+
+# sd of travel time: almost 16 minutes
+#attr(scale(dists_th$TEP_th), "scaled:scale")
+
+# neighbours list
+nb_con <- spdep::poly2nb(dd_con)
+# neighbouring/adjacency matrix
+W_con <- spdep::nb2mat(nb_con, style = "B")
+rownames(W_con) <- colnames(W_con) <- dd_con$PRO_COM
+
+# row ID - needed for spatial models
+dd_con$ID <- c(1:nrow(dd_con))
+
+# Full GLM --> for model matrix
+glm_all_X <- glm(N_ACC ~ 1 + TEP_th + MFI + AES + PDI + ELL + ER +
+                   PGR + UIS + ELI + offset(log(nn)),
+                 data = dd_con, family = "poisson")
+# model matrix
+X <- model.matrix(glm_all_X)
+
+
+```
+
+
+
+
+## Data
+The dataset employed regards the counts of accesses to gender-based violence support centers in the Apulia region by residence municipality of the women victims of violence during 2022. `R` codes to generate the dataset are in the R script \href{https://github.com/lcef97/CAV_Puglia/blob/main/CAV_2022.R}{(posted here)} which this report is based on.
+
+Here, we only take into account the violence reports which support centers actually take charge of, at the risk of underestimating the counts of gender-based violence cases.
+This choice is driven by the need of avoiding duplicated records, since e.g. it may happen that a support center redirects a victim to another support center. 
+
+In order to avoid singletons in the spatial structure of the dataset, we removed the Tremiti Islands from the list of municipalities included ($0$ accesses to support centers in 2022).
+
+Therefore, the municipality-level dataset in scope consists of $256$ observations. 
+
+We can only take into account the accesses to support centers for which the origin municipality of victims is reported. Therefore, the total count of accesses in scope is $2259$. Among these accesses, $1516$ were taken charge of. 
+
+Here, we plot the log-access rate per residence municipality, i.e. the logarithm of the ratio between access counts and female population. Blank areas correspond to municipalities from which zero women accessed support centers ($82$ municipalities).
+
+
+```{r Accesses plot, echo = FALSE, warning = FALSE, message = FALSE, fig.height = 3}
+dd_con %>% 
+  dplyr::mutate(rate = log(.data$N_ACC) - log(.data$nn)) %>% 
+  ggplot2::ggplot() +
+  ggplot2::geom_sf(ggplot2::aes(fill = .data$rate))+
+  ggplot2::labs("Log incidence ratio") +
+  ggplot2::scale_fill_viridis_c(na.value = "white", direction = -1) +
+  ggplot2::theme_classic()
+  
+
+```
+
+## Explanatory variables
+
+Our target is explaining the number of accesses to support centers, $y$, defined at the municipality level, on the basis of a set of candidate known variables.
+
+We model $y$ via a simple Poisson GLM.
+
+We have at disposal a number of candidate explanatory variables, which include the distance of a municipality from the closest support center and a set of variables measuring social vulnerability under different dimensions; these latter covariates are provided by the ISTAT.A more detailed description of these covariates is in \href{https://github.com/lcef97/CAV_Puglia/blob/main/Metadata/Indice_composito_fragilita_PUGLIA_2021.xlsx}{this excel metadata file}.
+
+All covariates are scaled to have null mean and unit variance.
+
+
+
+\begin{itemize}
+
+\item $d$, i.e. the theoretical distance of each municipality from the municipality hosting the support center competent for that municipality. Distance is measured by road travel time in minutes.
+Fo
+r instance, the support center designated for the municipality of Adelfia (province of Bari, $3$rd municipality in the dataset) is located in Triggiano (BA). Then, $d_{3}^{(T)}$ denotes the travel time between Adelfia and Triggiano ($17$ minutes). 
+
+In `R`, $d$ is encoded as \texttt{\detokenize{TEP_th}}.
+
+\item $\mathrm{AES}$, the distance from the closest infrastructural pole, always measured in travel time. It is encoded as `AES`
+
+
+\item `MFI`, i.e. the decile of municipality vulnerability index.
+\item `PDI`, i.e. the dependency index, i.e. population either $\leq 20$ or $ \geq 65$ years over population in $[20 - 64]$ years.
+\item `ELL`, i.e. the proportion of people aged $[25-54]$ with low education.
+\item `ER`, i.e. employment rate among people aged $[20-64]$.
+\item `PGR`, i.e. population growth rate with respect to 2011.
+\item `UIS`, i.e. the ventile of the density of local units of industry and services (where density is defined as the ratio between the counts of industrial units and population).
+\item `ELI`, i.e. the ventile of employees in low productivity local units by sector for industry and services.
+
+
+\end{itemize}
+
+First, we visualise the correlations among these explanatory variables:
+
+
+```{r correls, echo = F, warning = F, fig.height = 3}
+ggplot2::ggplot(data = reshape2::melt(cor(X[,-1]))) +
+  ggplot2::geom_tile(ggplot2::aes(
+    x = .data$Var2, y = .data$Var1, fill = .data$value), color = "black", size = 3) +
+  ggplot2::geom_text(ggplot2::aes(
+    x = .data$Var2, y = .data$Var1, label = round(.data$value, 2))) +
+  ggplot2::scale_fill_gradient2(
+    low = "blue", mid = "white", high = "red", midpoint = 0) +
+  ggplot2::theme_minimal()
+```
+
+
+Then, we implement a very simple forward selection algorithm. At each iteration, we add to the model the covariate allowing for the lowest BIC, until adding an additional covariate does not allow to reduce it anymore:
+```{r forward selection, warnings = F}
+covariates <- colnames(X)[-1]
+covs.in <- c()
+BIC.min <- c()
+while(length(covs.in) < length(covariates)){
+  covs.out <- covariates[which(!covariates %in% covs.in)]
+
+  BICs <- c()
+  for(j in c(1:length(covs.out))) {
+    formula.temp <- paste0("N_ACC ~ 1 + offset(log(nn)) +", 
+                           paste(covs.in, collapse = "+"),
+                           "+", covs.out[j])
+    mod.tmp <- glm(formula.temp, data = dd_con, family = "poisson")
+    BICs[j] <- stats::BIC(mod.tmp)
+  }
+  BIC.min <- c(BIC.min, min(BICs))
+  if(length(BIC.min)>1 && BIC.min[length(BIC.min)] >= BIC.min[length(BIC.min)-1]){
+    break
+  } else{
+    covs.in <- c(covs.in, covs.out[which.min(BICs)])
+  }
+}
+
+# Only two, yet quite correlated.
+covs.in 
+```
+
+As we see, the only two relevant covariates appear the distance indicators: distance from the closest support center and distance. These two variables have a high correlation ($0.74$). 
+
+## OLS regression
+
+We regress the counts of accesses $y$ to support centers on the distance from the former. Both covariates are scaled to zero mean an unit variance. 
+
+\begin{equation}
+\frac{y_i}{P_i} \mid \eta_i \sim \mathrm{Poisson}(e^{\eta_i}) \quad \text{where} \quad
+\eta_i = \beta_0 + \beta_{d} d_i + \beta_{AES} \mathrm{AES}_i
+\label{eq:glm}
+\end{equation}
+
+Where $P_i$ is the female population of municipality $i$, and $d_i$ can be either $d_i^{(T)}$ or $d_i^{(A)}$.
+
+```{r glm, echo = FALSE}
+cav_glm <- glm(N_ACC ~ 1 + TEP_th + AES, family = "poisson",
+                offset = log(nn), data = dd_con)
+
+summary(cav_glm)
+```
+
+How do we interpret the regression coefficients? Keeping in mind we are working on the logarithm of the access rate, the standard deviations of explantory variables, both expressed in minutes, are the following:
+```{r SDs of X}
+# Distance from closest support center
+attr(scale(dists_th$TEP_th), "scaled:scale")
+# Distance from closest infrastructural pole
+attr(scale(Indicators$AES), "scaled:scale")
+
+```
+
+
+We plot the log-residuals $\varepsilon$ of the regression model in equation \ref{eq:glm}, defined as $\varepsilon := \ln y_i - \ln P_i - \ln \hat{y}_i$ being $\hat{y}_i$ the fitted value. Explanatory variable is theorical distance.
+
+
+```{r glm residuals, echo = FALSE, fig.height = 3, fig.cap = "Log-residuals of glm regression using theorical distance as explanatory variable"}
+
+
+resids_glm_th <- log(dd_con$N_ACC) - log(cav_glm$fitted.values) - log(dd_con$nn)
+
+dd_con %>% 
+  dplyr::mutate(log_resids = resids_glm_th) %>% 
+  ggplot2::ggplot() +
+  ggplot2::geom_sf(ggplot2::aes(fill = .data$log_resids))+
+  ggplot2::labs("blank") +
+  ggplot2::scale_fill_viridis_c(na.value = "white", direction = -1) +
+  ggplot2::theme_classic()
+
+# Problem: cannot apply Moran test to infinite values!
+# Hence we need to only test autocorrelation across nonzero records.
+# This strongly limits the relevance of the test, if I have a better idea I'll implememnt it.
+nonzero <- which(dd_con$N_ACC > 0)
+
+spdep::set.ZeroPolicyOption(TRUE)
+suppressWarnings(nb_nonzero <- spdep::poly2nb(dd_con[nonzero, ]))
+
+nonzero_singletons <- which(unlist(lapply(nb_nonzero, function(X) X[1L]==0)))
+nonzero_con <- nonzero[-nonzero_singletons]
+nb_con_nonzero <- spdep::poly2nb(dd_con[nonzero_con, ])
+```
+
+Residuals may exhibit spatial structure. To assess it, we employ the Moran and Geary tests. Since 
+
+Please notice that log-residuals only take finite values across the $175$ municipalities whose female citizens have reported at least one case of violence in 2022.
+
+Additionally, this set of municipalities includes $2$ singletons, which we remove to assess the value of the Moran and Geary statistics. Thus, we have defined the indexes set `nonzero_con` as the set of municipalities from which at least one case of gender-based violence has been reported, \textit{and} which have at least one neighbouring municipalities from which at least one case of gender-based violence was reported. 
+
+```{r moran residuals}
+spdep::moran.test(resids_glm_th[nonzero_con],
+                  listw = spdep::nb2listw(nb_con_nonzero))
+spdep::geary.test(resids_glm_th[nonzero_con],
+                  listw = spdep::nb2listw(nb_con_nonzero))
+
+```
+
+In both cases, we find evidence for spatial autocorrelation. However, we must stress out this result does not refer to all the regional territory, but only to a subset of all municipalities ($173$ over $257$)
+
+
+
+
+## Spatial regression
+
+Based on the autocorrelation evidence, though it has only been assessed for a subset of all municipalities, we try implementing a simple spatial model, say the intrinsic autoregressive:
+\begin{equation}
+\eta_i = \beta_0 + \beta_{d} d_i + \beta_{AES} \mathrm{AES}_i + z_i 
+\label{eq:mspat}
+\end{equation}
+
+Where 
+\begin{equation}
+z_i \mid z_{-i} \sim N \left( \sum_{j=1}^n \frac{w_{ij}}{d_i} z_j \,, \frac{\sigma^2}{d_i}\right)
+\label{eq:icar_loc}
+\end{equation}
+Here $w_{ij}$ is a generic element of the neighbourhood matrix of Apulia's municipalities, tanking value $1$ if two municipalities $i$ and $j$ are neighbours and zero if either $i$ and $j$ are not neighbours or $i = j$; $d_i$ is the number of neighbours of municipality $i$, and $\sigma^2$ is the scale parameter of the spatial effect. $n=256$ and the remainder of the model follows the same notation as eq. \ref{eq:glm}.
+
+On a first stance, we will let the Laplace Approximation approximate posterior distributions of the quantities of interest (instead of e.g. relying on MCMC)
+
+```{r inla nosp, echo = FALSE, message = FALSE, warning = FALSE}
+
+library(INLA)
+cav_nosp_INLA_th <- inla(
+  N_ACC ~ 1 + TEP_th + AES,
+  family = "poisson", offset = log(nn), data =dd_con,
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T), 
+  inla.mode = "classic", control.inla = list(strategy = "laplace"),
+  verbose = F)
+```
+
+We set a PC-prior on the random effect to avoid overfitting. 
+The `f()` argument sets the prior model on the spatial latent effect. Arguments `num.threads` and `internal.opt` are used for reproducibility. We use a PC-prior with rate parameter $\lambda = 1.5$, such that $\mathrm{Prob}(\sigma>\lambda) = 0.01$
+```{r inla mod, message = FALSE, warning = FALSE}
+
+cav_icar_INLA_th <- inla(
+  N_ACC ~ 1 + TEP_th + AES + f(ID, model = "besag", graph = W_con,
+                         scale.model = T, prior = "pc.prec", param = c(1.5, 0.01)),
+  family = "poisson", offset = log(nn), data =dd_con,
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T), 
+  inla.mode = "classic", control.inla = list(strategy = "laplace"),
+  verbose = F) # better
+```
+
+We compare the spatial and the nonspatial model (for coparability it has been re-run with R-INLA) through the Watanabe-Akaike information criterion
+```{r waic}
+cav_nosp_INLA_th$waic$waic # Higher WAIC
+cav_nosp_INLA_th$waic$p.eff # Low complexity
+
+cav_icar_INLA_th$waic$waic # Lower WAIC
+cav_icar_INLA_th$waic$p.eff # High complexity
+
+```
+
+Which suggests us the spatial model is preferable; model complexity increases (`p.eff` denotes the number of free/unconstrained parameters) but is still outweighter by better fitting. 
+ Here we show some summaries for the spatial model:
+```{r summary fixed}
+cav_icar_INLA_th$summary.fixed
+```
+ 
+We still see distance from the closest support center has a negative effect on the accesses. A tentative interpretation we may draw from this result is that the distance from support centers may tend to discourage women from reporting gender-based violence, and the occurrence of gender-based violence may be underestimated in areas distant from support centers. 
+
+The spatial effect is to be interpreted as the spatial variation not explained by model components. Here we show the posterior summaries of the marginal variance parameter ($\sigma^2$) of the spatial effect
+```{r summary hyperpar}
+inla.zmarginal(inla.tmarginal(
+  fun = function(X) 1/X,
+  marginal = cav_icar_INLA_th$marginals.hyperpar[[1]]))
+```
+
+And we plot the posterior expectations of the latent effect.
+
+
+
+
+
+```{r zhat, fig.height = 3, message = F, warning = F, echo = F, fig.cap = "Posterior expectation of the spatial latent effect"}
+dd_con %>% 
+  dplyr::mutate(zhat = cav_icar_INLA_th$summary.random$ID$mean) %>% 
+  ggplot2::ggplot() +
+  ggplot2::geom_sf(ggplot2::aes(fill = .data$zhat))+
+  ggplot2::labs("blank") +
+  ggplot2::scale_fill_viridis_c(na.value = "white", direction = -1) +
+  ggplot2::theme_classic()
+```
+ 
+Now, the intrinsic autoregressive model is relatively simple to interpret and to implement, 
+while also requiring the minimum number of additional parameter (either the scale or the precision).
+The drawback, however, is that we assume a spatial autocorrelation coefficient equal to 1.
+When the autocorrelation is weak, setting an ICAR prior may be a form of misspecification.
+
+A generalisation of this model is the PCAR (proper CAR), which introduces an autocorrelation parameter $\alpha$:
+
+
+\begin{equation}
+z_i \mid z_{-i} \sim N \left( \sum_{j=1}^n \alpha \frac{w_{ij}}{d_i} z_j \,, \frac{\sigma^2}{d_i}\right)
+\label{eq:icar_loc}
+\end{equation}
+
+Although it is not readily implemented in `R-INLA` (the `"besagproper"` effect is actually the Leroux model!) we may base the R code on the `INLAMSM` package:
+```{r pcar definition}
+inla.rgeneric.PCAR.model <- 
+  function (cmd = c("graph", "Q", "mu", "initial", "log.norm.const", 
+                                              "log.prior", "quit"), theta = NULL) {
+  interpret.theta <- function() {
+    alpha <- 1/(1 + exp(-theta[1L])) # alpha modelled in logit scale
+    mprec <- sapply(theta[2L], function(x) {
+      exp(x)
+    })
+    PREC <- mprec
+    return(list(alpha = alpha, mprec = mprec, PREC = PREC))
+  }
+  graph <- function() {
+    G <- Matrix::Diagonal(nrow(W), 1) + W
+    return(G)
+  }
+  Q <- function() {
+    param <- interpret.theta()
+    Q <- param$PREC * 
+      (Matrix::Diagonal(nrow(W), apply(W, 1, sum)) - param$alpha * W)
+    return(Q)
+  }
+  mu <- function() {
+    return(numeric(0))
+  }
+  log.norm.const <- function() {
+    val <- numeric(0)
+    return(val)
+  }
+  log.prior <- function() {
+    param <- interpret.theta()
+    val <- -theta[1L] - 2 * log(1 + exp(-theta[1L]))
+    # # PC prior
+    val <- val + log(lambda/2) - theta[2L]/2 - (lambda * exp(-theta[2L]/2))
+    # # Gamma(1, 5e-5), default prior:
+    #val <- val + dgamma(exp(theta[2L]), shape = 1, rate = 5e-5, log = T) + theta[2L]
+    # # Uniform prior on the standard deviation
+    #val <- val - sum(theta[2L])/2 - k * log(2)
+    return(val)
+  }
+  initial <- function() {
+    return(c(0, 4))
+  }
+  quit <- function() {
+    return(invisible())
+  }
+  if (as.integer(R.version$major) > 3) {
+    if (!length(theta)) 
+      theta = initial()
+  }
+  else {
+    if (is.null(theta)) {
+      theta <- initial()
+    }
+  }
+  val <- do.call(match.arg(cmd), args = list())
+  return(val)
+}
+PCAR.model <- function(...) INLA::inla.rgeneric.define(inla.rgeneric.PCAR.model, ...)
+```
+Then the model is run
+```{r pcar run, message = FALSE, output = FALSE}
+cav_pcar_INLA_th <- inla(N_ACC ~ 1 + TEP_th + AES + 
+                           f(ID, model = PCAR.model(W = W_con, k = 1, lambda = 1.5)),
+                         family = "poisson", offset = log(nn), data =dd_con,
+                         num.threads = 1, control.compute = 
+                           list(internal.opt = F, cpo = T, waic = T), 
+                         inla.mode = "classic", control.inla = list(strategy = "laplace"),
+                         control.predictor = list(compute = T),
+                         verbose = T) 
+
+
+```
+
+We compare the WAICs of the two spatial models
+
+```{r waic pcar}
+cav_icar_INLA_th$waic$waic # Higher WAIC
+cav_icar_INLA_th$waic$p.eff 
+
+cav_pcar_INLA_th$waic$waic # Lower WAIC
+cav_pcar_INLA_th$waic$p.eff # Complexity is not even raised
+
+```
+
+The lower WAIC suggests us that the PCAR, which does not even appear to be more complex although the additional parameter $\alpha$.
+We show the posterior summaries of the regression coefficients
+
+```{r pcar summary fix}
+cav_pcar_INLA_th$summary.fixed
+```
+
+however, the spatial autocorrelation does not appear particularly strong. Additionally, the credible interval appears uncannily wide:
+```{r alfa, echo = FALSE}
+expit <- function (X){
+  return(1/(1 + exp(-X)))
+}
+
+inla.zmarginal(inla.tmarginal(fun = expit,
+                              marginal = cav_pcar_INLA_th$marginals.hyperpar[[1]]))
+```
+
+
+
+
