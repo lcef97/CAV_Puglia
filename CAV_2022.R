@@ -1,7 +1,7 @@
 #' ---------  Analisi CAV Puglia 2022 -----------------------------------------#
 ## Input -----------------------------------------------------------------------
 library(magrittr)
-
+library(sf)
 #'  ---------------------------------------------------------------------------#
 #' 
 #'  Do not delete!! Code used to build input data from excel files
@@ -127,7 +127,7 @@ load("input/dists_th.RData")
 dd_con <- dd_con %>% 
   dplyr::left_join(dists_th, by = "PRO_COM") %>% 
   dplyr::mutate(TEP_th = as.vector(scale(.data$TEP_th))) %>% 
-  dplyr::mutate(AES = as.vector(scale(.data$AES))) 
+  dplyr::mutate(AES = as.vector(scale(.data$AES))) %>% 
   dplyr::mutate(MFI = as.vector(scale(.data$MFI)))  %>% 
   dplyr::mutate(PDI = as.vector(scale(.data$PDI)))  %>% 
   dplyr::mutate(ELL = as.vector(scale(.data$ELL)))  %>% 
@@ -156,8 +156,6 @@ glm_all_X <- glm(N_ACC ~ 1 + TEP_th + MFI + AES + PDI + ELL + ER +
 X <- model.matrix(glm_all_X)
 
 ## nonspatial regression -------------------------------------------------------
-
-glm_0 <- glm(N_ACC ~ 1 + offset(log(nn)), data = dd_con, family = "poisson")
 
 
 # Plot of covariates correlations:
@@ -202,10 +200,7 @@ covs.in
 # Also because AES is another distance indicator. 
 
 
-                             ## USQUE ADEO
-                             ## 2025 January 21
-
-## Spatial Poisson regression: spaMM -------------------------------------------
+## Spatial frequentist Poisson regression: spaMM -------------------------------
 
 cav_car <- spaMM::fitme(N_ACC ~ 1 + TEP_th + adjacency(1|PRO_COM) +  
                    offset(log(nn)), 
@@ -214,9 +209,14 @@ cav_car <- spaMM::fitme(N_ACC ~ 1 + TEP_th + adjacency(1|PRO_COM) +
 summary(cav_car)
 # rho close to zero - likely iid residuals
 
+
+## Spatial Poisson regression: INLA (TBD) --------------------------------------
+
 # Code taken from INLAMSM (https://github.com/becarioprecario/INLAMSM/tree/master/R)
 # since INLA has no built-in model for the PCAR - only ICAR, BYM, Leroux and BYM2
 
+
+library(INLA)
 inla.rgeneric.PCAR.model <- function (cmd = c("graph", "Q", "mu", "initial", "log.norm.const", 
                                               "log.prior", "quit"), theta = NULL) {
   interpret.theta <- function() {
@@ -275,21 +275,6 @@ inla.rgeneric.PCAR.model <- function (cmd = c("graph", "Q", "mu", "initial", "lo
 PCAR.model <- function(...) INLA::inla.rgeneric.define(inla.rgeneric.PCAR.model, ...)
 
 
-## Spatial Poisson regression: INLA (TBD) --------------------------------------
-
-
-
-
-library(INLA)
-
-
-m_0_INLA <- inla(N_ACC ~ 1 ,
-                 family = "poisson",  data =dd_con, offset = log(nn),
-                 num.threads = 1, control.compute = 
-                   list(internal.opt = F, cpo = T, waic = T), 
-                 inla.mode = "classic", control.inla = list(strategy = "laplace"),
-                 verbose = T)
-
 # Replicates the glm quite well
 m_0_INLA <- inla(N_ACC ~ 1 + TEP_th,
                  family = "poisson",  data =dd_con, offset = log(nn),
@@ -297,9 +282,8 @@ m_0_INLA <- inla(N_ACC ~ 1 + TEP_th,
                    list(internal.opt = F, cpo = T, waic = T), 
                  inla.mode = "classic", control.inla = list(strategy = "laplace"))
 
-
-
-cav_icar_INLA <- inla(N_ACC ~ 1 + TEP_th + f(ID, model = "besag", graph = W_con,
+# ICAR model
+cav_icar_INLA <- inla(N_ACC ~ 1 + TEP_th + AES + f(ID, model = "besag", graph = W_con,
                                                 scale.model = T, prior = "pc.prec"),
                          family = "poisson", offset = log(nn), data =dd_con,
                          num.threads = 1, control.compute = 
@@ -308,22 +292,8 @@ cav_icar_INLA <- inla(N_ACC ~ 1 + TEP_th + f(ID, model = "besag", graph = W_con,
                          control.predictor = list(compute = T),
                          verbose = T) # better
 
-
-
-
-
-
-## usque adeo
-
-dd_con %>%
-  dplyr::mutate(zcol = cav_icar_INLA$summary.fitted.values$mean) %>% 
-  mapview::mapview(zcol = "zcol")
-
-
-plot(dd_con$F_ACC, cav_icar_INLA$summary.fitted.values$mean/dd_con$nn)
-
-
-cav_pcar_INLA <- inla(N_ACC ~ 1 + TEP_th + f(ID, model = PCAR.model(W = W_con, k = 1, lambda = 1.5)),
+# PCAR model
+cav_pcar_INLA <- inla(N_ACC ~ 1 + TEP_th + AES + f(ID, model = PCAR.model(W = W_con, k = 1, lambda = 1.5)),
                          family = "poisson", offset = log(nn), data =dd_con,
                          num.threads = 1, control.compute = 
                            list(internal.opt = F, cpo = T, waic = T), 
@@ -331,9 +301,18 @@ cav_pcar_INLA <- inla(N_ACC ~ 1 + TEP_th + f(ID, model = PCAR.model(W = W_con, k
                          control.predictor = list(compute = T),
                          verbose = T) 
 
-## TBD: model fitting with BRMS ------------------------------------------------
+
+## Model fitting - CARBayes ----------------------------------------------------
+
+
+
+
+
+
+
+## TBD: model fitting with BRMS --> warning: slow ------------------------------
 library(brms)
-cav_icar_brms <- brm(N_ACC ~ 1 + TEP_th + offset(log(nn)) +
+cav_icar_brms <- brm(N_ACC ~ 1 + TEP_th + AES + offset(log(nn)) +
                        car(W, gr = PRO_COM, type = "icar"),
                      data = dd_con, data2 = list(W = W_con),
                      family = poisson())

@@ -121,7 +121,7 @@ X <- model.matrix(glm_all_X)
 
 
 ## Data
-The dataset employed regards the counts of accesses to gender-based violence support centers in the Apulia region by residence municipality of the women victims of violence during 2022. \texttt{R} codes to generate the dataset are in the R script [posted here](https://github.com/lcef97/CAV_Puglia/blob/main/CAV_2022.R) which this report is based on.
+The dataset employed regards the counts of accesses to gender-based violence support centers in the Apulia region by residence municipality of the women victims of violence during 2022. `R` codes to generate the dataset are in the R script [posted here](https://github.com/lcef97/CAV_Puglia/blob/main/CAV_2022.R) which this report is based on.
 
 Here, we only take into account the violence reports which support centers actually take charge of, at the risk of underestimating the counts of gender-based violence cases.
 This choice is driven by the need of avoiding duplicated records, since e.g. it may happen that a support center redirects a victim to another support center. 
@@ -147,7 +147,7 @@ dd_con %>%
 
 ```
 
-## Explanatory variables
+## Exploratory analysis
 
 Our target is explaining the number of accesses to support centers, $y$, defined at the municipality level, on the basis of a set of candidate known variables.
 
@@ -157,29 +157,44 @@ We have at disposal a number of candidate explanatory variables, which include t
 
 All covariates are scaled to have null mean and unit variance.
 
+:::{.only-html}
+  -  $d$, i.e. the theoretical distance of each municipality from the municipality hosting the support center competent for that municipality. Distance is measured by road travel time in minutes.
+Fo
+r instance, the support center designated for the municipality of Adelfia (province of Bari, $3$rd municipality in the dataset) is located in Triggiano (BA). Then, $d_{3}$ denotes the travel time between Adelfia and Triggiano ($17$ minutes). 
+In `R`, $d$ is encoded as `TEP_th`.
 
 
+  -  $\mathrm{AES}$, the distance from the closest infrastructural pole, always measured in travel time.
+  -  $\mathrm{MFI}$, i.e. the decile of municipality vulnerability index.
+  -  $\mathrm{PDI}$, i.e. the dependency index, i.e. population either $\leq 20$ or $\geq 65$ years over population in $[20 - 64]$ years.
+  -  $\mathrm{ELL}$, i.e. the proportion of people aged $[25-54]$ with low education.
+  -  $\mathrm{ERR}$, i.e. employment rate among people aged $[20-64]$.
+  -  $\mathrm{PGR}$, i.e. population growth rate with respect to 2011.
+  -  $\mathrm{UIS}$, i.e. the ventile of the density of local units of industry and services (where density is defined as the ratio between the counts of industrial units and population).
+  -  $\mathrm{ELI}$, i.e. the ventile of employees in low productivity local units by sector for industry and services.
+:::
+
+:::{.only-pdf}
 \begin{itemize}
 
 \item $d$, i.e. the theoretical distance of each municipality from the municipality hosting the support center competent for that municipality. Distance is measured by road travel time in minutes.
 Fo
-r instance, the support center designated for the municipality of Adelfia (province of Bari, $3$rd municipality in the dataset) is located in Triggiano (BA). Then, $d_{3}^{(T)}$ denotes the travel time between Adelfia and Triggiano ($17$ minutes). 
+r instance, the support center designated for the municipality of Adelfia (province of Bari, $3$rd municipality in the dataset) is located in Triggiano (BA). Then, $d_{3}$ denotes the travel time between Adelfia and Triggiano ($17$ minutes). 
 
 In \texttt{R}, $d$ is encoded as \texttt{\detokenize{TEP_th}}.
 
 \item $\mathrm{AES}$, the distance from the closest infrastructural pole, always measured in travel time.
-
-
 \item $\mathrm{MFI}$, i.e. the decile of municipality vulnerability index.
-\item $\mathrm{PDI}$, i.e. the dependency index, i.e. population either $\leq 20$ or $ \geq 65$ years over population in $[20 - 64]$ years.
-\item ELL, i.e. the proportion of people aged $[25-54]$ with low education.
-\item ERR, i.e. employment rate among people aged $[20-64]$.
-\item PGR, i.e. population growth rate with respect to 2011.
-\item UIS, i.e. the ventile of the density of local units of industry and services (where density is defined as the ratio between the counts of industrial units and population).
-\item ELI, i.e. the ventile of employees in low productivity local units by sector for industry and services.
-
+\item $\mathrm{PDI}$, i.e. the dependency index, i.e. population either $\leq 20$ or $\geq 65$ years over population in $[20 - 64]$ years.
+\item $\mathrm{ELL}$, i.e. the proportion of people aged $[25-54]$ with low education.
+\item $\mathrm{ERR}$, i.e. employment rate among people aged $[20-64]$.
+\item $\mathrm{PGR}$, i.e. population growth rate with respect to 2011.
+\item $\mathrm{UIS}$, i.e. the ventile of the density of local units of industry and services (where density is defined as the ratio between the counts of industrial units and population).
+\item $\mathrm{ELI}$, i.e. the ventile of employees in low productivity local units by sector for industry and services.
 
 \end{itemize}
+:::
+
 
 First, we visualise the correlations among these explanatory variables:
 
@@ -213,20 +228,37 @@ while(length(covs.in) < length(covariates)){
     BICs[j] <- stats::BIC(mod.tmp)
   }
   BIC.min <- c(BIC.min, min(BICs))
-  if(length(BIC.min)>1 && BIC.min[length(BIC.min)] >= BIC.min[length(BIC.min)-1]){
-    break
-  } else{
+  #if(length(BIC.min)>1 && BIC.min[length(BIC.min)] >= BIC.min[length(BIC.min)-1]){
+  #  break
+  #} else{
     covs.in <- c(covs.in, covs.out[which.min(BICs)])
-  }
+  #}
 }
-
-# Only two, yet quite correlated.
-covs.in 
 ```
 
-As we see, the only two relevant covariates appear the distance indicators: distance from the closest support center and distance. These two variables have a high correlation ($0.74$). 
+The optimal number of covariates (covariates in the model with minimum BIC) is two:
+```{r}
+covs.in[c(1:which.min(BIC.min))]
+```
 
-## OLS regression
+However, a model with up to $4$ covariates would have all significant regression coefficients:
+
+```{r glm five covs}
+summary(glm(
+  as.formula(paste0("N_ACC ~ 1 +", paste(covs.in[c(1:5)], collapse = " + "))),
+  family = "poisson",offset = log(nn), data = dd_con))$coefficients
+```
+
+In this case, the incidence of people with low educational level has a negative association with the accesses to support centers; the easiest interpretation would be that raising educational level would encourage reporting gender violence. 
+Interpreting the negative association with the density of productive units becomes harder - and do not us forget that association does not imply a causal relationship. Lastly, the association with population growth rate (fifth covariate) appears positive, but the significance of this association has weaker evidence (p-value $\sim 0.06$).
+
+With more than fifth covariates, no additional valuable association can be found. 
+
+As we see, using the BIC as selection criterion, the most relevant covariates appear the distance indicators: distance from the closest support center and distance. These two variables have a high correlation ($0.74$). 
+
+In the remainder of this work, we will only focus on the two covariates $d$ and $\mathrm{AES}$
+
+## Nonspatial regression
 
 We regress the counts of accesses $y$ to support centers on the distance from the former. Both covariates are scaled to zero mean an unit variance. 
 
@@ -257,7 +289,9 @@ attr(scale(Indicators$AES), "scaled:scale")
 ```
 
 
-Hence e.g. each $15'40''$ of distance of the a given municipality from the closest support center are associated with a decrease of $0.386$ in the log-frequency at which women from that municipality access to support centers.
+Hence e.g. each $15'45''$ of distance of the a given municipality from the closest support center are associated with a decrease of $0.386$ in the log-frequency at which women from that municipality access to support centers.
+
+## Spatial regression
 
 We plot the log-residuals $\varepsilon$ of the regression model in equation \ref{eq:glm}, defined as $\varepsilon := \ln y_i - \ln P_i - \ln \hat{y}_i$ being $\hat{y}_i$ the fitted value.
 
@@ -389,7 +423,7 @@ z_i \mid z_{-i} \sim N \left( \sum_{j=1}^n \alpha \frac{w_{ij}}{d_i} z_j \,, \fr
 \label{eq:pcar_loc}
 \end{equation}
 
-Although it is not readily implemented in \texttt{R-INLA} (the \texttt{"besagproper"} effect is actually the Leroux model) we may base the R code on the \texttt{INLAMSM} package [@INLAMSM]:
+Although it is not readily implemented in `R-INLA` (the `"besagproper"` effect is actually the Leroux model) we may base the R code on the `INLAMSM`` package [@INLAMSM]:
 ```{r pcar definition}
 inla.rgeneric.PCAR.model <- 
   function (cmd = c("graph", "Q", "mu", "initial", "log.norm.const", 
