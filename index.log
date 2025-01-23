@@ -1,9 +1,9 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.24 (MiKTeX 22.1) (preloaded format=pdflatex 2022.2.5)  22 JAN 2025 19:25
+This is pdfTeX, Version 3.141592653-2.6-1.40.24 (MiKTeX 22.1) (preloaded format=pdflatex 2022.2.5)  23 JAN 2025 09:32
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
-**./CAV_2022_RMD.tex
-(CAV_2022_RMD.tex
+**./index.tex
+(index.tex
 LaTeX2e <2021-11-15> patch level 1
 L3 programming layer <2022-01-21> (C:\Users\Leonardo\AppData\Local\Programs\MiK
 TeX\tex/latex/base\article.cls
@@ -415,7 +415,7 @@ File: bkm-pdftex.def 2020-11-06 v1.29 bookmark driver for pdfTeX (HO)
 Package: xurl 2022/01/09 v 0.10 modify URL breaks
 )
 LaTeX Font Info:    Trying to load font information for T1+lmr on input line 11
-2.
+3.
 (C:\Users\Leonardo\AppData\Local\Programs\MiKTeX\tex/latex/lm\t1lmr.fd
 File: t1lmr.fd 2009/10/30 v1.6 Font defs for Latin Modern
 )
@@ -424,43 +424,43 @@ pdftex.def
 File: l3backend-pdftex.def 2022-01-12 L3 backend support: PDF output (pdfTeX)
 \l__color_backend_stack_int=\count291
 \l__pdf_internal_box=\box54
-) (CAV_2022_RMD.aux
+) (index.aux
 
 LaTeX Warning: Label `eq:icar_loc' multiply defined.
 
 )
-\openout1 = `CAV_2022_RMD.aux'.
+\openout1 = `index.aux'.
 
-LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 112.
-LaTeX Font Info:    ... okay on input line 112.
-LaTeX Font Info:    Checking defaults for OMS/cmsy/m/n on input line 112.
-LaTeX Font Info:    ... okay on input line 112.
-LaTeX Font Info:    Checking defaults for OT1/cmr/m/n on input line 112.
-LaTeX Font Info:    ... okay on input line 112.
-LaTeX Font Info:    Checking defaults for T1/cmr/m/n on input line 112.
-LaTeX Font Info:    ... okay on input line 112.
-LaTeX Font Info:    Checking defaults for TS1/cmr/m/n on input line 112.
-LaTeX Font Info:    ... okay on input line 112.
-LaTeX Font Info:    Checking defaults for OMX/cmex/m/n on input line 112.
-LaTeX Font Info:    ... okay on input line 112.
-LaTeX Font Info:    Checking defaults for U/cmr/m/n on input line 112.
-LaTeX Font Info:    ... okay on input line 112.
-LaTeX Font Info:    Checking defaults for PD1/pdf/m/n on input line 112.
-LaTeX Font Info:    ... okay on input line 112.
-LaTeX Font Info:    Checking defaults for PU/pdf/m/n on input line 112.
-LaTeX Font Info:    ... okay on input line 112.
-LaTeX Info: Redefining \microtypecontext on input line 112.
-Package microtype Info: Applying patch `item' on input line 112.
-Package microtype Info: Applying patch `toc' on input line 112.
-Package microtype Info: Applying patch `eqnum' on input line 112.
-Package microtype Info: Applying patch `footnote' on input line 112.
+LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 113.
+LaTeX Font Info:    ... okay on input line 113.
+LaTeX Font Info:    Checking defaults for OMS/cmsy/m/n on input line 113.
+LaTeX Font Info:    ... okay on input line 113.
+LaTeX Font Info:    Checking defaults for OT1/cmr/m/n on input line 113.
+LaTeX Font Info:    ... okay on input line 113.
+LaTeX Font Info:    Checking defaults for T1/cmr/m/n on input line 113.
+LaTeX Font Info:    ... okay on input line 113.
+LaTeX Font Info:    Checking defaults for TS1/cmr/m/n on input line 113.
+LaTeX Font Info:    ... okay on input line 113.
+LaTeX Font Info:    Checking defaults for OMX/cmex/m/n on input line 113.
+LaTeX Font Info:    ... okay on input line 113.
+LaTeX Font Info:    Checking defaults for U/cmr/m/n on input line 113.
+LaTeX Font Info:    ... okay on input line 113.
+LaTeX Font Info:    Checking defaults for PD1/pdf/m/n on input line 113.
+LaTeX Font Info:    ... okay on input line 113.
+LaTeX Font Info:    Checking defaults for PU/pdf/m/n on input line 113.
+LaTeX Font Info:    ... okay on input line 113.
+LaTeX Info: Redefining \microtypecontext on input line 113.
+Package microtype Info: Applying patch `item' on input line 113.
+Package microtype Info: Applying patch `toc' on input line 113.
+Package microtype Info: Applying patch `eqnum' on input line 113.
+Package microtype Info: Applying patch `footnote' on input line 113.
 Package microtype Info: Generating PDF output.
 Package microtype Info: Character protrusion enabled (level 2).
 Package microtype Info: Using protrusion set `basicmath'.
 Package microtype Info: Automatic font expansion enabled (level 2),
 (microtype)             stretch: 20, shrink: 20, step: 1, non-selected.
 Package microtype Info: Using default expansion set `alltext-nott'.
-LaTeX Info: Redefining \showhyphens on input line 112.
+LaTeX Info: Redefining \showhyphens on input line 113.
 Package microtype Info: No adjustment of tracking.
 Package microtype Info: No adjustment of interword spacing.
 Package microtype Info: No adjustment of character kerning.
@@ -528,7 +528,7 @@ File: epstopdf-sys.cfg 2021/03/18 v2.0 Configuration of epstopdf for MiKTeX
 * \@reversemarginfalse
 * (1in=72.27pt=25.4mm, 1cm=28.453pt)
 
-Package hyperref Info: Link coloring OFF on input line 112.
+Package hyperref Info: Link coloring OFF on input line 113.
 
 (C:\Users\Leonardo\AppData\Local\Programs\MiKTeX\tex/latex/hyperref\nameref.sty
 Package: nameref 2021-04-02 v2.47 Cross-referencing by name of section
@@ -543,36 +543,36 @@ Package: gettitlestring 2019/12/15 v1.6 Cleanup title references (HO)
 )
 \c@section@level=\count298
 )
-LaTeX Info: Redefining \ref on input line 112.
-LaTeX Info: Redefining \pageref on input line 112.
-LaTeX Info: Redefining \nameref on input line 112.
+LaTeX Info: Redefining \ref on input line 113.
+LaTeX Info: Redefining \pageref on input line 113.
+LaTeX Info: Redefining \nameref on input line 113.
 LaTeX Font Info:    Trying to load font information for OT1+lmr on input line 1
-14.
+15.
 (C:\Users\Leonardo\AppData\Local\Programs\MiKTeX\tex/latex/lm\ot1lmr.fd
 File: ot1lmr.fd 2009/10/30 v1.6 Font defs for Latin Modern
 )
 LaTeX Font Info:    Trying to load font information for OML+lmm on input line 1
-14.
+15.
 (C:\Users\Leonardo\AppData\Local\Programs\MiKTeX\tex/latex/lm\omllmm.fd
 File: omllmm.fd 2009/10/30 v1.6 Font defs for Latin Modern
 )
 LaTeX Font Info:    Trying to load font information for OMS+lmsy on input line 
-114.
+115.
 (C:\Users\Leonardo\AppData\Local\Programs\MiKTeX\tex/latex/lm\omslmsy.fd
 File: omslmsy.fd 2009/10/30 v1.6 Font defs for Latin Modern
 )
 LaTeX Font Info:    Trying to load font information for OMX+lmex on input line 
-114.
+115.
 (C:\Users\Leonardo\AppData\Local\Programs\MiKTeX\tex/latex/lm\omxlmex.fd
 File: omxlmex.fd 2009/10/30 v1.6 Font defs for Latin Modern
 )
 LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <12> on input line 114.
+(Font)              <12> on input line 115.
 LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <8> on input line 114.
+(Font)              <8> on input line 115.
 LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <6> on input line 114.
-LaTeX Font Info:    Trying to load font information for U+msa on input line 114
+(Font)              <6> on input line 115.
+LaTeX Font Info:    Trying to load font information for U+msa on input line 115
 .
 (C:\Users\Leonardo\AppData\Local\Programs\MiKTeX\tex/latex/amsfonts\umsa.fd
 File: umsa.fd 2013/01/14 v3.01 AMS symbols A
@@ -580,7 +580,7 @@ File: umsa.fd 2013/01/14 v3.01 AMS symbols A
 (C:\Users\Leonardo\AppData\Local\Programs\MiKTeX\tex/latex/microtype\mt-msa.cfg
 File: mt-msa.cfg 2006/02/04 v1.1 microtype config. file: AMS symbols (a) (RS)
 )
-LaTeX Font Info:    Trying to load font information for U+msb on input line 114
+LaTeX Font Info:    Trying to load font information for U+msb on input line 115
 .
 (C:\Users\Leonardo\AppData\Local\Programs\MiKTeX\tex/latex/amsfonts\umsb.fd
 File: umsb.fd 2013/01/14 v3.01 AMS symbols B
@@ -589,80 +589,75 @@ File: umsb.fd 2013/01/14 v3.01 AMS symbols B
 File: mt-msb.cfg 2005/06/01 v1.0 microtype config. file: AMS symbols (b) (RS)
 )
 LaTeX Font Info:    Trying to load font information for T1+lmtt on input line 1
-19.
+20.
 (C:\Users\Leonardo\AppData\Local\Programs\MiKTeX\tex/latex/lm\t1lmtt.fd
 File: t1lmtt.fd 2009/10/30 v1.6 Font defs for Latin Modern
 )
 LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <10> on input line 132.
+(Font)              <10> on input line 133.
 LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <7> on input line 132.
+(Font)              <7> on input line 133.
 LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <5> on input line 132.
-<CAV_2022_RMD_files/figure-latex/Accesses plot-1.pdf, id=4, 469.755pt x 216.81p
-t>
-File: CAV_2022_RMD_files/figure-latex/Accesses plot-1.pdf Graphic file (type pd
-f)
-<use CAV_2022_RMD_files/figure-latex/Accesses plot-1.pdf>
-Package pdftex.def Info: CAV_2022_RMD_files/figure-latex/Accesses plot-1.pdf  u
-sed on input line 147.
+(Font)              <5> on input line 133.
+<index_files/figure-latex/Accesses plot-1.pdf, id=4, 469.755pt x 216.81pt>
+File: index_files/figure-latex/Accesses plot-1.pdf Graphic file (type pdf)
+<use index_files/figure-latex/Accesses plot-1.pdf>
+Package pdftex.def Info: index_files/figure-latex/Accesses plot-1.pdf  used on 
+input line 148.
 (pdftex.def)             Requested size: 469.75386pt x 216.80946pt.
 [1
 
-{C:/Users/Leonardo/AppData/Local/MiKTeX/fonts/map/pdftex/pdftex.map} <./CAV_202
-2_RMD_files/figure-latex/Accesses plot-1.pdf>]
+{C:/Users/Leonardo/AppData/Local/MiKTeX/fonts/map/pdftex/pdftex.map} <./index_f
+iles/figure-latex/Accesses plot-1.pdf>]
 LaTeX Font Info:    Trying to load font information for TS1+lmr on input line 1
-68.
+69.
 (C:\Users\Leonardo\AppData\Local\Programs\MiKTeX\tex/latex/lm\ts1lmr.fd
 File: ts1lmr.fd 2009/10/30 v1.6 Font defs for Latin Modern
 )
-<CAV_2022_RMD_files/figure-latex/correls-1.pdf, id=26, 469.755pt x 216.81pt>
-File: CAV_2022_RMD_files/figure-latex/correls-1.pdf Graphic file (type pdf)
-<use CAV_2022_RMD_files/figure-latex/correls-1.pdf>
-Package pdftex.def Info: CAV_2022_RMD_files/figure-latex/correls-1.pdf  used on
- input line 190.
+<index_files/figure-latex/correls-1.pdf, id=26, 469.755pt x 216.81pt>
+File: index_files/figure-latex/correls-1.pdf Graphic file (type pdf)
+<use index_files/figure-latex/correls-1.pdf>
+Package pdftex.def Info: index_files/figure-latex/correls-1.pdf  used on input 
+line 191.
 (pdftex.def)             Requested size: 469.75386pt x 216.80946pt.
+[2 <./index_files/figure-latex/correls-1.pdf>]
 LaTeX Font Info:    Font shape `T1/lmtt/bx/n' in size <10> not available
-(Font)              Font shape `T1/lmtt/b/n' tried instead on input line 199.
-[2 <./CAV_2022_RMD_files/figure-latex/correls-1.pdf>]
+(Font)              Font shape `T1/lmtt/b/n' tried instead on input line 200.
 LaTeX Font Info:    Trying to load font information for TS1+lmtt on input line 
-270.
+271.
 (C:\Users\Leonardo\AppData\Local\Programs\MiKTeX\tex/latex/lm\ts1lmtt.fd
 File: ts1lmtt.fd 2009/10/30 v1.6 Font defs for Latin Modern
 ) [3]
-<CAV_2022_RMD_files/figure-latex/glm residuals-1.pdf, id=53, 469.755pt x 216.81
-pt>
-File: CAV_2022_RMD_files/figure-latex/glm residuals-1.pdf Graphic file (type pd
-f)
-<use CAV_2022_RMD_files/figure-latex/glm residuals-1.pdf>
-Package pdftex.def Info: CAV_2022_RMD_files/figure-latex/glm residuals-1.pdf  u
-sed on input line 305.
+<index_files/figure-latex/glm residuals-1.pdf, id=53, 469.755pt x 216.81pt>
+File: index_files/figure-latex/glm residuals-1.pdf Graphic file (type pdf)
+<use index_files/figure-latex/glm residuals-1.pdf>
+Package pdftex.def Info: index_files/figure-latex/glm residuals-1.pdf  used on 
+input line 315.
 (pdftex.def)             Requested size: 469.75386pt x 216.80946pt.
-[4 <./CAV_2022_RMD_files/figure-latex/glm residuals-1.pdf>] [5]
-<CAV_2022_RMD_files/figure-latex/zhat-1.pdf, id=77, 469.755pt x 216.81pt>
-File: CAV_2022_RMD_files/figure-latex/zhat-1.pdf Graphic file (type pdf)
-<use CAV_2022_RMD_files/figure-latex/zhat-1.pdf>
-Package pdftex.def Info: CAV_2022_RMD_files/figure-latex/zhat-1.pdf  used on in
-put line 518.
+[4 <./index_files/figure-latex/glm residuals-1.pdf>] [5] [6]
+<index_files/figure-latex/zhat-1.pdf, id=81, 469.755pt x 216.81pt>
+File: index_files/figure-latex/zhat-1.pdf Graphic file (type pdf)
+<use index_files/figure-latex/zhat-1.pdf>
+Package pdftex.def Info: index_files/figure-latex/zhat-1.pdf  used on input lin
+e 528.
 (pdftex.def)             Requested size: 469.75386pt x 216.80946pt.
-[6] [7 <./CAV_2022_RMD_files/figure-latex/zhat-1.pdf>] [8] [9] (CAV_2022_RMD.au
-x)
+[7 <./index_files/figure-latex/zhat-1.pdf>] [8] [9] (index.aux)
 
 LaTeX Warning: There were multiply-defined labels.
 
  ) 
 Here is how much of TeX's memory you used:
- 13864 strings out of 478593
- 223520 string characters out of 2843189
- 554145 words of memory out of 3000000
+ 13869 strings out of 478593
+ 223318 string characters out of 2843189
+ 554593 words of memory out of 3000000
  31682 multiletter control sequences out of 15000+600000
- 522468 words of font info for 123 fonts, out of 8000000 for 9000
+ 522717 words of font info for 126 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
- 74i,6n,77p,1011b,516s stack positions out of 5000i,500n,10000p,200000b,80000s
+ 74i,6n,77p,1004b,512s stack positions out of 5000i,500n,10000p,200000b,80000s
 {C:/Users/Leonardo/AppData/Local/Programs/MiKTeX/fonts/enc/dvips/lm/lm-mathex
-.enc}{C:/Users/Leonardo/AppData/Local/Programs/MiKTeX/fonts/enc/dvips/lm/lm-mat
-hsy.enc}{C:/Users/Leonardo/AppData/Local/Programs/MiKTeX/fonts/enc/dvips/lm/lm-
-ec.enc}{C:/Users/Leonardo/AppData/Local/Programs/MiKTeX/fonts/enc/dvips/lm/lm-t
+.enc}{C:/Users/Leonardo/AppData/Local/Programs/MiKTeX/fonts/enc/dvips/lm/lm-ec.
+enc}{C:/Users/Leonardo/AppData/Local/Programs/MiKTeX/fonts/enc/dvips/lm/lm-math
+sy.enc}{C:/Users/Leonardo/AppData/Local/Programs/MiKTeX/fonts/enc/dvips/lm/lm-t
 s1.enc}{C:/Users/Leonardo/AppData/Local/Programs/MiKTeX/fonts/enc/dvips/lm/lm-m
 athit.enc}{C:/Users/Leonardo/AppData/Local/Programs/MiKTeX/fonts/enc/dvips/lm/l
 m-rm.enc}<C:/Users/Leonardo/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm
@@ -680,7 +675,7 @@ eX/fonts/type1/public/lm/lmsy7.pfb><C:/Users/Leonardo/AppData/Local/Programs/Mi
 KTeX/fonts/type1/public/lm/lmtk10.pfb><C:/Users/Leonardo/AppData/Local/Programs
 /MiKTeX/fonts/type1/public/lm/lmtt10.pfb><C:/Users/Leonardo/AppData/Local/Progr
 ams/MiKTeX/fonts/type1/public/lm/lmtti10.pfb>
-Output written on CAV_2022_RMD.pdf (9 pages, 832650 bytes).
+Output written on index.pdf (9 pages, 835165 bytes).
 PDF statistics:
  193 PDF objects out of 1000 (max. 8388607)
  20 named destinations out of 1000 (max. 500000)

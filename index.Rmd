@@ -1,8 +1,9 @@
 ---
-title: "CAV_explorative"
-
-
-output: pdf_document
+title: "Explorative analysis of accesses to support centers for gender-based violence
+  in Apulia"
+output:
+  html_document:
+    df_print: paged
 ---
 
 ```{r setup, include=FALSE}
@@ -110,8 +111,6 @@ X <- model.matrix(glm_all_X)
 ```
 
 
-
-
 ## Data
 The dataset employed regards the counts of accesses to gender-based violence support centers in the Apulia region by residence municipality of the women victims of violence during 2022. `R` codes to generate the dataset are in the R script \href{https://github.com/lcef97/CAV_Puglia/blob/main/CAV_2022.R}{(posted here)} which this report is based on.
 
@@ -157,18 +156,18 @@ All covariates are scaled to have null mean and unit variance.
 Fo
 r instance, the support center designated for the municipality of Adelfia (province of Bari, $3$rd municipality in the dataset) is located in Triggiano (BA). Then, $d_{3}^{(T)}$ denotes the travel time between Adelfia and Triggiano ($17$ minutes). 
 
-In `R`, $d$ is encoded as \texttt{\detokenize{TEP_th}}.
+In \texttt{R}, $d$ is encoded as \texttt{\detokenize{TEP_th}}.
 
-\item $\mathrm{AES}$, the distance from the closest infrastructural pole, always measured in travel time. It is encoded as `AES`
+\item $\mathrm{AES}$, the distance from the closest infrastructural pole, always measured in travel time.
 
 
-\item `MFI`, i.e. the decile of municipality vulnerability index.
-\item `PDI`, i.e. the dependency index, i.e. population either $\leq 20$ or $ \geq 65$ years over population in $[20 - 64]$ years.
-\item `ELL`, i.e. the proportion of people aged $[25-54]$ with low education.
-\item `ER`, i.e. employment rate among people aged $[20-64]$.
-\item `PGR`, i.e. population growth rate with respect to 2011.
-\item `UIS`, i.e. the ventile of the density of local units of industry and services (where density is defined as the ratio between the counts of industrial units and population).
-\item `ELI`, i.e. the ventile of employees in low productivity local units by sector for industry and services.
+\item $\mathrm{MFI}$, i.e. the decile of municipality vulnerability index.
+\item $\mathrm{PDI}$, i.e. the dependency index, i.e. population either $\leq 20$ or $ \geq 65$ years over population in $[20 - 64]$ years.
+\item ELL, i.e. the proportion of people aged $[25-54]$ with low education.
+\item ERR, i.e. employment rate among people aged $[20-64]$.
+\item PGR, i.e. population growth rate with respect to 2011.
+\item UIS, i.e. the ventile of the density of local units of industry and services (where density is defined as the ratio between the counts of industrial units and population).
+\item ELI, i.e. the ventile of employees in low productivity local units by sector for industry and services.
 
 
 \end{itemize}
@@ -228,7 +227,7 @@ We regress the counts of accesses $y$ to support centers on the distance from th
 \label{eq:glm}
 \end{equation}
 
-Where $P_i$ is the female population of municipality $i$, and $d_i$ can be either $d_i^{(T)}$ or $d_i^{(A)}$.
+Where $P_i$ is the female population aged $\geq 15$ in municipality $i$.
 
 ```{r glm, echo = FALSE}
 cav_glm <- glm(N_ACC ~ 1 + TEP_th + AES, family = "poisson",
@@ -236,6 +235,8 @@ cav_glm <- glm(N_ACC ~ 1 + TEP_th + AES, family = "poisson",
 
 summary(cav_glm)
 ```
+
+Both the distance from the closest support center and the distance from the closest infrastructural pole have a negative association with the frequency of accesses to support centers.
 
 How do we interpret the regression coefficients? Keeping in mind we are working on the logarithm of the access rate, the standard deviations of explantory variables, both expressed in minutes, are the following:
 ```{r SDs of X}
@@ -247,7 +248,9 @@ attr(scale(Indicators$AES), "scaled:scale")
 ```
 
 
-We plot the log-residuals $\varepsilon$ of the regression model in equation \ref{eq:glm}, defined as $\varepsilon := \ln y_i - \ln P_i - \ln \hat{y}_i$ being $\hat{y}_i$ the fitted value. Explanatory variable is theorical distance.
+Hence e.g. each $15'40''$ of distance of the a given municipality from the closest support center are associated with a decrease of $0.386$ in the log-frequency at which women from that municipality access to support centers.
+
+We plot the log-residuals $\varepsilon$ of the regression model in equation \ref{eq:glm}, defined as $\varepsilon := \ln y_i - \ln P_i - \ln \hat{y}_i$ being $\hat{y}_i$ the fitted value.
 
 
 ```{r glm residuals, echo = FALSE, fig.height = 3, fig.cap = "Log-residuals of glm regression using theorical distance as explanatory variable"}
@@ -315,7 +318,7 @@ On a first stance, we will let the Laplace Approximation approximate posterior d
 ```{r inla nosp, echo = FALSE, message = FALSE, warning = FALSE}
 
 library(INLA)
-cav_nosp_INLA_th <- inla(
+cav_nosp_INLA <- inla(
   N_ACC ~ 1 + TEP_th + AES,
   family = "poisson", offset = log(nn), data =dd_con,
   num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T), 
@@ -327,7 +330,7 @@ We set a PC-prior on the random effect to avoid overfitting.
 The `f()` argument sets the prior model on the spatial latent effect. Arguments `num.threads` and `internal.opt` are used for reproducibility. We use a PC-prior with rate parameter $\lambda = 1.5$, such that $\mathrm{Prob}(\sigma>\lambda) = 0.01$
 ```{r inla mod, message = FALSE, warning = FALSE}
 
-cav_icar_INLA_th <- inla(
+cav_icar_INLA <- inla(
   N_ACC ~ 1 + TEP_th + AES + f(ID, model = "besag", graph = W_con,
                          scale.model = T, prior = "pc.prec", param = c(1.5, 0.01)),
   family = "poisson", offset = log(nn), data =dd_con,
@@ -338,18 +341,18 @@ cav_icar_INLA_th <- inla(
 
 We compare the spatial and the nonspatial model (for coparability it has been re-run with R-INLA) through the Watanabe-Akaike information criterion
 ```{r waic}
-cav_nosp_INLA_th$waic$waic # Higher WAIC
-cav_nosp_INLA_th$waic$p.eff # Low complexity
+cav_nosp_INLA$waic$waic # Higher WAIC
+cav_nosp_INLA$waic$p.eff # Low complexity
 
-cav_icar_INLA_th$waic$waic # Lower WAIC
-cav_icar_INLA_th$waic$p.eff # High complexity
+cav_icar_INLA$waic$waic # Lower WAIC
+cav_icar_INLA$waic$p.eff # High complexity
 
 ```
 
 Which suggests us the spatial model is preferable; model complexity increases (`p.eff` denotes the number of free/unconstrained parameters) but is still outweighter by better fitting. 
  Here we show some summaries for the spatial model:
 ```{r summary fixed}
-cav_icar_INLA_th$summary.fixed
+cav_icar_INLA$summary.fixed
 ```
  
 We still see distance from the closest support center has a negative effect on the accesses. A tentative interpretation we may draw from this result is that the distance from support centers may tend to discourage women from reporting gender-based violence, and the occurrence of gender-based violence may be underestimated in areas distant from support centers. 
@@ -358,7 +361,7 @@ The spatial effect is to be interpreted as the spatial variation not explained b
 ```{r summary hyperpar}
 inla.zmarginal(inla.tmarginal(
   fun = function(X) 1/X,
-  marginal = cav_icar_INLA_th$marginals.hyperpar[[1]]))
+  marginal = cav_icar_INLA$marginals.hyperpar[[1]]))
 ```
 
 And we plot the posterior expectations of the latent effect.
@@ -369,7 +372,7 @@ And we plot the posterior expectations of the latent effect.
 
 ```{r zhat, fig.height = 3, message = F, warning = F, echo = F, fig.cap = "Posterior expectation of the spatial latent effect"}
 dd_con %>% 
-  dplyr::mutate(zhat = cav_icar_INLA_th$summary.random$ID$mean) %>% 
+  dplyr::mutate(zhat = cav_icar_INLA$summary.random$ID$mean) %>% 
   ggplot2::ggplot() +
   ggplot2::geom_sf(ggplot2::aes(fill = .data$zhat))+
   ggplot2::labs("blank") +
@@ -453,7 +456,7 @@ PCAR.model <- function(...) INLA::inla.rgeneric.define(inla.rgeneric.PCAR.model,
 ```
 Then the model is run
 ```{r pcar run, message = FALSE, output = FALSE}
-cav_pcar_INLA_th <- inla(N_ACC ~ 1 + TEP_th + AES + 
+cav_pcar_INLA<- inla(N_ACC ~ 1 + TEP_th + AES + 
                            f(ID, model = PCAR.model(W = W_con, k = 1, lambda = 1.5)),
                          family = "poisson", offset = log(nn), data =dd_con,
                          num.threads = 1, control.compute = 
@@ -468,11 +471,11 @@ cav_pcar_INLA_th <- inla(N_ACC ~ 1 + TEP_th + AES +
 We compare the WAICs of the two spatial models
 
 ```{r waic pcar}
-cav_icar_INLA_th$waic$waic # Higher WAIC
-cav_icar_INLA_th$waic$p.eff 
+cav_icar_INLA$waic$waic # Higher WAIC
+cav_icar_INLA$waic$p.eff 
 
-cav_pcar_INLA_th$waic$waic # Lower WAIC
-cav_pcar_INLA_th$waic$p.eff # Complexity is not even raised
+cav_pcar_INLA$waic$waic # Lower WAIC
+cav_pcar_INLA$waic$p.eff # Complexity is not even raised
 
 ```
 
@@ -480,7 +483,7 @@ The lower WAIC suggests us that the PCAR, which does not even appear to be more 
 We show the posterior summaries of the regression coefficients
 
 ```{r pcar summary fix}
-cav_pcar_INLA_th$summary.fixed
+cav_pcar_INLA$summary.fixed
 ```
 
 however, the spatial autocorrelation does not appear particularly strong. Additionally, the credible interval appears uncannily wide:
@@ -490,7 +493,7 @@ expit <- function (X){
 }
 
 inla.zmarginal(inla.tmarginal(fun = expit,
-                              marginal = cav_pcar_INLA_th$marginals.hyperpar[[1]]))
+                              marginal = cav_pcar_INLA$marginals.hyperpar[[1]]))
 ```
 
 
