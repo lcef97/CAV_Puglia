@@ -147,7 +147,7 @@ dd_con %>%
 
 ```
 
-## Exploratory analysis
+## Covariates
 
 Our target is explaining the number of accesses to support centers, $y$, defined at the municipality level, on the basis of a set of candidate known variables.
 
