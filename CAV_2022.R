@@ -274,6 +274,7 @@ inla.rgeneric.PCAR.model <- function (cmd = c("graph", "Q", "mu", "initial", "lo
 }
 PCAR.model <- function(...) INLA::inla.rgeneric.define(inla.rgeneric.PCAR.model, ...)
 
+# Comments and analyses can be found in the markdown file
 
 # Replicates the glm quite well
 m_0_INLA <- inla(N_ACC ~ 1 + TEP_th,
@@ -305,7 +306,41 @@ cav_pcar_INLA <- inla(N_ACC ~ 1 + TEP_th + AES + f(ID, model = PCAR.model(W = W_
 ## Model fitting - CARBayes ----------------------------------------------------
 
 
+library(CARBayes)
 
+cav_icar_0_INLA <- inla(N_ACC ~ 1 + TEP_th + AES + f(ID, model = "besag", graph = W_con,
+                                                   scale.model = F),
+                      family = "poisson", offset = log(nn), data =dd_con,
+                      num.threads = 1, control.compute = 
+                        list(internal.opt = F, cpo = T, waic = T), 
+                      inla.mode = "classic", control.inla = list(strategy = "laplace"),
+                      control.predictor = list(compute = T),
+                      verbose = T) # better
+
+
+cav_icar_CARBayes <- S.CARleroux(N_ACC ~ 1 + TEP_th + AES + offset(log(nn)),
+                              family = "poisson", data =dd_con,
+                              W = W_con, rho = 1, 
+                              burnin = 10000, n.sample = 20000) 
+print(cav_icar_CARBayes)
+
+summary(cav_icar_0_INLA)
+
+cav_bym0_INLA <- inla(N_ACC ~ 1 + TEP_th + AES + f(ID, model = "bym", graph = W_con,
+                                                   scale.model = T),
+                      family = "poisson", offset = log(nn), data =dd_con,
+                      num.threads = 1, control.compute = 
+                        list(internal.opt = F, cpo = T, waic = T), 
+                      inla.mode = "classic", control.inla = list(strategy = "laplace"),
+                      control.predictor = list(compute = T),
+                      verbose = T) # better
+
+
+
+cav_bym0_CARBayes <- S.CARbym(N_ACC ~ 1 + TEP_th + AES + offset(log(nn)),
+                      family = "poisson", data =dd_con,
+                      W = W_con,
+                      burnin = 10000, n.sample = 20000) # better
 
 
 
