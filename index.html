@@ -1652,9 +1652,9 @@ centers for gender-based violence in Apulia</h1>
 <h2>Data</h2>
 <p>The dataset employed regards the counts of accesses to gender-based
 violence support centers in the Apulia region by residence municipality
-of the women victims of violence during 2022. <code>R</code> codes to
-generate the dataset are in the R script which this report is based
-on.</p>
+of the women victims of violence during 2022. codes to generate the
+dataset are in the R script <a href="https://github.com/lcef97/CAV_Puglia/blob/main/CAV_2022.R">posted
+here</a> which this report is based on.</p>
 <p>Here, we only take into account the violence reports which support
 centers actually take charge of, at the risk of underestimating the
 counts of gender-based violence cases. This choice is driven by the need
@@ -1686,7 +1686,8 @@ GLM.</p>
 which include the distance of a municipality from the closest support
 center and a set of variables measuring social vulnerability under
 different dimensions; these latter covariates are provided by the
-ISTAT.A more detailed description of these covariates is in .</p>
+ISTAT.A more detailed description of these covariates is in <a href="https://github.com/lcef97/CAV_Puglia/blob/main/Metadata/Indice_composito_fragilita_PUGLIA_2021.xlsx">this
+excel metadata file</a>.</p>
 <p>All covariates are scaled to have null mean and unit variance.</p>
 <p>First, we visualise the correlations among these explanatory
 variables:</p>
@@ -2051,9 +2052,9 @@ i.e. <span class="math inline">\(v \sim N(0, I)\)</span>, and <span class="math
   verbose = F)</code></pre>
 <p>First, we take a look at the WAIC of the BYM model</p>
 <pre class="r"><code>cav_bym_INLA$waic$waic</code></pre>
-<pre><code>## [1] 940.1218</code></pre>
+<pre><code>## [1] 940.0852</code></pre>
 <pre class="r"><code>cav_bym_INLA$waic$p.eff</code></pre>
-<pre><code>## [1] 70.61673</code></pre>
+<pre><code>## [1] 70.60845</code></pre>
 <p>As we can see, this model has a lower WAIC than the PCAR. This
 reduction is due to the smaller number of free parameters (which
 actually decreases more than the overall WAIC, implying a slight and
@@ -2062,7 +2063,7 @@ more than outweighted loss in fitting quality).</p>
 <pre class="r"><code>cav_bym_INLA$summary.hyperpar</code></pre>
 <div data-pagedtable="false">
 <script data-pagedtable-source type="application/json">
-{"columns":[{"label":[""],"name":["_rn_"],"type":[""],"align":["left"]},{"label":["mean"],"name":[1],"type":["dbl"],"align":["right"]},{"label":["sd"],"name":[2],"type":["dbl"],"align":["right"]},{"label":["0.025quant"],"name":[3],"type":["dbl"],"align":["right"]},{"label":["0.5quant"],"name":[4],"type":["dbl"],"align":["right"]},{"label":["0.975quant"],"name":[5],"type":["dbl"],"align":["right"]},{"label":["mode"],"name":[6],"type":["dbl"],"align":["right"]}],"data":[{"1":"4.6485175","2":"1.2585796","3":"2.739046073","4":"4.46219020","5":"7.6538805","6":"4.082721089","_rn_":"Precision for ID"},{"1":"0.1334493","2":"0.1425496","3":"0.003227885","4":"0.08004677","5":"0.5337545","6":"0.005146302","_rn_":"Phi for ID"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
+{"columns":[{"label":[""],"name":["_rn_"],"type":[""],"align":["left"]},{"label":["mean"],"name":[1],"type":["dbl"],"align":["right"]},{"label":["sd"],"name":[2],"type":["dbl"],"align":["right"]},{"label":["0.025quant"],"name":[3],"type":["dbl"],"align":["right"]},{"label":["0.5quant"],"name":[4],"type":["dbl"],"align":["right"]},{"label":["0.975quant"],"name":[5],"type":["dbl"],"align":["right"]},{"label":["mode"],"name":[6],"type":["dbl"],"align":["right"]}],"data":[{"1":"4.6302005","2":"1.2627614","3":"2.709167061","4":"4.44454102","5":"7.6394570","6":"4.071366601","_rn_":"Precision for ID"},{"1":"0.1374278","2":"0.1463491","3":"0.003444514","4":"0.08318147","5":"0.5492428","6":"0.005625882","_rn_":"Phi for ID"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
   </script>
 </div>
 <p>As we see, the mixing parameter is low, and its estimation is
@@ -2073,7 +2074,7 @@ attributed to noise.</p>
 <pre class="r"><code>cav_bym_INLA$summary.fixed</code></pre>
 <div data-pagedtable="false">
 <script data-pagedtable-source type="application/json">
-{"columns":[{"label":[""],"name":["_rn_"],"type":[""],"align":["left"]},{"label":["mean"],"name":[1],"type":["dbl"],"align":["right"]},{"label":["sd"],"name":[2],"type":["dbl"],"align":["right"]},{"label":["0.025quant"],"name":[3],"type":["dbl"],"align":["right"]},{"label":["0.5quant"],"name":[4],"type":["dbl"],"align":["right"]},{"label":["0.975quant"],"name":[5],"type":["dbl"],"align":["right"]},{"label":["mode"],"name":[6],"type":["dbl"],"align":["right"]},{"label":["kld"],"name":[7],"type":["dbl"],"align":["right"]}],"data":[{"1":"-7.6160225","2":"0.06471502","3":"-7.7468399","4":"-7.6147135","5":"-7.49278756","6":"-7.6146383","7":"8.226127e-06","_rn_":"(Intercept)"},{"1":"-0.3411927","2":"0.08641959","3":"-0.5104077","4":"-0.3414202","5":"-0.17062812","6":"-0.3414072","7":"4.857172e-08","_rn_":"TEP_th"},{"1":"-0.1963884","2":"0.07040405","3":"-0.3356764","4":"-0.1960927","5":"-0.05876208","6":"-0.1960903","7":"4.355643e-08","_rn_":"AES"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
+{"columns":[{"label":[""],"name":["_rn_"],"type":[""],"align":["left"]},{"label":["mean"],"name":[1],"type":["dbl"],"align":["right"]},{"label":["sd"],"name":[2],"type":["dbl"],"align":["right"]},{"label":["0.025quant"],"name":[3],"type":["dbl"],"align":["right"]},{"label":["0.5quant"],"name":[4],"type":["dbl"],"align":["right"]},{"label":["0.975quant"],"name":[5],"type":["dbl"],"align":["right"]},{"label":["mode"],"name":[6],"type":["dbl"],"align":["right"]},{"label":["kld"],"name":[7],"type":["dbl"],"align":["right"]}],"data":[{"1":"-7.6160365","2":"0.06463101","3":"-7.7466254","4":"-7.6147478","5":"-7.49290922","6":"-7.6146714","7":"8.162795e-06","_rn_":"(Intercept)"},{"1":"-0.3412117","2":"0.08642699","3":"-0.5104443","4":"-0.3414352","5":"-0.17065347","6":"-0.3414229","7":"4.753801e-08","_rn_":"TEP_th"},{"1":"-0.1964264","2":"0.07039622","3":"-0.3356635","4":"-0.1961415","5":"-0.05879356","6":"-0.1961394","7":"4.250093e-08","_rn_":"AES"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
   </script>
 </div>
 <p>Interpretation does not differ too much from the GLM estimates: both

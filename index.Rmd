@@ -5,6 +5,13 @@ output:
   html_document:
     df_print: paged
   pdf_document: default
+  # WARNING: this file does not compile to pdf
+  #         To make this file work with pdf output, it is
+  #         necessary to switch hyperreferences style
+  #         from [text](link) to \href{link}{text}.
+  #         At the moment, hyperrefs are at two github links,
+  #         so they can be detected across this script by
+  #         searching for 'github' in the finder bar to spawn with CTRL+F
 bibliography: references.bib
 ---
 
@@ -114,7 +121,7 @@ X <- model.matrix(glm_all_X)
 
 
 ## Data
-The dataset employed regards the counts of accesses to gender-based violence support centers in the Apulia region by residence municipality of the women victims of violence during 2022. `R` codes to generate the dataset are in the R script \href{https://github.com/lcef97/CAV_Puglia/blob/main/CAV_2022.R}{(posted here)} which this report is based on.
+The dataset employed regards the counts of accesses to gender-based violence support centers in the Apulia region by residence municipality of the women victims of violence during 2022. \texttt{R} codes to generate the dataset are in the R script [posted here](https://github.com/lcef97/CAV_Puglia/blob/main/CAV_2022.R) which this report is based on.
 
 Here, we only take into account the violence reports which support centers actually take charge of, at the risk of underestimating the counts of gender-based violence cases.
 This choice is driven by the need of avoiding duplicated records, since e.g. it may happen that a support center redirects a victim to another support center. 
@@ -146,7 +153,7 @@ Our target is explaining the number of accesses to support centers, $y$, defined
 
 We model $y$ via a simple Poisson GLM.
 
-We have at disposal a number of candidate explanatory variables, which include the distance of a municipality from the closest support center and a set of variables measuring social vulnerability under different dimensions; these latter covariates are provided by the ISTAT.A more detailed description of these covariates is in \href{https://github.com/lcef97/CAV_Puglia/blob/main/Metadata/Indice_composito_fragilita_PUGLIA_2021.xlsx}{this excel metadata file}.
+We have at disposal a number of candidate explanatory variables, which include the distance of a municipality from the closest support center and a set of variables measuring social vulnerability under different dimensions; these latter covariates are provided by the ISTAT.A more detailed description of these covariates is in [this excel metadata file](https://github.com/lcef97/CAV_Puglia/blob/main/Metadata/Indice_composito_fragilita_PUGLIA_2021.xlsx).
 
 All covariates are scaled to have null mean and unit variance.
 
