@@ -1691,12 +1691,12 @@ excel metadata file</a>.</p>
 <p>All covariates are scaled to have null mean and unit variance.</p>
 <div class="only-html">
 <ul>
-<li><p><span class="math inline">\(d\)</span>, i.e. the theoretical
-distance of each municipality from the municipality hosting the support
-center competent for that municipality. Distance is measured by road
-travel time in minutes. Fo r instance, the support center designated for
-the municipality of Adelfia (province of Bari, <span class="math inline">\(3\)</span>rd municipality in the dataset) is
-located in Triggiano (BA). Then, <span class="math inline">\(d_{3}\)</span> denotes the travel time between
+<li><p><span class="math inline">\(d\)</span>, i.e. the distance of each
+municipality from the closest municipality hosting a support center.
+Distance is measured by road travel time in minutes. Fo r instance, the
+support center designated for the municipality of Adelfia (province of
+Bari, <span class="math inline">\(3\)</span>rd municipality in the
+dataset) is located in Triggiano (BA). Then, <span class="math inline">\(d_{3}\)</span> denotes the travel time between
 Adelfia and Triggiano (<span class="math inline">\(17\)</span> minutes).
 In <code>R</code>, <span class="math inline">\(d\)</span> is encoded as
 <code>TEP_th</code>.</p></li>
@@ -2119,9 +2119,9 @@ i.e. <span class="math inline">\(v \sim N(0, I)\)</span>, and <span class="math
   verbose = F)</code></pre>
 <p>First, we take a look at the WAIC of the BYM model</p>
 <pre class="r"><code>cav_bym_INLA$waic$waic</code></pre>
-<pre><code>## [1] 940.1221</code></pre>
+<pre><code>## [1] 940.1228</code></pre>
 <pre class="r"><code>cav_bym_INLA$waic$p.eff</code></pre>
-<pre><code>## [1] 70.6165</code></pre>
+<pre><code>## [1] 70.61698</code></pre>
 <p>As we can see, this model has a lower WAIC than the PCAR. This
 reduction is due to the smaller number of free parameters (which
 actually decreases more than the overall WAIC, implying a slight and
@@ -2130,7 +2130,7 @@ more than outweighted loss in fitting quality).</p>
 <pre class="r"><code>cav_bym_INLA$summary.hyperpar</code></pre>
 <div data-pagedtable="false">
 <script data-pagedtable-source type="application/json">
-{"columns":[{"label":[""],"name":["_rn_"],"type":[""],"align":["left"]},{"label":["mean"],"name":[1],"type":["dbl"],"align":["right"]},{"label":["sd"],"name":[2],"type":["dbl"],"align":["right"]},{"label":["0.025quant"],"name":[3],"type":["dbl"],"align":["right"]},{"label":["0.5quant"],"name":[4],"type":["dbl"],"align":["right"]},{"label":["0.975quant"],"name":[5],"type":["dbl"],"align":["right"]},{"label":["mode"],"name":[6],"type":["dbl"],"align":["right"]}],"data":[{"1":"4.6416238","2":"1.2523351","3":"2.739864351","4":"4.45672144","5":"7.6303616","6":"4.080044273","_rn_":"Precision for ID"},{"1":"0.1326708","2":"0.1420414","3":"0.003154264","4":"0.07940067","5":"0.5316159","6":"0.004945922","_rn_":"Phi for ID"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
+{"columns":[{"label":[""],"name":["_rn_"],"type":[""],"align":["left"]},{"label":["mean"],"name":[1],"type":["dbl"],"align":["right"]},{"label":["sd"],"name":[2],"type":["dbl"],"align":["right"]},{"label":["0.025quant"],"name":[3],"type":["dbl"],"align":["right"]},{"label":["0.5quant"],"name":[4],"type":["dbl"],"align":["right"]},{"label":["0.975quant"],"name":[5],"type":["dbl"],"align":["right"]},{"label":["mode"],"name":[6],"type":["dbl"],"align":["right"]}],"data":[{"1":"4.6513047","2":"1.2599725","3":"2.739563951","4":"4.46481093","5":"7.6598528","6":"4.085195733","_rn_":"Precision for ID"},{"1":"0.1331355","2":"0.1424885","3":"0.003243542","4":"0.07974666","5":"0.5339633","6":"0.005225802","_rn_":"Phi for ID"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
   </script>
 </div>
 <p>As we see, the mixing parameter is low, and its estimation is
@@ -2141,7 +2141,7 @@ attributed to noise.</p>
 <pre class="r"><code>cav_bym_INLA$summary.fixed</code></pre>
 <div data-pagedtable="false">
 <script data-pagedtable-source type="application/json">
-{"columns":[{"label":[""],"name":["_rn_"],"type":[""],"align":["left"]},{"label":["mean"],"name":[1],"type":["dbl"],"align":["right"]},{"label":["sd"],"name":[2],"type":["dbl"],"align":["right"]},{"label":["0.025quant"],"name":[3],"type":["dbl"],"align":["right"]},{"label":["0.5quant"],"name":[4],"type":["dbl"],"align":["right"]},{"label":["0.975quant"],"name":[5],"type":["dbl"],"align":["right"]},{"label":["mode"],"name":[6],"type":["dbl"],"align":["right"]},{"label":["kld"],"name":[7],"type":["dbl"],"align":["right"]}],"data":[{"1":"-7.6161268","2":"0.06467633","3":"-7.7468666","4":"-7.6148194","5":"-7.49295919","6":"-7.6147442","7":"8.254543e-06","_rn_":"(Intercept)"},{"1":"-0.3411916","2":"0.08643902","3":"-0.5104536","4":"-0.3414134","5":"-0.17060858","6":"-0.3413998","7":"4.808974e-08","_rn_":"TEP_th"},{"1":"-0.1964202","2":"0.07042781","3":"-0.3357391","4":"-0.1961282","5":"-0.05874428","6":"-0.1961262","7":"4.295037e-08","_rn_":"AES"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
+{"columns":[{"label":[""],"name":["_rn_"],"type":[""],"align":["left"]},{"label":["mean"],"name":[1],"type":["dbl"],"align":["right"]},{"label":["sd"],"name":[2],"type":["dbl"],"align":["right"]},{"label":["0.025quant"],"name":[3],"type":["dbl"],"align":["right"]},{"label":["0.5quant"],"name":[4],"type":["dbl"],"align":["right"]},{"label":["0.975quant"],"name":[5],"type":["dbl"],"align":["right"]},{"label":["mode"],"name":[6],"type":["dbl"],"align":["right"]},{"label":["kld"],"name":[7],"type":["dbl"],"align":["right"]}],"data":[{"1":"-7.6161429","2":"0.06469754","3":"-7.7469366","4":"-7.6148319","5":"-7.4929440","6":"-7.6147567","7":"8.272531e-06","_rn_":"(Intercept)"},{"1":"-0.3411666","2":"0.08644567","3":"-0.5104399","4":"-0.3413896","5":"-0.1705662","6":"-0.3413761","7":"4.820837e-08","_rn_":"TEP_th"},{"1":"-0.1964022","2":"0.07042396","3":"-0.3357177","4":"-0.1961089","5":"-0.0587362","6":"-0.1961069","7":"4.300630e-08","_rn_":"AES"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
   </script>
 </div>
 <p>Interpretation does not differ too much from the GLM estimates: both

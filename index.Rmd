@@ -158,7 +158,7 @@ We have at disposal a number of candidate explanatory variables, which include t
 All covariates are scaled to have null mean and unit variance.
 
 :::{.only-html}
-  -  $d$, i.e. the theoretical distance of each municipality from the municipality hosting the support center competent for that municipality. Distance is measured by road travel time in minutes.
+  -  $d$, i.e. the distance of each municipality from the closest municipality hosting a support center. Distance is measured by road travel time in minutes.
 Fo
 r instance, the support center designated for the municipality of Adelfia (province of Bari, $3$rd municipality in the dataset) is located in Triggiano (BA). Then, $d_{3}$ denotes the travel time between Adelfia and Triggiano ($17$ minutes). 
 In `R`, $d$ is encoded as `TEP_th`.
@@ -177,9 +177,8 @@ In `R`, $d$ is encoded as `TEP_th`.
 :::{.only-pdf}
 \begin{itemize}
 
-\item $d$, i.e. the theoretical distance of each municipality from the municipality hosting the support center competent for that municipality. Distance is measured by road travel time in minutes.
-Fo
-r instance, the support center designated for the municipality of Adelfia (province of Bari, $3$rd municipality in the dataset) is located in Triggiano (BA). Then, $d_{3}$ denotes the travel time between Adelfia and Triggiano ($17$ minutes). 
+\item $d$, i.e. the distance of each municipality from the closest municipality hosting a support center. Distance is measured by road travel time in minutes.
+For instance, the support center designated for the municipality of Adelfia (province of Bari, $3$rd municipality in the dataset) is located in Triggiano (BA). Then, $d_{3}$ denotes the travel time between Adelfia and Triggiano ($17$ minutes). 
 
 In \texttt{R}, $d$ is encoded as \texttt{\detokenize{TEP_th}}.
 
