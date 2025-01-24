@@ -225,16 +225,26 @@ dd_ctr$lat <- sf::st_coordinates(dd_ctr)[,2]
 dd_ctr$long <- sf::st_coordinates(dd_ctr)[,1]
 
 
-cav_glm_TPS <- mgcv::gam(N_ACC ~ 1 + TEP_th + AES + 
+cav_gam_TPS <- mgcv::gam(N_ACC ~ 1 + TEP_th + AES + 
                            s(long, lat, bs="tp", m=2),
                          family = "poisson", offset = log(nn),
                          data = dd_ctr)
 
-summary(cav_glm_TPS)
+summary(cav_gam_TPS)
+mgcv::gam.check(cav_gam_TPS)
 
 # Thin plate spline model --> too complex
-stats::BIC(cav_glm_TPS)
+stats::BIC(cav_gam_TPS)
 stats::BIC(cav_glm)
+
+#' TPS regression shrinks covariates effects estimation.
+#' May this be the case for spatial+ application? Let's find out.
+
+TEP_TPS <- mgcv::gam(TEP_th ~ 1 + s(long, lat, bs="tp", m=2),
+                                    data = dd_ctr)
+plot(TEP_TPS, scheme = 3)
+AES_TPS <- mgcv::gam(AES ~ 1 + s(long, lat, bs="tp", m=2),
+                     data = dd_ctr)
 
 ## Spatial Poisson regression: INLA (TBD) --------------------------------------
 
