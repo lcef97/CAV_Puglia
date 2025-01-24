@@ -199,6 +199,11 @@ covs.in
 # We only consider the distance from closest CAV
 # Also because AES is another distance indicator. 
 
+# GLM here:
+cav_glm <- glm(N_ACC ~ 1 + TEP_th + AES, family = "poisson",
+               offset = log(nn), data = dd_con)
+
+
 
 ## Spatial frequentist Poisson regression: spaMM -------------------------------
 
@@ -209,6 +214,27 @@ cav_car <- spaMM::fitme(N_ACC ~ 1 + TEP_th + adjacency(1|PRO_COM) +
 summary(cav_car)
 # rho close to zero - likely iid residuals
 
+
+## Spatial frequentist Poisson regression: thin plate splines -----------------#
+
+#' Extract centroids from areal geometries
+dd_ctr <- dd_con
+sf::st_agr(dd_ctr) <- "constant"
+dd_ctr <- sf::st_point_on_surface(dd_ctr)
+dd_ctr$lat <- sf::st_coordinates(dd_ctr)[,2]
+dd_ctr$long <- sf::st_coordinates(dd_ctr)[,1]
+
+
+cav_glm_TPS <- mgcv::gam(N_ACC ~ 1 + TEP_th + AES + 
+                           s(long, lat, bs="tp", m=2),
+                         family = "poisson", offset = log(nn),
+                         data = dd_ctr)
+
+summary(cav_glm_TPS)
+
+# Thin plate spline model --> too complex
+stats::BIC(cav_glm_TPS)
+stats::BIC(cav_glm)
 
 ## Spatial Poisson regression: INLA (TBD) --------------------------------------
 
