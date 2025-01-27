@@ -2,16 +2,16 @@
 title: "Explorative analysis of accesses to support centers for gender-based violence
   in Apulia"
 output:
-  html_document:
-    df_print: paged
-  pdf_document: default
-  # WARNING: this file does not compile to pdf
   #         To make this file work with pdf output, it is
   #         necessary to switch hyperreferences style
   #         from [text](link) to \href{link}{text}.
   #         At the moment, hyperrefs are at two github links,
   #         so they can be detected across this script by
   #         searching for 'github' in the finder bar to spawn with CTRL+F
+  html_document:
+    df_print: paged
+  pdf_document: default
+  # WARNING: this file does not compile to pdf
 bibliography: references.bib
 ---
 
@@ -174,25 +174,7 @@ In `R`, $d$ is encoded as `TEP_th`.
   -  $\mathrm{ELI}$, i.e. the ventile of employees in low productivity local units by sector for industry and services.
 :::
 
-:::{.only-pdf}
-\begin{itemize}
 
-\item $d$, i.e. the distance of each municipality from the closest municipality hosting a support center. Distance is measured by road travel time in minutes.
-For instance, the support center designated for the municipality of Adelfia (province of Bari, $3$rd municipality in the dataset) is located in Triggiano (BA). Then, $d_{3}$ denotes the travel time between Adelfia and Triggiano ($17$ minutes). 
-
-In \texttt{R}, $d$ is encoded as \texttt{\detokenize{TEP_th}}.
-
-\item $\mathrm{AES}$, the distance from the closest infrastructural pole, always measured in travel time.
-\item $\mathrm{MFI}$, i.e. the decile of municipality vulnerability index.
-\item $\mathrm{PDI}$, i.e. the dependency index, i.e. population either $\leq 20$ or $\geq 65$ years over population in $[20 - 64]$ years.
-\item $\mathrm{ELL}$, i.e. the proportion of people aged $[25-54]$ with low education.
-\item $\mathrm{ERR}$, i.e. employment rate among people aged $[20-64]$.
-\item $\mathrm{PGR}$, i.e. population growth rate with respect to 2011.
-\item $\mathrm{UIS}$, i.e. the ventile of the density of local units of industry and services (where density is defined as the ratio between the counts of industrial units and population).
-\item $\mathrm{ELI}$, i.e. the ventile of employees in low productivity local units by sector for industry and services.
-
-\end{itemize}
-:::
 
 
 First, we visualise the correlations among these explanatory variables:
