@@ -123,7 +123,8 @@ dd_con <- dd[-singletons, ]
 
 load("input/dists_th.RData")
 
-# This is the dataset we will concretely work on:
+# This is the dataset we will concretely work on.
+# Covariates are all scaled to zero mean and unit variance
 dd_con <- dd_con %>% 
   dplyr::left_join(dists_th, by = "PRO_COM") %>% 
   dplyr::mutate(TEP_th = as.vector(scale(.data$TEP_th))) %>% 
