@@ -7,7 +7,7 @@ library(sf)
 #'  Do not delete!! Code used to build input data from excel files
 #'  Excel inputs include sensible information which we prefer not to share;
 #'  we only leave track of how we aggregate data from individual level
-#'  to municipality level
+#'  to municipality level -----------------------------------------------------#
 #'  ---------------------------------------------------------------------------#
 #'
 #'  CAV_report_2022 <- readxl::read_excel("input/cav_2022.xlsx", 
@@ -21,24 +21,53 @@ library(sf)
 #'                     comune = stringr::str_to_title(
 #'                       .data$Comune_Residenza_Domicilio[1L]))%>% 
 #'    dplyr::ungroup()
+#'    
+#'    
+#'  Same thing for 2021 and 2023 data:  ---------------------------------------#
+#'  
+#'  
+#'  CAV_mun_21 <- cav_2021_dati %>%
+#'      dplyr::filter(.data$ESITO_ACCESSO == "presa in carico") %>% 
+#'      dplyr::filter(!is.na(.data$PRO_COM_Residenza_Domicilio)) %>% 
+#'      dplyr::rename(PRO_COM = .data$PRO_COM_Residenza_Domicilio) %>% 
+#'      dplyr::group_by(.data$PRO_COM) %>% 
+#'      dplyr::summarise(N_ACC = dplyr::n(),
+#'      comune = stringr::str_to_title(
+#'      .data$Comune_Residenza_Domicilio[1L]))%>%   dplyr::ungroup()
+#'     
+#'  
+#'  CAV_mun_23 <- cav_2023_dati %>%
+#'      dplyr::filter(.data$ESITO_ACCESSO == "presa in carico") %>% 
+#'      dplyr::filter(!is.na(.data$PRO_COM_Residenza_Domicilio)) %>% 
+#'      dplyr::rename(PRO_COM = .data$PRO_COM_Residenza_Domicilio) %>% 
+#'      dplyr::group_by(.data$PRO_COM) %>% 
+#'      dplyr::summarise(N_ACC = dplyr::n(),
+#'      comune = stringr::str_to_title(
+#'      .data$Comune_Residenza_Domicilio[1L]))%>%   dplyr::ungroup()
+#'      
 #'     
 #'  ---------------------------------------------------------------------------#   
+#'  
+#'  Then we download only the municipality-level data
+#'  on accesses to support centers,
+#'  aggregated from individual-level ones:
 
+load("input/CAV_input_mun_2022.RData")
 
-
-# Aggregated from individual-level data on accesses to support centers:
-load("input/CAV_input_mun.RData")
-
-#' 2022 municipalities shapefiles; easily obtainable by scraping with the following 
-#' commented code:
-#' Mun22_shp <- SchoolDataIT::Get_Shapefile(2022)
-#' Shp <- Mun22_shp %>% dplyr::filter(.data$COD_REG == 16) %>% 
-#'  dplyr::select(.data$COD_PROV, .data$PRO_COM, .data$COMUNE)
+#'  2022 municipalities shapefiles; easily obtainable by scraping with the following 
+#'  commented code:
+#'  Mun22_shp <- SchoolDataIT::Get_Shapefile(2022)
+#'  Shp <- Mun22_shp %>% dplyr::filter(.data$COD_REG == 16) %>% 
+#'   dplyr::select(.data$COD_PROV, .data$PRO_COM, .data$COMUNE)
+#'  
+#'  In theory, a shapefile should be used for each year.
+#'  Still, administrative units boundaries are unchanged at least
+#'  from 2021 to 2023
 #'
-#' Still, we leave the static shapefile in order NOT to need internet connection:
+#'  Still, we leave the static shapefile in order NOT to need internet connection:
 load("input/Shp.RData")
 
-# Function to extract numeric digits from a strings vector (needed to filter age):
+#'  Function to extract numeric digits from a strings vector (needed to filter age):
 nn_extract <- function(string){
   nn <- gregexpr("([0-9])", string)
   ls.out <- regmatches(as.list(string), nn)
@@ -56,13 +85,13 @@ Popolazione_Puglia_2022 <- readr::read_csv("input/Popolazione_Puglia_2022.csv") 
 names(Popolazione_Puglia_2022) <- c("PRO_COM", "Comune", "Sesso", "Eta", "Popolazione")
 
 # Filter and aggregate:
-Pop_f_15 <- Popolazione_Puglia_2022 %>% dplyr::filter(.data$Sesso == 2) %>% 
+Pop_f_2022 <- Popolazione_Puglia_2022 %>% dplyr::filter(.data$Sesso == 2) %>% 
   dplyr::filter(.data$Eta > 14) %>% 
   dplyr::group_by(.data$PRO_COM, .data$Comune) %>% 
   dplyr::summarise(nn = sum(.data$Popolazione)) %>% dplyr::ungroup()
 
 # Complete dataset:
-dd <- Shp %>% dplyr::left_join(Pop_f_15[,c(1,3)],
+dd <- Shp %>% dplyr::left_join(Pop_f_2022[,c(1,3)],
                                by = "PRO_COM") %>% 
   dplyr::left_join(dplyr::select(CAV_mun_22, -.data$comune),by = "PRO_COM") %>% 
   dplyr::left_join(dplyr::select(Indicators, -.data$Comune), by = "PRO_COM")
@@ -82,8 +111,7 @@ munWcav <- munWcav <- c (71020,71024,71051,72004,72006,72011,72014,
                          73027,74001,74009,75018,75029,75035,75059,
                          110001,110002,110009)
 
-# Tremiti Islands are a singleton --> need to remove them
-# in order to perform spatial analysis
+# Tremiti Islands are a singleton --> need to remove them to perform spatial analysis
 suppressWarnings({
   singletons <- which(unlist(lapply(spdep::poly2nb(dd), function(x) x[1L] == 0)))
 })
