@@ -177,6 +177,11 @@ nb_con <- spdep::poly2nb(dd_con)
 W_con <- spdep::nb2mat(nb_con, style = "B")
 rownames(W_con) <- colnames(W_con) <- dd_con$PRO_COM
 
+# Laplacian matrix:
+Lapl_con <- diag(rowSums(W_con)) - W_con
+V_con <- eigen(Lapl_con)$vectors
+
+
 # row ID - needed for spatial models
 dd_con$ID <- c(1:nrow(dd_con))
 
@@ -371,6 +376,17 @@ cav_pcar_INLA <- inla(N_ACC ~ 1 + TEP_th + AES + f(ID, model = PCAR.model(W = W_
                          inla.mode = "classic", control.inla = list(strategy = "laplace"),
                          control.predictor = list(compute = T),
                          verbose = T) 
+
+# BYM model
+cav_bym_INLA_zip <- inla(N_ACC ~ 1 + TEP_th + AES + f(ID, model = "bym2", graph = W_con,
+                                                   scale.model = T, prior = "pc.prec", param = 1.5),
+                      family = "zeroinflatedpoisson1", offset = log(nn), data =dd_con,
+                      num.threads = 1, control.compute = 
+                        list(internal.opt = F, cpo = T, waic = T), 
+                      #inla.mode = "classic", control.inla = list(strategy = "laplace"),
+                      control.predictor = list(compute = T),
+                      verbose = T) # better
+
 
 
 ## Model fitting - CARBayes ----------------------------------------------------
