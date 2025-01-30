@@ -285,7 +285,7 @@ plot(TEP_TPS, scheme = 3)
 AES_TPS <- mgcv::gam(AES ~ 1 + s(long, lat, bs="tp", m=2),
                      data = dd_ctr)
 
-## Spatial Poisson regression: INLA (TBD) --------------------------------------
+## Spatial regression: INLA (TBD) --------------------------------------
 
 # Code taken from INLAMSM (https://github.com/becarioprecario/INLAMSM/tree/master/R)
 # since INLA has no built-in model for the PCAR - only ICAR, BYM, Leroux and BYM2
@@ -389,17 +389,22 @@ cav_bym_INLA_zip <- inla(N_ACC ~ 1 + TEP_th + AES + f(ID, model = "bym2", graph 
 
 
 
-## Model fitting - CARBayes ----------------------------------------------------
+## Spatial regression: MCMC using CARBayes -------------------------------------
 
 
 library(CARBayes)
 
-cav_icar_0_INLA <- inla(N_ACC ~ 1 + TEP_th + AES + f(ID, model = "besag", graph = W_con,
+#' CARBAyes variable encoding:
+#' phi: ICAR component with marginal variance tau^2
+#' theta: IID component with marginal variance sigma^2
+#' 
+
+cav_icar_0_INLA <- INLA::inla(N_ACC ~ 1 + TEP_th + AES + f(ID, model = "besag", graph = W_con,
                                                    scale.model = F),
                       family = "poisson", offset = log(nn), data =dd_con,
                       num.threads = 1, control.compute = 
                         list(internal.opt = F, cpo = T, waic = T), 
-                      inla.mode = "classic", control.inla = list(strategy = "laplace"),
+                      #inla.mode = "classic", control.inla = list(strategy = "laplace"),
                       control.predictor = list(compute = T),
                       verbose = T) # better
 
@@ -412,21 +417,25 @@ print(cav_icar_CARBayes)
 
 summary(cav_icar_0_INLA)
 
-cav_bym0_INLA <- inla(N_ACC ~ 1 + TEP_th + AES + f(ID, model = "bym", graph = W_con,
-                                                   scale.model = T),
+cav_bym0_INLA <- INLA::inla( N_ACC ~ 1 + TEP_th + AES + 
+                               f(ID, model = "bym", graph = W_con, scale.model = F,
+                                 hyper = list(theta1 = list(param = c(1e-3, 1e-3)),
+                                              theta2 = list(param = c(1e-3, 1e-3)))),
                       family = "poisson", offset = log(nn), data =dd_con,
                       num.threads = 1, control.compute = 
                         list(internal.opt = F, cpo = T, waic = T), 
-                      inla.mode = "classic", control.inla = list(strategy = "laplace"),
+                      #inla.mode = "classic", control.inla = list(strategy = "laplace"),
                       control.predictor = list(compute = T),
-                      verbose = T) # better
+                      verbose = T)  
 
 
 
 cav_bym0_CARBayes <- S.CARbym(N_ACC ~ 1 + TEP_th + AES + offset(log(nn)),
                       family = "poisson", data =dd_con,
-                      W = W_con,
-                      burnin = 10000, n.sample = 20000) # better
+                      prior.tau2 = c(1e-3, 1e-3), prior.sigma2 = c(1e-3, 1e-3),
+                      W = W_con, prior.var.beta = c(1e3, 1e3, 1e3),
+                      burnin = 7500, n.sample = 30000, 
+                      verbose = T) 
 
 
 
