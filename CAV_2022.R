@@ -1,5 +1,8 @@
 #' ---------  Analisi CAV Puglia 2022 -----------------------------------------#
 ## Input -----------------------------------------------------------------------
+
+#' NEVER forget calling magrittr and sf. Never --------------------------------#
+#' 
 library(magrittr)
 library(sf)
 #'  ---------------------------------------------------------------------------#
@@ -232,7 +235,9 @@ covs.in
 cav_glm <- glm(N_ACC ~ 1 + TEP_th + AES, family = "poisson",
                offset = log(nn), data = dd_con)
 
-
+install.package("pscl")
+cav_zip <- pscl::zeroinfl(N_ACC ~ 1 + TEP_th + AES | 1, dist = "poisson",
+               link = "log", offset = log(nn), data = dd_con)
 
 ## Spatial frequentist Poisson regression: spaMM -------------------------------
 
