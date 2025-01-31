@@ -240,7 +240,7 @@ covs.in[c(1:which.min(BIC.min))]
 #'  
 #'  
 #' 
-cav_glm <- glm(N_ACC ~ 1 + TEP_th_22 + AES, family = "poisson",
+cav_glm <- glm(N_ACC ~ 1 + TEP_th_22 + UIS + PGR + ELI, family = "poisson",
                offset = log(nn), data = dd_con)
 
 #' For the ZIP regression we are going to need
@@ -250,7 +250,7 @@ if(!rlang::is_installed("pscl")) install.packages("pscl")
 
 #' Simplest way: no explanatory variable for $\pi_0$:
 #' 
-cav_zip <- pscl::zeroinfl(N_ACC ~ 1 + TEP_th_22 + AES | 1, dist = "poisson",
+cav_zip <- pscl::zeroinfl(N_ACC ~ 1 + TEP_th_22 + UIS + PGR + ELI | 1, dist = "poisson",
                link = "log", offset = log(nn), data = dd_con)
 
 summary(cav_zip)

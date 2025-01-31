@@ -208,10 +208,10 @@ stats::BIC(glm(N_ACC ~ 1 + TEP_th_22, family = "poisson",
 
 ```
 
-We should do the same for the other couple of variables but since they are not of great interest for the time being we will leave them bogh.
+We should do the same for the other couple of variables but since `MFI` is a combination of all covariate except for `TEP_th`, we will drop the synthetic indicator and leave the remainder.
 
 ```{r forward selection, warnings = F}
-covariates <- colnames(X)[-c(1, which(colnames(X)=="AES"))]
+covariates <- colnames(X)[-c(1, which(colnames(X) %in% c("AES", "MFI")))]
 covs.in <- c()
 BIC.min <- c()
 while(length(covs.in) < length(covariates)){
@@ -243,18 +243,20 @@ However, a model with up to $4$ covariates would have all significant regression
 
 ```{r glm five covs}
 summary(glm(
-  as.formula(paste0("N_ACC ~ 1 +", paste(covs.in[c(1:6)], collapse = " + "))),
+  as.formula(paste0("N_ACC ~ 1 +", paste(covs.in[c(1:5)], collapse = " + "))),
   family = "poisson",offset = log(nn), data = dd_con))$coefficients
 ```
+  - The distance from the closest support center seems to play the key role. The easiest interpretation is that the physical distance represents a barrier to violence reporting. This is quite intuitive if we think of the material dynamics of reporting gender-based violence: one could reasonably expect violent men to prevent their partners to come out and report the violence suffered.
+  - The asociation with population growth rate is harder to interpret. This association is most likely influenced by several demographic instrumental variables we are not keeping into account and would indeed deserve a more dedicated focus.
+  - The density of production units can be hither considered as a proxy for economic development. The most naive interpretation wuld be that in underdeveloped areas reporting gender violence is somewhat harder than in developed ones.
+  - The association with the proportion of people with low educational level appears lower. However, the interpretation seems quite easy: cultural development, in general, would encourage reporting violence. Still, let us remind that $\beta_\mathrm{ELL}$ is in $\mathcal{\Theta}(10^{-2})$.
+  - The interpretation of $\beta_{ELI}$ should, intuitively, be similar to $\beta_{UIS}$. We have kept both variables due to their correlation not being particularly high.
 
-In this case, the incidence of people with low educational level has a negative association with the accesses to support centers; the easiest interpretation would be that raising educational level would encourage reporting gender violence. 
-Interpreting the negative association with the density of productive units becomes harder - and do not us forget that association does not imply a causal relationship. Lastly, the association with population growth rate (fifth covariate) appears positive.
 
-With more than fifth covariates, no additional valuable association can be found. 
+With more covariates, no additional valuable association can be found. 
+ 
 
-As we see, using the BIC as selection criterion, the most relevant covariates appear the distance indicators: distance from the closest support center and distance. These two variables have a high correlation ($0.74$). 
-
-In the remainder of this work, we will only focus on the two covariates $d$ and $\mathrm{AES}$
+In the remainder of this work, we will focus on the two covariates $d, \mathrm{PGR}, \mathrm{ELI}, \mathrm{UIS}$
 
 ## Nonspatial regression
 
@@ -262,7 +264,8 @@ We regress the counts of accesses $y$ to support centers on the distance from th
 
 \begin{equation}
 \frac{y_i}{P_i} \mid \eta_i \sim \mathrm{Poisson}(e^{\eta_i}) \quad \text{where} \quad
-\eta_i = \beta_0 + \beta_{d} d_i + \beta_{AES} \mathrm{AES}_i
+\eta_i = \beta_0 + \beta_{d} d_i + \beta_{PGR} \mathrm{PGR}_i
+          + \beta_{ELI} \mathrm{ELI}_i + \beta_{UIS} \mathrm{UIS}_i
 \label{eq:glm}
 \end{equation}
 
@@ -277,17 +280,14 @@ summary(cav_glm)
 
 
 
-How do we interpret the regression coefficients? Keeping in mind we are working on the logarithm of the access rate, the standard deviations of explantory variables, both expressed in minutes, are the following:
+How do we interpret the regression coefficients? Keeping in mind we are working on the logarithm of the access rate, the standard deviation of the distance, expressed in minutes, is:
 ```{r SDs of X}
 # Distance from closest support center
 attr(scale(dists_th_22$TEP_th_22), "scaled:scale")
-# Distance from closest infrastructural pole
-attr(scale(Indicators$AES), "scaled:scale")
-
 ```
 
 
-Hence e.g. each $14'6''$ of distance of the a given municipality from the closest support center are associated with a decrease of $0.28$ in the log-frequency at which women from that municipality access to support centers.
+Hence e.g. each $14'6''$ of distance of the a given municipality from the closest support center are associated with a decrease of $0.399$ units in the log-frequency at which women from that municipality access to support centers.
 
 ## Spatial regression
 
@@ -343,7 +343,8 @@ In both cases, we find evidence for spatial autocorrelation. However, we must st
 
 Based on the autocorrelation evidence, though it has only been assessed for a subset of all municipalities, we try implementing a simple spatial model, say the intrinsic autoregressive:
 \begin{equation}
-\eta_i = \beta_0 + \beta_{d} d_i + \beta_{AES} \mathrm{AES}_i + z_i 
+\eta_i = \beta_0 + \beta_{d} d_i + \beta_{PGR} \mathrm{PGR}_i
+          + \beta_{ELI} \mathrm{ELI}_i + \beta_{UIS} \mathrm{UIS}_i + z_i 
 \label{eq:mspat}
 \end{equation}
 
@@ -588,7 +589,12 @@ Finally, we show posterior summaries for covariates effects:
 ```{r bym fixed}
 cav_bym_INLA$summary.fixed
 ```
-Interpretation does not differ too much from the GLM estimates: both variables have a negative impact on the access rate to support centers. Estimated effects are lower in absolute values.
+
+The interpretation the posteriors of $\beta$ under these spatial models is not exactly the same as for the GLM. As we see, while the distance from the closest support center remains a strong predictor, the two economic variables seem to lose their significance. The population growth rate still has a significant association instead.
+
+Now, there are two ways we can refine spatial regression:
+  - Try to remove the spatial structure from covariates, at least from `UIS` and `ELI`, e.g. by leveraging on the spectral properties of the underlying graph
+  - Drop those two covariates directly and only keep `TEP_th_22` and `ELI`
 
 INLA works by approximation. Though the full Laplace approximation is generally acknowledge to be accurate also for skewed likelihoods, a good practice should be to compare the outcome of INLA models to MCMC models. We employ the `CARBayes` package to this aim:
 
