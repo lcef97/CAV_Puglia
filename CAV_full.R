@@ -250,9 +250,6 @@ V_con <- eigen(Lapl_con)$vectors
 # row ID - needed for spatial models
 dd_con$ID <- c(1:nrow(dd_con))
 
-
-
-
 # Full GLM --> for model matrix
 glm_all_X <- glm(N_ACC_21 ~ 1 + TEP_th + MFI + AES + PDI + ELL + ER +
                    PGR + UIS + ELI + offset(log(nn21)),
@@ -321,9 +318,15 @@ cov_selector <- function(year){
   
   return(list(BIC = BIC.min, covs = covs.in))
 }
+ 
+#' Three different sets.
+cov_selector(2021)
+cov_selector(2022)
+cov_selector(2023)
 
-T_dist_ls <- compindexR::calc_compindex(
-  as.matrix(sf::st_drop_geometry(dd_con)[,c("TEP_th", "AES")]))
+
+#T_dist_ls <- compindexR::calc_compindex(
+  #as.matrix(sf::st_drop_geometry(dd_con)[,c("TEP_th", "AES")]))
 
 #'    -------------------------------------------------------------------------#
 #'    
