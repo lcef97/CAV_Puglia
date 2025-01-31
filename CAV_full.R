@@ -143,12 +143,32 @@ dd$N_ACC_22[is.na(dd$N_ACC_22)] <- 0
 dd$N_ACC_23[is.na(dd$N_ACC_23)] <- 0 
 
 # "access ratio"
-dd$F_ACC_21 <- dd$N_ACC_21/dd$nn21
-dd$F_ACC_22 <- dd$N_ACC_23/dd$nn22
-dd$F_ACC_22 <- dd$N_ACC_23/dd$nn23
+dd$LN_ACC_21 <- log(dd$N_ACC_21/dd$nn21)
+dd$LN_ACC_22 <- log(dd$N_ACC_22/dd$nn22)
+dd$LN_ACC_23 <- log(dd$N_ACC_23/dd$nn23)
 
 
-
+gridExtra::grid.arrange({
+  ggplot2::ggplot() +
+    ggplot2::geom_sf(data = dd, 
+                     ggplot2::aes(fill = .data$LN_ACC_21))+
+    ggplot2::scale_fill_viridis_c(na.value = "white")+
+    ggplot2::theme_classic(),
+  
+  ggplot2::ggplot() +
+    ggplot2::geom_sf(data = dd, 
+                     ggplot2::aes(fill = .data$LN_ACC_22))+
+    ggplot2::scale_fill_viridis_c(na.value = "white")+
+    ggplot2::theme_classic(),
+  
+  ggplot2::ggplot() +
+    ggplot2::geom_sf(data = dd, 
+                     ggplot2::aes(fill = .data$LN_ACC_23))+
+    ggplot2::scale_fill_viridis_c(na.value = "white")+
+    ggplot2::theme_classic(),
+  nrow = 3, ncol = 1
+  
+})
 
 
 ## Mapping municipalities from support centers ---------------------------------
@@ -292,7 +312,7 @@ cov_selector <- function(year){
     BIC.min <- c(BIC.min, min(BICs))
     if(length(BIC.min)>1 && BIC.min[length(BIC.min)] >= BIC.min[length(BIC.min)-1]){
       BIC.min <- BIC.min[c(1:which.min(BIC.min))]
-      cat("Adding covariates is not necessary anymore")
+      cat("Adding covariates is not necessary anymore \n")
       break
     } else{
       covs.in <- c(covs.in, covs.out[which.min(BICs)])
@@ -312,3 +332,7 @@ T_dist_ls <- compindexR::calc_compindex(
 #'    How to solve this?
 #'  
 #'    -------------------------------------------------------------------------#
+
+
+
+
