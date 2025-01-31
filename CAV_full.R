@@ -288,7 +288,7 @@ glm_all_X <- glm(N_ACC_21 ~ 1 + TEP_th_22 + TEP_th_23 + MFI + AES + PDI + ELL + 
 # model matrix
 X <- model.matrix(glm_all_X)
 
-## nonspatial regression -------------------------------------------------------
+## Covariates choice ----------------------------------------------------------
 
 
 # Plot of covariates correlations:
@@ -304,7 +304,7 @@ ggplot2::ggplot(data = reshape2::melt(cor(X[,-1]))) +
 
 # Forward selection attempt: USING THE BIC AS SELECTION CRITERION,
 # two covariates are necessary
-covariates <- colnames(X)[-c(1,2)]
+covariates <- colnames(X)[-c(1,2, which(colnames(X)=="AES"))]
 covariates[1] <- "TEP_th"
 
 cov_selector <- function(year){
@@ -368,6 +368,70 @@ cov_selector(2023)
 #'  
 #'    -------------------------------------------------------------------------#
 
+#' Tentative: Use three covariates included at least twice.
+n <- nrow(dd_con)
+dd_list <- list (
+  N_ACC = matrix(c(dd_con$N_ACC_21, rep(NA, 3*n), 
+                 dd_con$N_ACC_22, rep(NA, 3*n), 
+                 dd_con$N_ACC_23), nrow = 3*n, 
+                 ncol = 3, byrow = FALSE),
+  TEP_th = matrix(c(dd_con$TEP_th_22, rep(NA, 3*n), 
+                      dd_con$TEP_th_22, rep(NA, 3*n), 
+                      dd_con$TEP_th_23), nrow = 3*n,
+                  ncol = 3, byrow = FALSE),
+  ER = matrix(c(dd_con$ER, rep(NA, 3*n), 
+                   dd_con$ER, rep(NA, 3*n), 
+                   dd_con$ER), nrow = 3*n,
+               ncol = 3, byrow = FALSE),
+  ELL = matrix(c(dd_con$ELL, rep(NA, 3*n), 
+                 dd_con$ELL, rep(NA, 3*n), 
+                 dd_con$ELL), nrow = 3*n,
+               ncol = 3, byrow = FALSE),
+  UIS = matrix(c(dd_con$UIS, rep(NA, 3*n), 
+                 dd_con$UIS, rep(NA, 3*n), 
+                 dd_con$UIS), nrow = 3*n, 
+               ncol = 3, byrow = FALSE),
+  ID = c(1:n, (n + c(1:n)), (2*n + c(1:n))),
+  nn = c(dd_con$nn21, dd_con$nn22, dd_con$nn23)) 
 
+## Spatial analysis -----------------------------------------------------------#
+
+#' The simplest way to take into account the three different years
+#' is defining a multivariate model in which each year corresponds
+#' to a different dependent variable.
+#' 
+#' We use the PCAR, as outlined in Gelfand and Vounatsu (2003):
+#' Unique spatial autocorrelation parameter for the three 
+#' target variables.
+#' 
+
+if(!rlang::is_installed("INLAMSM")) devtools::install_github("becarioprecario/INLAMSM")
+
+
+library(INLAMSM)
+
+cav_PMCAR_inla <- inla(
+  N_ACC ~ 1 + TEP_th + UIS + ELL + ER + 
+    f(ID, model = inla.MCAR.model(k = 3, W = W_con,  alpha.min = 0,alpha.max = 1)),
+  offset = log(nn),
+  family = rep("poisson", 3), data =dd_list,
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  verbose = T)
+
+#' Apparently seems nice.
+#' Apparently.
+#' 
+#' The problem is that CPO is utterly messed up, as in 
+#' most INLA applications to this dataset.
+
+cav_PMCAR_inla_tHyper <- inla.MCAR.transform(cav_PMCAR_inla, k=3,
+                                            model = "PMCAR", alpha.min = 0, alpha.max = 1)
+
+#' Autocorrelation seems high. Still, remind the CPO problem:
+#' may it be a red flag for INLA not doing well?
+
+inla.zmarginal(inla.tmarginal(
+  fun = function(X) 1/(1 + exp(-X)),
+  marginal = cav_PMCAR_inla$marginals.hyperpar[[4]]))
 
 
