@@ -148,82 +148,113 @@ dd$LN_ACC_22 <- log(dd$N_ACC_22/dd$nn22)
 dd$LN_ACC_23 <- log(dd$N_ACC_23/dd$nn23)
 
 
-gridExtra::grid.arrange({
-  ggplot2::ggplot() +
-    ggplot2::geom_sf(data = dd, 
-                     ggplot2::aes(fill = .data$LN_ACC_21))+
-    ggplot2::scale_fill_viridis_c(na.value = "white")+
-    ggplot2::theme_classic(),
-  
-  ggplot2::ggplot() +
-    ggplot2::geom_sf(data = dd, 
-                     ggplot2::aes(fill = .data$LN_ACC_22))+
-    ggplot2::scale_fill_viridis_c(na.value = "white")+
-    ggplot2::theme_classic(),
-  
-  ggplot2::ggplot() +
-    ggplot2::geom_sf(data = dd, 
-                     ggplot2::aes(fill = .data$LN_ACC_23))+
-    ggplot2::scale_fill_viridis_c(na.value = "white")+
-    ggplot2::theme_classic(),
-  nrow = 3, ncol = 1
-  
-})
+ggy21 <- ggplot2::ggplot() +
+  ggplot2::geom_sf(data = dd, 
+                   ggplot2::aes(fill = .data$LN_ACC_21))+
+  ggplot2::scale_fill_viridis_c(na.value = "white",
+                                limits = c(-9.5, -4.5))+
+  ggplot2::theme_classic()
+
+ggy22 <- ggplot2::ggplot() +
+  ggplot2::geom_sf(data = dd, 
+                   ggplot2::aes(fill = .data$LN_ACC_22))+
+  ggplot2::scale_fill_viridis_c(na.value = "white",
+                                limits = c(-9.5, -4.5))+
+  ggplot2::theme_classic()
+
+ggy23 <- ggplot2::ggplot() +
+  ggplot2::geom_sf(data = dd, 
+                   ggplot2::aes(fill = .data$LN_ACC_23))+
+  ggplot2::scale_fill_viridis_c(na.value = "white",
+                                limits = c(-9.5, -4.5))+
+  ggplot2::theme_classic()
+
+
+gridExtra::grid.arrange(ggy21, ggy22, ggy23, nrow = 3, ncol = 1)
 
 
 ## Mapping municipalities from support centers ---------------------------------
 
-# Municipalities hosting a support center:
-munWcav <- munWcav <- c (71020,71024,71051,72004,72006,72011,72014,
-                         72019,72021,72029,72031,72033,72035,73013,
-                         73027,74001,74009,75018,75029,75035,75059,
-                         110001,110002,110009)
+
+#'  Loop to compute mini
+#'
+#'
+#' Municipalities hosting a support center:
+#' 
+#'  munWcav_22 <- c(71020, 71024, 71051, 
+#'                  72004, 72006, 72011, 72014, 72019, 72021, 72029, 72031, 72033, 72035, 
+#'                  73013, 73027, 
+#'                  74001, 74009, 
+#'                  75018, 75029, 75035, 75059,
+#'                  110001, 110002, 110009)
+#'  
+#'  munWcav_23 <- c(71020, 71024, 71029, 71051, 
+#'                  72004, 72006, 72011, 72014, 72019, 72021, 72029, 72031, 72033, 72035,
+#'                  73013, 73027, 
+#'                  74001, 74009, 
+#'                  75029, 75035, 75059,
+#'                  110001, 110002, 110009)
+#'  
+#'
+#'  dists_th_22 <- NULL
+#'  for (i in c(1:nrow(dd[-singletons, ]))){
+#'    X <- dd[-singletons, ]$PRO_COM[i]
+#'    dists <- numeric(length(munWcav_22))
+#'      IDs <- numeric(length(munWcav_22))
+#'    for(j in c(1:length(munWcav_22))){
+#'      c.out <- munWcav_22[j]
+#'      id <- paste0(min(X, c.out),
+#'                       " - ", max(X, c.out))
+#'     nn <- which(dist_short$OR_DEST == id)
+#'      dists[j] <- dist_short$TEP_TOT[nn]
+#'      IDs[j] <- dist_short$OR_DEST[nn]
+#'  }
+#'    m <- which.min(dists)
+#'    ret <- c(X, dists[m])
+#'    dists_th_22 <- data.frame(rbind(dists_th_22, ret))
+#'  }
+#'  names(dists_th_22) <- c("PRO_COM", "TEP_th_22")
+#'  dists_th_22$TEP_th <- as.numeric(dists_th_22$TEP_th)
+#'  
+#'  
+#'  
+#'  dists_th_23 <- NULL
+#'  for (i in c(1:nrow(dd[-singletons, ]))){
+#'    X <- dd[-singletons, ]$PRO_COM[i]
+#'    dists <- numeric(length(munWcav_23))
+#'    IDs <- numeric(length(munWcav_23))
+#'    for(j in c(1:length(munWcav_23))){
+#'      c.out <- munWcav_23[j]
+#'      id <- paste0(min(X, c.out),
+#'                   " - ", max(X, c.out))
+#'      nn <- which(dist_short$OR_DEST == id)
+#'      dists[j] <- dist_short$TEP_TOT[nn]
+#'      IDs[j] <- dist_short$OR_DEST[nn]
+#'    }
+#'    m <- which.min(dists)
+#'    ret <- c(X, dists[m])
+#'    dists_th_23 <- data.frame(rbind(dists_th_23, ret))
+#'  }
+#'  names(dists_th_23) <- c("PRO_COM", "TEP_th_23")
+#'  dists_th_23$TEP_th <- as.numeric(dists_th_23$TEP_th)
+
+
+
+load("input/dists_th_22.RData")
+load("input/dists_th_23.RData")
 
 # Tremiti Islands are a singleton --> need to remove them to perform spatial analysis
 suppressWarnings({
   singletons <- which(unlist(lapply(spdep::poly2nb(dd), function(x) x[1L] == 0)))
 })
 
-
-# Filter out singletons
-dd_con <- dd[-singletons, ]
-
-
-#' Do not delete: code to find minimum distances ------------------------------#
-#'                                                
-#' Since the loop takes some minutes to work, we save the
-#' output object dists_th outside:                                             
-#'                                                
-#'
-#'dists_th <- NULL
-#'for (i in c(1:nrow(dd_con))){
-#'  X <- dd_con$PRO_COM[i]
-#'  dists <- numeric(length(munWcav))
-#'  IDs <- numeric(length(munWcav))
-#'  for(j in c(1:length(munWcav))){
-#'    c.out <- munWcav[j]
-#'    id <- paste0(min(X, c.out),
-#'                     " - ", max(X, c.out))
-#'   nn <- which(dist_short$OR_DEST == id)
-#'    dists[j] <- dist_short$TEP_TOT[nn]
-#'    IDs[j] <- dist_short$OR_DEST[nn]
-#'  }
-#'  m <- which.min(dists)
-#'  ret <- c(X, dists[m])
-#'  dists_th <- data.frame(rbind(dists_th, ret))
-#'}
-#'names(dists_th) <- c("PRO_COM", "TEP_th")
-#'dists_th$TEP_th <- as.numeric(dists_th$TEP_th)
-#'
-#' -----------------------------------------------------------------------------
-
-load("input/dists_th.RData")
-
 # This is the dataset we will concretely work on.
 # Covariates are all scaled to zero mean and unit variance
-dd_con <- dd_con %>% 
-  dplyr::left_join(dists_th, by = "PRO_COM") %>% 
-  dplyr::mutate(TEP_th = as.vector(scale(.data$TEP_th))) %>% 
+dd_con <- dd[-singletons, ] %>% 
+  dplyr::left_join(dists_th_22, by = "PRO_COM") %>% 
+  dplyr::left_join(dists_th_23, by = "PRO_COM") %>% 
+  dplyr::mutate(TEP_th_22 = as.vector(scale(.data$TEP_th_22))) %>% 
+  dplyr::mutate(TEP_th_23 = as.vector(scale(.data$TEP_th_23))) %>% 
   dplyr::mutate(AES = as.vector(scale(.data$AES))) %>% 
   dplyr::mutate(MFI = as.vector(scale(.data$MFI)))  %>% 
   dplyr::mutate(PDI = as.vector(scale(.data$PDI)))  %>% 
@@ -234,7 +265,7 @@ dd_con <- dd_con %>%
   dplyr::mutate(ELI = as.vector(scale(.data$ELI))) 
 
 # sd of travel time: almost 16 minutes
-attr(scale(dists_th$TEP_th), "scaled:scale")
+attr(scale(dists_th_22$TEP_th_22), "scaled:scale")
 
 # neighbours list
 nb_con <- spdep::poly2nb(dd_con)
@@ -251,7 +282,7 @@ V_con <- eigen(Lapl_con)$vectors
 dd_con$ID <- c(1:nrow(dd_con))
 
 # Full GLM --> for model matrix
-glm_all_X <- glm(N_ACC_21 ~ 1 + TEP_th + MFI + AES + PDI + ELL + ER +
+glm_all_X <- glm(N_ACC_21 ~ 1 + TEP_th_22 + TEP_th_23 + MFI + AES + PDI + ELL + ER +
                    PGR + UIS + ELI + offset(log(nn21)),
                  data = dd_con, family = "poisson")
 # model matrix
@@ -273,23 +304,24 @@ ggplot2::ggplot(data = reshape2::melt(cor(X[,-1]))) +
 
 # Forward selection attempt: USING THE BIC AS SELECTION CRITERION,
 # two covariates are necessary
-covariates <- colnames(X)[-1]
+covariates <- colnames(X)[-c(1,2)]
+covariates[1] <- "TEP_th"
 
 cov_selector <- function(year){
   
   if(year == 2021){
     dd_con <- dd_con %>% 
-      dplyr::rename(nn = .data$nn21, N_ACC = .data$N_ACC_21)
+      dplyr::rename(nn = .data$nn21, N_ACC = .data$N_ACC_21, TEP_th = .data$TEP_th_22)
   } 
   
   if(year == 2022){
     dd_con <- dd_con %>% 
-      dplyr::rename(nn = .data$nn22, N_ACC = .data$N_ACC_22)
+      dplyr::rename(nn = .data$nn22, N_ACC = .data$N_ACC_22, TEP_th = .data$TEP_th_22)
   }
   
   if(year == 2023){
     dd_con <- dd_con %>% 
-      dplyr::rename(nn = .data$nn23, N_ACC = .data$N_ACC_23)
+      dplyr::rename(nn = .data$nn23, N_ACC = .data$N_ACC_23, TEP_th = .data$TEP_th_23)
   }
   
   covs.in <- c()

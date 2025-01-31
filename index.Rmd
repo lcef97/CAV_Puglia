@@ -22,7 +22,7 @@ library(sf)
 ```
 
 ```{r input, echo = FALSE, message = FALSE, warning = FALSE, output = FALSE}
-load("input/CAV_input_mun.RData")
+load("input/CAV_input_mun_2022.RData")
 
 #' 2022 municipalities shapefiles; easily obtainable by scraping with the following 
 #' commented code:
@@ -82,12 +82,12 @@ suppressWarnings({
 # Filter out singletons
 dd_con <- dd[-singletons, ]
 
-load("input/dists_th.RData")
+load("input/dists_th_22.RData")
 
 # This is the dataset we will concretely work on:
 dd_con <- dd_con %>% 
-  dplyr::left_join(dists_th, by = "PRO_COM") %>% 
-  dplyr::mutate(TEP_th = as.vector(scale(.data$TEP_th)))  %>% 
+  dplyr::left_join(dists_th_22, by = "PRO_COM") %>% 
+  dplyr::mutate(TEP_th_22 = as.vector(scale(.data$TEP_th_22)))  %>% 
   dplyr::mutate(AES = as.vector(scale(.data$AES))) %>% 
   dplyr::mutate(MFI = as.vector(scale(.data$MFI)))  %>% 
   dplyr::mutate(PDI = as.vector(scale(.data$PDI)))  %>% 
@@ -98,7 +98,7 @@ dd_con <- dd_con %>%
   dplyr::mutate(ELI = as.vector(scale(.data$ELI))) 
 
 # sd of travel time: almost 16 minutes
-#attr(scale(dists_th$TEP_th), "scaled:scale")
+#attr(scale(dists_th_22$TEP_th_22), "scaled:scale")
 
 # neighbours list
 nb_con <- spdep::poly2nb(dd_con)
@@ -110,7 +110,7 @@ rownames(W_con) <- colnames(W_con) <- dd_con$PRO_COM
 dd_con$ID <- c(1:nrow(dd_con))
 
 # Full GLM --> for model matrix
-glm_all_X <- glm(N_ACC ~ 1 + TEP_th + MFI + AES + PDI + ELL + ER +
+glm_all_X <- glm(N_ACC ~ 1 + TEP_th_22 + MFI + AES + PDI + ELL + ER +
                    PGR + UIS + ELI + offset(log(nn)),
                  data = dd_con, family = "poisson")
 # model matrix
@@ -157,11 +157,11 @@ We have at disposal a number of candidate explanatory variables, which include t
 
 All covariates are scaled to have null mean and unit variance.
 
-:::{.only-html}
+<!-- :::{.only-html} -->
   -  $d$, i.e. the distance of each municipality from the closest municipality hosting a support center. Distance is measured by road travel time in minutes.
 Fo
 r instance, the support center designated for the municipality of Adelfia (province of Bari, $3$rd municipality in the dataset) is located in Triggiano (BA). Then, $d_{3}$ denotes the travel time between Adelfia and Triggiano ($17$ minutes). 
-In `R`, $d$ is encoded as `TEP_th`.
+In `R`, $d$ is encoded as `TEP_th_22`.
 
 
   -  $\mathrm{AES}$, the distance from the closest infrastructural pole, always measured in travel time.
@@ -172,7 +172,8 @@ In `R`, $d$ is encoded as `TEP_th`.
   -  $\mathrm{PGR}$, i.e. population growth rate with respect to 2011.
   -  $\mathrm{UIS}$, i.e. the ventile of the density of local units of industry and services (where density is defined as the ratio between the counts of industrial units and population).
   -  $\mathrm{ELI}$, i.e. the ventile of employees in low productivity local units by sector for industry and services.
-:::
+
+<!--  ::: -->
 
 
 
@@ -193,8 +194,24 @@ ggplot2::ggplot(data = reshape2::melt(cor(X[,-1]))) +
 
 
 Then, we implement a very simple forward selection algorithm. At each iteration, we add to the model the covariate allowing for the lowest BIC, until adding an additional covariate does not allow to reduce it anymore:
+
+We see the correlation between the two distances is very high ($0.72$), and so is the correlation between the fragility index decile and the density of productive units. 
+
+In the first case, we drop the distance from the nearest infrastructural pole We do so because, if taken alone, the distance from the closest support center appears a slightly better predictor, using the Schwarz information criterion (or, indifferently, the Akaike Information Criterion):
+```{r BICS single covar}
+
+stats::BIC(glm(N_ACC ~ 1 + AES, family = "poisson",
+               offset = log(nn), data = dd_con))
+
+stats::BIC(glm(N_ACC ~ 1 + TEP_th_22, family = "poisson",
+               offset = log(nn), data = dd_con))
+
+```
+
+We should do the same for the other couple of variables but since they are not of great interest for the time being we will leave them bogh.
+
 ```{r forward selection, warnings = F}
-covariates <- colnames(X)[-1]
+covariates <- colnames(X)[-c(1, which(colnames(X)=="AES"))]
 covs.in <- c()
 BIC.min <- c()
 while(length(covs.in) < length(covariates)){
@@ -217,7 +234,7 @@ while(length(covs.in) < length(covariates)){
 }
 ```
 
-The optimal number of covariates (covariates in the model with minimum BIC) is two:
+The optimal number of covariates (covariates in the model with minimum BIC) is four:
 ```{r}
 covs.in[c(1:which.min(BIC.min))]
 ```
@@ -226,12 +243,12 @@ However, a model with up to $4$ covariates would have all significant regression
 
 ```{r glm five covs}
 summary(glm(
-  as.formula(paste0("N_ACC ~ 1 +", paste(covs.in[c(1:5)], collapse = " + "))),
+  as.formula(paste0("N_ACC ~ 1 +", paste(covs.in[c(1:6)], collapse = " + "))),
   family = "poisson",offset = log(nn), data = dd_con))$coefficients
 ```
 
 In this case, the incidence of people with low educational level has a negative association with the accesses to support centers; the easiest interpretation would be that raising educational level would encourage reporting gender violence. 
-Interpreting the negative association with the density of productive units becomes harder - and do not us forget that association does not imply a causal relationship. Lastly, the association with population growth rate (fifth covariate) appears positive, but the significance of this association has weaker evidence (p-value $\sim 0.06$).
+Interpreting the negative association with the density of productive units becomes harder - and do not us forget that association does not imply a causal relationship. Lastly, the association with population growth rate (fifth covariate) appears positive.
 
 With more than fifth covariates, no additional valuable association can be found. 
 
@@ -252,25 +269,25 @@ We regress the counts of accesses $y$ to support centers on the distance from th
 Where $P_i$ is the female population aged $\geq 15$ in municipality $i$.
 
 ```{r glm, echo = FALSE}
-cav_glm <- glm(N_ACC ~ 1 + TEP_th + AES, family = "poisson",
+cav_glm <- glm(N_ACC ~ 1 + TEP_th_22 + ELI + PGR + UIS, family = "poisson",
                 offset = log(nn), data = dd_con)
 
 summary(cav_glm)
 ```
 
-Both the distance from the closest support center and the distance from the closest infrastructural pole have a negative association with the frequency of accesses to support centers.
+
 
 How do we interpret the regression coefficients? Keeping in mind we are working on the logarithm of the access rate, the standard deviations of explantory variables, both expressed in minutes, are the following:
 ```{r SDs of X}
 # Distance from closest support center
-attr(scale(dists_th$TEP_th), "scaled:scale")
+attr(scale(dists_th_22$TEP_th_22), "scaled:scale")
 # Distance from closest infrastructural pole
 attr(scale(Indicators$AES), "scaled:scale")
 
 ```
 
 
-Hence e.g. each $15'45''$ of distance of the a given municipality from the closest support center are associated with a decrease of $0.386$ in the log-frequency at which women from that municipality access to support centers.
+Hence e.g. each $14'6''$ of distance of the a given municipality from the closest support center are associated with a decrease of $0.28$ in the log-frequency at which women from that municipality access to support centers.
 
 ## Spatial regression
 
@@ -290,9 +307,9 @@ dd_con %>%
   ggplot2::scale_fill_viridis_c(na.value = "white", direction = -1) +
   ggplot2::theme_classic()
 
-# Problem: cannot apply Moran test to infinite values!
-# Hence we need to only test autocorrelation across nonzero records.
-# This strongly limits the relevance of the test, if I have a better idea I'll implememnt it.
+#' Problem: cannot apply Moran test to infinite values!
+#' Hence we need to only test autocorrelation across nonzero records.
+#' This strongly limits the relevance of the test, if I have a better idea I'll implememnt it.
 nonzero <- which(dd_con$N_ACC > 0)
 
 spdep::set.ZeroPolicyOption(TRUE)
@@ -343,7 +360,7 @@ On a first stance, we will let the Laplace Approximation approximate posterior d
 
 library(INLA)
 cav_nosp_INLA <- inla(
-  N_ACC ~ 1 + TEP_th + AES,
+  N_ACC ~ 1 + TEP_th_22 + UIS + PGR + ELI,
   family = "poisson", offset = log(nn), data =dd_con,
   num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T), 
   inla.mode = "classic", control.inla = list(strategy = "laplace"),
@@ -355,7 +372,7 @@ The `f()` argument sets the prior model on the spatial latent effect. Arguments 
 ```{r inla mod, message = FALSE, warning = FALSE}
 
 cav_icar_INLA <- inla(
-  N_ACC ~ 1 + TEP_th + AES + f(ID, model = "besag", graph = W_con,
+  N_ACC ~ 1 + TEP_th_22 + UIS + PGR + ELI + f(ID, model = "besag", graph = W_con,
                          scale.model = T, prior = "pc.prec", param = c(1.5, 0.01)),
   family = "poisson", offset = log(nn), data =dd_con,
   num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T), 
@@ -467,12 +484,12 @@ PCAR.model <- function(...) INLA::inla.rgeneric.define(inla.rgeneric.PCAR.model,
 ```
 Then the model is run
 ```{r pcar run, message = FALSE, output = FALSE}
-cav_pcar_INLA<- inla(N_ACC ~ 1 + TEP_th + AES + 
+cav_pcar_INLA<- inla(N_ACC ~ 1 + TEP_th_22 + UIS + PGR + ELI + 
                            f(ID, model = PCAR.model(W = W_con, k = 1, lambda = 1.5)),
                          family = "poisson", offset = log(nn), data =dd_con,
                          num.threads = 1, control.compute = 
                            list(internal.opt = F, cpo = T, waic = T), 
-                         inla.mode = "classic", control.inla = list(strategy = "laplace"),
+                         #inla.mode = "classic", control.inla = list(strategy = "laplace"),
                          control.predictor = list(compute = T),
                          verbose = T) 
 
@@ -539,13 +556,15 @@ where $u$ is an ICAR field, $v$ is an IID standard Gaussian white noise i.e. $v 
 ```{r INLA bym}
 
 cav_bym_INLA <- inla(
-  N_ACC ~ 1 + TEP_th + AES + f(ID, model = "bym2", graph = W_con,
+  N_ACC ~ 1 + TEP_th_22 + UIS + PGR + ELI + f(ID, model = "bym2", graph = W_con,
                          scale.model = T, prior = "pc.prec", param = c(1.5, 0.01)),
   family = "poisson", offset = log(nn), data =dd_con,
   num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T), 
-  inla.mode = "classic", control.inla = list(strategy = "laplace"),
+  #inla.mode = "classic", control.inla = list(strategy = "laplace"),
   verbose = F)
 ```
+
+
 
 First, we take a look at the WAIC of the BYM model
 ```{r bym waic}
@@ -571,6 +590,40 @@ cav_bym_INLA$summary.fixed
 ```
 Interpretation does not differ too much from the GLM estimates: both variables have a negative impact on the access rate to support centers. Estimated effects are lower in absolute values.
 
+INLA works by approximation. Though the full Laplace approximation is generally acknowledge to be accurate also for skewed likelihoods, a good practice should be to compare the outcome of INLA models to MCMC models. We employ the `CARBayes` package to this aim:
+
+```{r}
+library(CARBayes)
+cav_bym_0_CARBayes <- S.CARbym(N_ACC ~ 1 + TEP_th_22 + UIS + PGR + ELI + offset(log(nn)),
+                      family = "poisson", data =dd_con,
+                      W = W_con,
+                      burnin = 10000, n.sample = 20000) # better
+
+```
+
+
+## TBD: Thin plate regression splines
+
+As an alternative to autoregressive models, we try using thin plate regression splines.
+
+```{r TPS}
+dd_ctr <- dd_con
+sf::st_agr(dd_ctr) <- "constant"
+dd_ctr <- sf::st_point_on_surface(dd_ctr)
+dd_ctr$lat <- sf::st_coordinates(dd_ctr)[,2]
+dd_ctr$long <- sf::st_coordinates(dd_ctr)[,1]
+
+
+cav_gam_TPS <- mgcv::gam(N_ACC ~ 1 + TEP_th_22 + UIS + PGR + ELI + 
+                           s(long, lat, bs="tp", m=2, k = 100),
+                         family = "poisson", offset = log(nn),
+                         data = dd_ctr)
+
+summary(cav_gam_TPS)
+mgcv::gam.check(cav_gam_TPS)
+
+```
+
 ## Weakness elements and possible developments
 
 From this preliminary analysis, inference on spatial models is hindered by the dominance of random noise over structured spatial effects. This can be argued from the posterior distribution of the mixing parameter in the BYM model, other than from the low spatial autocorrelation parameter in the PCAR.
@@ -586,6 +639,18 @@ To do so, we should e.g. rerun the same models using MCMC methods.
 Lastly, we did \textit{not} model the rate at which gender violence occurs, but the occurrence of violence reports. Higher occurrence of violence reports from a given territory may thus depend on two factors: either the higher occurrence of violence in that territory, or the ease in reporting violence for the residents. 
 
 Whereas the easiest interpretation is that violence occurrence is underestimated in low-reporting areas, at the time being nothing prevents us from suspecting that the placement of support centers is at least partially strategic, i.e. the distribution of supporting centers is more dense in areas in which violence occurs, for some reason we don't know, aa a higher frequence. 
+
+## Appendix: the WAIC
+
+Following \cite{GelmanWAIC}, the WAIC is given by the sum of two components:
+
+$$
+WAIC := 2 \sum_{i=1}^n \mathrm{VAR}[\ln p(y_i |\theta)]
+- 2 \sum_{j=1}^n \ln \mathbb{E}[p(y_i | \theta)]
+$$
+Where $\theta$ is the full set of model parameters; the variance and the average are computed by integrating over the posterior of $\theta$.
+The first addendum denotes the number of free parameters, while the second term is a measure for goodness of fit. 
+
 
 
 ## Bibliography

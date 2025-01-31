@@ -130,35 +130,35 @@ dd_con <- dd[-singletons, ]
 #' output object dists_th outside:                                             
 #'                                                
 #'
-#'dists_th <- NULL
-#'for (i in c(1:nrow(dd_con))){
-#'  X <- dd_con$PRO_COM[i]
-#'  dists <- numeric(length(munWcav))
-#'  IDs <- numeric(length(munWcav))
-#'  for(j in c(1:length(munWcav))){
-#'    c.out <- munWcav[j]
-#'    id <- paste0(min(X, c.out),
-#'                     " - ", max(X, c.out))
-#'   nn <- which(dist_short$OR_DEST == id)
-#'    dists[j] <- dist_short$TEP_TOT[nn]
-#'    IDs[j] <- dist_short$OR_DEST[nn]
+#'  dists_th_22 <- NULL
+#'  for (i in c(1:nrow(dd[-singletons, ]))){
+#'    X <- dd[-singletons, ]$PRO_COM[i]
+#'    dists <- numeric(length(munWcav_22))
+#'      IDs <- numeric(length(munWcav_22))
+#'    for(j in c(1:length(munWcav_22))){
+#'      c.out <- munWcav_22[j]
+#'      id <- paste0(min(X, c.out),
+#'                       " - ", max(X, c.out))
+#'     nn <- which(dist_short$OR_DEST == id)
+#'      dists[j] <- dist_short$TEP_TOT[nn]
+#'      IDs[j] <- dist_short$OR_DEST[nn]
 #'  }
-#'  m <- which.min(dists)
-#'  ret <- c(X, dists[m])
-#'  dists_th <- data.frame(rbind(dists_th, ret))
-#'}
-#'names(dists_th) <- c("PRO_COM", "TEP_th")
-#'dists_th$TEP_th <- as.numeric(dists_th$TEP_th)
+#'    m <- which.min(dists)
+#'    ret <- c(X, dists[m])
+#'    dists_th_22 <- data.frame(rbind(dists_th_22, ret))
+#'  }
+#'  names(dists_th_22) <- c("PRO_COM", "TEP_th_22")
+#'  dists_th_22$TEP_th <- as.numeric(dists_th_22$TEP_th)
 #'
 #' -----------------------------------------------------------------------------
 
-load("input/dists_th.RData")
+load("input/dists_th_22.RData")
 
 # This is the dataset we will concretely work on.
 # Covariates are all scaled to zero mean and unit variance
-dd_con <- dd_con %>% 
-  dplyr::left_join(dists_th, by = "PRO_COM") %>% 
-  dplyr::mutate(TEP_th = as.vector(scale(.data$TEP_th))) %>% 
+dd_con <- dd[-singletons, ] %>% 
+  dplyr::left_join(dists_th_22, by = "PRO_COM") %>% 
+  dplyr::mutate(TEP_th_22 = as.vector(scale(.data$TEP_th_22))) %>% 
   dplyr::mutate(AES = as.vector(scale(.data$AES))) %>% 
   dplyr::mutate(MFI = as.vector(scale(.data$MFI)))  %>% 
   dplyr::mutate(PDI = as.vector(scale(.data$PDI)))  %>% 
@@ -169,7 +169,7 @@ dd_con <- dd_con %>%
   dplyr::mutate(ELI = as.vector(scale(.data$ELI))) 
 
 # sd of travel time: almost 16 minutes
-attr(scale(dists_th$TEP_th), "scaled:scale")
+attr(scale(dists_th_22$TEP_th_22), "scaled:scale")
 
 # neighbours list
 nb_con <- spdep::poly2nb(dd_con)
@@ -177,7 +177,8 @@ nb_con <- spdep::poly2nb(dd_con)
 W_con <- spdep::nb2mat(nb_con, style = "B")
 rownames(W_con) <- colnames(W_con) <- dd_con$PRO_COM
 
-# Laplacian matrix:
+#' Laplacian matrix:
+#' May be useful for spectral analysis. Or may be not.
 Lapl_con <- diag(rowSums(W_con)) - W_con
 V_con <- eigen(Lapl_con)$vectors
 
@@ -186,7 +187,7 @@ V_con <- eigen(Lapl_con)$vectors
 dd_con$ID <- c(1:nrow(dd_con))
 
 # Full GLM --> for model matrix
-glm_all_X <- glm(N_ACC ~ 1 + TEP_th + MFI + AES + PDI + ELL + ER +
+glm_all_X <- glm(N_ACC ~ 1 + TEP_th_22 + MFI + AES + PDI + ELL + ER +
                    PGR + UIS + ELI + offset(log(nn)),
                  data = dd_con, family = "poisson")
 # model matrix
@@ -206,14 +207,14 @@ ggplot2::ggplot(data = reshape2::melt(cor(X[,-1]))) +
   ggplot2::theme_minimal()
 
 
-# Forward selection attempt: USING THE BIC AS SELECTION CRITERION,
-# two covariates are necessary
+#'  Forward selection attempt: USING THE BIC AS SELECTION CRITERION,
+#'  two covariates are necessary
 covariates <- colnames(X)[-1]
 covs.in <- c()
 BIC.min <- c()
 while(length(covs.in) < length(covariates)){
   covs.out <- covariates[which(!covariates %in% covs.in)]
-
+  
   BICs <- c()
   for(j in c(1:length(covs.out))) {
     formula.temp <- paste0("N_ACC ~ 1 + offset(log(nn)) +", 
@@ -223,30 +224,47 @@ while(length(covs.in) < length(covariates)){
     BICs[j] <- stats::BIC(mod.tmp)
   }
   BIC.min <- c(BIC.min, min(BICs))
-  if(length(BIC.min)>1 && BIC.min[length(BIC.min)] >= BIC.min[length(BIC.min)-1]){
-    cat("Adding covariates is not necessary anymore")
-    break
-  } else{
-    covs.in <- c(covs.in, covs.out[which.min(BICs)])
-  }
+  #if(length(BIC.min)>1 && BIC.min[length(BIC.min)] >= BIC.min[length(BIC.min)-1]){
+  #  break
+  #} else{
+  covs.in <- c(covs.in, covs.out[which.min(BICs)])
+  #}
 }
-
-# Only two, yet quite correlated.
-covs.in 
-# We only consider the distance from closest CAV
-# Also because AES is another distance indicator. 
-
-# GLM here:
-cav_glm <- glm(N_ACC ~ 1 + TEP_th + AES, family = "poisson",
+#'  Only two, yet quite correlated.
+covs.in[c(1:which.min(BIC.min))]
+#'  We only consider the distance from closest CAV
+#'  Also because AES is another distance indicator. 
+#'  
+#'  ---------------------------------------------------------------------------#  
+#'                                  GLM here:                                  #
+#'  
+#'  
+#' 
+cav_glm <- glm(N_ACC ~ 1 + TEP_th_22 + AES, family = "poisson",
                offset = log(nn), data = dd_con)
 
-install.package("pscl")
-cav_zip <- pscl::zeroinfl(N_ACC ~ 1 + TEP_th + AES | 1, dist = "poisson",
+#' For the ZIP regression we are going to need
+#' a dedicated package, e.g. `pscl`:
+
+if(!rlang::is_installed("pscl")) install.packages("pscl")
+
+#' Simplest way: no explanatory variable for $\pi_0$:
+#' 
+cav_zip <- pscl::zeroinfl(N_ACC ~ 1 + TEP_th_22 + AES | 1, dist = "poisson",
                link = "log", offset = log(nn), data = dd_con)
+
+summary(cav_zip)
+
+#' Crude, additive MSE. Don't even know if it's correct.
+#' No noticeable changes.
+#' 
+var(dd_con$N_ACC - cav_glm$fitted.values) # Slightly lowerr
+var(dd_con$N_ACC - cav_zip$fitted.values) # Slightly higher
+
 
 ## Spatial frequentist Poisson regression: spaMM -------------------------------
 
-cav_car <- spaMM::fitme(N_ACC ~ 1 + TEP_th + adjacency(1|PRO_COM) +  
+cav_car <- spaMM::fitme(N_ACC ~ 1 + TEP_th_22 + AES + adjacency(1|PRO_COM) +  
                    offset(log(nn)), 
                  adjMatrix = W_con,
                  data = dd_con, family = 'poisson')
@@ -264,7 +282,7 @@ dd_ctr$lat <- sf::st_coordinates(dd_ctr)[,2]
 dd_ctr$long <- sf::st_coordinates(dd_ctr)[,1]
 
 
-cav_gam_TPS <- mgcv::gam(N_ACC ~ 1 + TEP_th + AES + 
+cav_gam_TPS <- mgcv::gam(N_ACC ~ 1 + TEP_th_22 + AES + 
                            s(long, lat, bs="tp", m=2),
                          family = "poisson", offset = log(nn),
                          data = dd_ctr)
@@ -279,7 +297,7 @@ stats::BIC(cav_glm)
 #' TPS regression shrinks covariates effects estimation.
 #' May this be the case for spatial+ application? Let's find out.
 
-TEP_TPS <- mgcv::gam(TEP_th ~ 1 + s(long, lat, bs="tp", m=2),
+TEP_TPS <- mgcv::gam(TEP_th_22 ~ 1 + s(long, lat, bs="tp", m=2),
                                     data = dd_ctr)
 plot(TEP_TPS, scheme = 3)
 AES_TPS <- mgcv::gam(AES ~ 1 + s(long, lat, bs="tp", m=2),
@@ -352,33 +370,34 @@ PCAR.model <- function(...) INLA::inla.rgeneric.define(inla.rgeneric.PCAR.model,
 # Comments and analyses can be found in the markdown file
 
 # Replicates the glm quite well
-m_0_INLA <- inla(N_ACC ~ 1 + TEP_th,
+m_0_INLA <- inla(N_ACC ~ 1 + TEP_th_22,
                  family = "poisson",  data =dd_con, offset = log(nn),
                  num.threads = 1, control.compute = 
                    list(internal.opt = F, cpo = T, waic = T), 
-                 inla.mode = "classic", control.inla = list(strategy = "laplace"))
+                 #inla.mode = "classic", control.inla = list(strategy = "laplace")
+                 )
 
 # ICAR model
-cav_icar_INLA <- inla(N_ACC ~ 1 + TEP_th + AES + f(ID, model = "besag", graph = W_con,
+cav_icar_INLA <- inla(N_ACC ~ 1 + TEP_th_22 + f(ID, model = "besag", graph = W_con,
                                                 scale.model = T, prior = "pc.prec"),
                          family = "poisson", offset = log(nn), data =dd_con,
                          num.threads = 1, control.compute = 
                            list(internal.opt = F, cpo = T, waic = T), 
-                         inla.mode = "classic", control.inla = list(strategy = "laplace"),
+                         #inla.mode = "classic", control.inla = list(strategy = "laplace"),
                          control.predictor = list(compute = T),
                          verbose = T) # better
 
 # PCAR model
-cav_pcar_INLA <- inla(N_ACC ~ 1 + TEP_th + AES + f(ID, model = PCAR.model(W = W_con, k = 1, lambda = 1.5)),
+cav_pcar_INLA <- inla(N_ACC ~ 1 + TEP_th_22 + f(ID, model = PCAR.model(W = W_con, k = 1, lambda = 1.5)),
                          family = "poisson", offset = log(nn), data =dd_con,
                          num.threads = 1, control.compute = 
                            list(internal.opt = F, cpo = T, waic = T), 
-                         inla.mode = "classic", control.inla = list(strategy = "laplace"),
+                         #inla.mode = "classic", control.inla = list(strategy = "laplace"),
                          control.predictor = list(compute = T),
                          verbose = T) 
 
 # BYM model
-cav_bym_INLA_zip <- inla(N_ACC ~ 1 + TEP_th + AES + f(ID, model = "bym2", graph = W_con,
+cav_bym_INLA_zip <- inla(N_ACC ~ 1 + TEP_th_22 + f(ID, model = "bym2", graph = W_con,
                                                    scale.model = T, prior = "pc.prec", param = 1.5),
                       family = "zeroinflatedpoisson1", offset = log(nn), data =dd_con,
                       num.threads = 1, control.compute = 
@@ -399,25 +418,7 @@ library(CARBayes)
 #' theta: IID component with marginal variance sigma^2
 #' 
 
-cav_icar_0_INLA <- INLA::inla(N_ACC ~ 1 + TEP_th + AES + f(ID, model = "besag", graph = W_con,
-                                                   scale.model = F),
-                      family = "poisson", offset = log(nn), data =dd_con,
-                      num.threads = 1, control.compute = 
-                        list(internal.opt = F, cpo = T, waic = T), 
-                      #inla.mode = "classic", control.inla = list(strategy = "laplace"),
-                      control.predictor = list(compute = T),
-                      verbose = T) # better
-
-
-cav_icar_CARBayes <- S.CARleroux(N_ACC ~ 1 + TEP_th + AES + offset(log(nn)),
-                              family = "poisson", data =dd_con,
-                              W = W_con, rho = 1, 
-                              burnin = 10000, n.sample = 20000) 
-print(cav_icar_CARBayes)
-
-summary(cav_icar_0_INLA)
-
-cav_bym0_INLA <- INLA::inla( N_ACC ~ 1 + TEP_th + AES + 
+cav_bym0_INLA <- INLA::inla( N_ACC ~ 1 + TEP_th_22 + AES + 
                                f(ID, model = "bym", graph = W_con, scale.model = F,
                                  hyper = list(theta1 = list(param = c(1e-3, 1e-3)),
                                               theta2 = list(param = c(1e-3, 1e-3)))),
@@ -430,19 +431,21 @@ cav_bym0_INLA <- INLA::inla( N_ACC ~ 1 + TEP_th + AES +
 
 
 
-cav_bym0_CARBayes <- S.CARbym(N_ACC ~ 1 + TEP_th + AES + offset(log(nn)),
+cav_bym0_CARBayes <- CARBayes::S.CARbym(N_ACC ~ 1 + TEP_th_22 + AES + offset(log(nn)),
                       family = "poisson", data =dd_con,
                       prior.tau2 = c(1e-3, 1e-3), prior.sigma2 = c(1e-3, 1e-3),
                       W = W_con, prior.var.beta = c(1e3, 1e3, 1e3),
-                      burnin = 7500, n.sample = 30000, 
+                      burnin = 10000, n.sample = 60000, 
+                      n.chains = 3,
                       verbose = T) 
 
-
+cav_bym0_CARBayes$summary.results
+cav_bym0_CARBayes$modelfit
 
 
 ## TBD: model fitting with BRMS --> warning: slow ------------------------------
 library(brms)
-cav_icar_brms <- brm(N_ACC ~ 1 + TEP_th + AES + offset(log(nn)) +
+cav_icar_brms <- brm(N_ACC ~ 1 + TEP_th_22 + AES + offset(log(nn)) +
                        car(W, gr = PRO_COM, type = "icar"),
                      data = dd_con, data2 = list(W = W_con),
                      family = poisson())
