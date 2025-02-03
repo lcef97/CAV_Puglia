@@ -682,7 +682,7 @@ We may wonder if the data generating process incorporates a zero-generating comp
 $$
 p(y_i | \eta_i) = \pi_0 \mathbb{I}{ \lbrace y_i=0 \rbrace } + (1-\pi_0) 
 \mathbb{I}{ \lbrace y_i>0 \rbrace }
-\frac{e^{-e^{\eta_i - P_i} - \eta_i y_i}}{y_i!}
+\frac{e^{-e^{\eta_i + P_i} - (\eta_i + P_i) y_i}}{y_i!}
 $$
 Where $\pi_0 := \mathrm{Prob} \lbrace y_i = 0 \rbrace$ for all $i$. The remainder of the notation is akin to the nonspatial regression section. 
 
