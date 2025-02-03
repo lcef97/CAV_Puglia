@@ -108,11 +108,7 @@ dd$F_ACC <- dd$N_ACC/dd$nn
 
 ## Mapping municipalities from support centers ---------------------------------
 
-# Municipalities hosting a support center:
-munWcav <- munWcav <- c (71020,71024,71051,72004,72006,72011,72014,
-                         72019,72021,72029,72031,72033,72035,73013,
-                         73027,74001,74009,75018,75029,75035,75059,
-                         110001,110002,110009)
+
 
 # Tremiti Islands are a singleton --> need to remove them to perform spatial analysis
 suppressWarnings({
@@ -120,15 +116,23 @@ suppressWarnings({
 })
 
 
-# Filter out singletons
-dd_con <- dd[-singletons, ]
 
-
-#' Do not delete: code to find minimum distances ------------------------------#
+#'   Do not delete: code to find minimum distances ----------------------------#
 #'                                                
-#' Since the loop takes some minutes to work, we save the
-#' output object dists_th outside:                                             
-#'                                                
+#'   Since the loop takes some minutes to work, we save the
+#'   output object dists_th outside:   
+#'                                           
+#'   load("input/dist_short.RData") 
+#'   
+#'   Municipalities hosting a support center:
+#'   
+#'   Includes Capurso, not Triggiano.
+#'   
+#'   munWcav_22 <- c (71020,71024,71051,72004,72006,72011,72014,
+#'                    72019,72021,72029,72031,72033,72035,73013,
+#'                    73027,74001,74009,75018,75029,75035,75059,
+#'                    110001,110002,110009)                                              
+#'
 #'
 #'  dists_th_22 <- NULL
 #'  for (i in c(1:nrow(dd[-singletons, ]))){
@@ -149,6 +153,8 @@ dd_con <- dd[-singletons, ]
 #'  }
 #'  names(dists_th_22) <- c("PRO_COM", "TEP_th_22")
 #'  dists_th_22$TEP_th <- as.numeric(dists_th_22$TEP_th)
+#'  
+#'  And this is how file dists_th_22 has been created.
 #'
 #' -----------------------------------------------------------------------------
 
@@ -208,8 +214,13 @@ ggplot2::ggplot(data = reshape2::melt(cor(X[,-1]))) +
 
 
 #'  Forward selection attempt: USING THE BIC AS SELECTION CRITERION,
-#'  two covariates are necessary
-covariates <- colnames(X)[-1]
+#'  four covariates are necessary.
+#'  
+#'  We drop AES, which is highly correlated with TEP_th_22, and MFI, 
+#'  which is (the quantile of) a synthetic indicator
+#'  summing up all other variables other than TEP_th_22.  
+
+covariates <- colnames(X)[-c(1, which(colnames(X) %in% c("AES", "MFI")))]
 covs.in <- c()
 BIC.min <- c()
 while(length(covs.in) < length(covariates)){
@@ -253,6 +264,8 @@ if(!rlang::is_installed("pscl")) install.packages("pscl")
 cav_zip <- pscl::zeroinfl(N_ACC ~ 1 + TEP_th_22 + UIS + PGR + ELI | 1, dist = "poisson",
                link = "log", offset = log(nn), data = dd_con)
 
+summary(cav_glm)
+
 summary(cav_zip)
 
 #' Crude, additive MSE. Don't even know if it's correct.
@@ -264,8 +277,8 @@ var(dd_con$N_ACC - cav_zip$fitted.values) # Slightly higher
 
 ## Spatial frequentist Poisson regression: spaMM -------------------------------
 
-cav_car <- spaMM::fitme(N_ACC ~ 1 + TEP_th_22 + AES + adjacency(1|PRO_COM) +  
-                   offset(log(nn)), 
+cav_car <- spaMM::fitme(N_ACC ~ 1 + TEP_th_22 + UIS + PGR + ELI +
+                          adjacency(1|PRO_COM) +  offset(log(nn)), 
                  adjMatrix = W_con,
                  data = dd_con, family = 'poisson')
 summary(cav_car)
@@ -282,7 +295,7 @@ dd_ctr$lat <- sf::st_coordinates(dd_ctr)[,2]
 dd_ctr$long <- sf::st_coordinates(dd_ctr)[,1]
 
 
-cav_gam_TPS <- mgcv::gam(N_ACC ~ 1 + TEP_th_22 + AES + 
+cav_gam_TPS <- mgcv::gam(N_ACC ~ 1 + TEP_th_22 + UIS + ELI + PGR + 
                            s(long, lat, bs="tp", m=2),
                          family = "poisson", offset = log(nn),
                          data = dd_ctr)
@@ -290,7 +303,7 @@ cav_gam_TPS <- mgcv::gam(N_ACC ~ 1 + TEP_th_22 + AES +
 summary(cav_gam_TPS)
 mgcv::gam.check(cav_gam_TPS)
 
-# Thin plate spline model --> too complex
+# Thin plate spline model --> too complex?
 stats::BIC(cav_gam_TPS)
 stats::BIC(cav_glm)
 
@@ -298,16 +311,34 @@ stats::BIC(cav_glm)
 #' May this be the case for spatial+ application? Let's find out.
 
 TEP_TPS <- mgcv::gam(TEP_th_22 ~ 1 + s(long, lat, bs="tp", m=2),
-                                    data = dd_ctr)
-plot(TEP_TPS, scheme = 3)
-AES_TPS <- mgcv::gam(AES ~ 1 + s(long, lat, bs="tp", m=2),
-                     data = dd_ctr)
+                     data = dd_ctr)$fitted.values
+PGR_TPS <- mgcv::gam(PGR ~ 1 + s(long, lat, bs="tp", m=2),
+                     data = dd_ctr)$fitted.values
+UIS_TPS <- mgcv::gam(UIS ~ 1 + s(long, lat, bs="tp", m=2),
+                     data = dd_ctr)$fitted.values
+ELI_TPS <- mgcv::gam(PGR ~ 1 + s(long, lat, bs="tp", m=2),
+                     data = dd_ctr)$fitted.values
 
-## Spatial regression: INLA (TBD) --------------------------------------
+dd_ctr_nosp <- dd_ctr %>% 
+  dplyr::mutate(TEP_th_22 = dd_ctr$TEP_th_22 - TEP_TPS) %>% 
+  dplyr::mutate(PGR = dd_ctr$PGR - PGR_TPS) %>% 
+  dplyr::mutate(UIS = dd_ctr$UIS - UIS_TPS) %>% 
+  dplyr::mutate(ELI = dd_ctr$ELI - ELI_TPS)
+  
+cav_gam_TPS_spatplus <- mgcv::gam(N_ACC ~ 1 + TEP_th_22 + UIS + ELI + PGR + 
+                           s(long, lat, bs="tp", m=2),
+                         family = "poisson", offset = log(nn),
+                         data = dd_ctr_nosp)
 
-# Code taken from INLAMSM (https://github.com/becarioprecario/INLAMSM/tree/master/R)
-# since INLA has no built-in model for the PCAR - only ICAR, BYM, Leroux and BYM2
+summary(cav_gam_TPS_spatplus)
+mgcv::gam.check(cav_gam_TPS_spatplus)
 
+#' Barely changing
+
+## Spatial regression: INLA ----------------------------------------------------
+
+#' PCAR code taken from INLAMSM (https://github.com/becarioprecario/INLAMSM/tree/master/R)
+#' since INLA has no built-in one - only ICAR, BYM, Leroux and BYM2
 
 library(INLA)
 inla.rgeneric.PCAR.model <- function (cmd = c("graph", "Q", "mu", "initial", "log.norm.const", 
@@ -367,10 +398,10 @@ inla.rgeneric.PCAR.model <- function (cmd = c("graph", "Q", "mu", "initial", "lo
 }
 PCAR.model <- function(...) INLA::inla.rgeneric.define(inla.rgeneric.PCAR.model, ...)
 
-# Comments and analyses can be found in the markdown file
+#' Comments and analyses can be found in the markdown file
 
 # Replicates the glm quite well
-m_0_INLA <- inla(N_ACC ~ 1 + TEP_th_22,
+m_0_INLA <- inla(N_ACC ~ 1 + TEP_th_22 + PGR + UIS + ELI,
                  family = "poisson",  data =dd_con, offset = log(nn),
                  num.threads = 1, control.compute = 
                    list(internal.opt = F, cpo = T, waic = T), 
@@ -378,8 +409,9 @@ m_0_INLA <- inla(N_ACC ~ 1 + TEP_th_22,
                  )
 
 # ICAR model
-cav_icar_INLA <- inla(N_ACC ~ 1 + TEP_th_22 + f(ID, model = "besag", graph = W_con,
-                                                scale.model = T, prior = "pc.prec"),
+cav_icar_INLA <- inla(N_ACC ~ 1 + TEP_th_22 + PGR + UIS + ELI +
+                        f(ID, model = "besag", graph = W_con, scale.model = T, 
+                          hyper = list(prec = list(prior = "pc.prec", param = c(1.5, 0.01)))),
                          family = "poisson", offset = log(nn), data =dd_con,
                          num.threads = 1, control.compute = 
                            list(internal.opt = F, cpo = T, waic = T), 
@@ -388,7 +420,8 @@ cav_icar_INLA <- inla(N_ACC ~ 1 + TEP_th_22 + f(ID, model = "besag", graph = W_c
                          verbose = T) # better
 
 # PCAR model
-cav_pcar_INLA <- inla(N_ACC ~ 1 + TEP_th_22 + f(ID, model = PCAR.model(W = W_con, k = 1, lambda = 1.5)),
+cav_pcar_INLA <- inla(N_ACC ~ 1 + TEP_th_22 + PGR + UIS + ELI +
+                        f(ID, model = PCAR.model(W = W_con, k = 1, lambda = 1.5)),
                          family = "poisson", offset = log(nn), data =dd_con,
                          num.threads = 1, control.compute = 
                            list(internal.opt = F, cpo = T, waic = T), 
@@ -397,15 +430,89 @@ cav_pcar_INLA <- inla(N_ACC ~ 1 + TEP_th_22 + f(ID, model = PCAR.model(W = W_con
                          verbose = T) 
 
 # BYM model
-cav_bym_INLA_zip <- inla(N_ACC ~ 1 + TEP_th_22 + f(ID, model = "bym2", graph = W_con,
-                                                   scale.model = T, prior = "pc.prec", param = 1.5),
-                      family = "zeroinflatedpoisson1", offset = log(nn), data =dd_con,
+cav_bym_INLA <- inla(N_ACC ~ 1 + TEP_th_22 + PGR + UIS + ELI +
+                       f(ID, model = "bym2", graph = W_con,  scale.model = T, 
+                         hyper = list(prec = list(prior = "pc.prec", param = c(1.5, 0.01)))),
+                      family = "poisson", offset = log(nn), data =dd_con,
                       num.threads = 1, control.compute = 
                         list(internal.opt = F, cpo = T, waic = T), 
                       #inla.mode = "classic", control.inla = list(strategy = "laplace"),
                       control.predictor = list(compute = T),
                       verbose = T) # better
 
+# Leroux model - sparse precision
+cav_leroux_INLA <- inla(N_ACC ~ 1 + TEP_th_22 + PGR + UIS + ELI +
+                          f(ID, model = "besagproper2", graph = W_con, 
+                            hyper = list(prec = list(prior = "pc.prec", param = c(1.5, 0.01)))),
+                     family = "poisson", offset = log(nn), data =dd_con,
+                     num.threads = 1, control.compute = 
+                       list(internal.opt = F, cpo = T, waic = T), 
+                     #inla.mode = "classic", control.inla = list(strategy = "laplace"),
+                     control.predictor = list(compute = T),
+                     verbose = T) # better
+
+cav_icar_INLA$waic$waic # 962 --> poor fitting
+cav_pcar_INLA$waic$waic # 955 --> better
+cav_bym_INLA$waic$waic # 950 --> best one
+cav_leroux_INLA$waic$waic # 951 --> second-best
+
+
+summary(cav_glm)
+summary(cav_bym_INLA)
+summary(cav_leroux_INLA)
+
+#' Expected values of regression coefficients
+#' are quite similar. 
+#' Variance increases.
+
+#' Let us try removing spatial patterns:
+
+deconfound <- function(X, Lapl = Lapl_con, n.eigen.out){
+  X <- as.matrix(X)
+  V <- eigen(Lapl)$vectors
+  rk <- Matrix::rankMatrix(Lapl)
+  coef <- solve(V, X)
+  eigen.in <- c(1:(rk-n.eigen.out), c((rk+1):ncol(V)))
+  X_nosp <- V[, eigen.in] %*% coef[eigen.in, ]
+  return(X_nosp)
+}
+
+
+dd_con_nosp <- dd_con %>%
+  dplyr::mutate(PGR  = deconfound(.data$PGR, n.eigen.out=12)) %>% 
+  dplyr::mutate(ELI  = deconfound(.data$ELI, n.eigen.out=12)) %>% 
+  dplyr::mutate(UIS  = deconfound(.data$UIS, n.eigen.out=12))
+
+
+cav_bym_INLA_spatplus <- inla(N_ACC ~ 1 + TEP_th_22 + PGR + UIS + ELI +
+                       f(ID, model = "bym2", graph = W_con,  scale.model = T, 
+                         hyper = list(prec = list(prior = "pc.prec", param = c(1.5, 0.01)))),
+                     family = "poisson", offset = log(nn), data = dd_con_nosp,
+                     num.threads = 1, control.compute = 
+                       list(internal.opt = F, cpo = T, waic = T), 
+                     #inla.mode = "classic", control.inla = list(strategy = "laplace"),
+                     control.predictor = list(compute = T),
+                     verbose = T)
+
+summary(cav_bym_INLA_spatplus) # No big changes,as expected
+
+
+#' Finally, let us try with a different likelihood, i.e. the ZIP
+
+cav_bym_zip_INLA <- inla(N_ACC ~ 1 + TEP_th_22 + PGR + UIS + ELI +
+                       f(ID, model = "bym2", graph = W_con,  scale.model = T, 
+                         hyper = list(prec = list(prior = "pc.prec", param = c(1.5, 0.01)))),
+                     family = "zeroinflatedpoisson1", offset = log(nn), data =dd_con,
+                     num.threads = 1, control.compute = 
+                       list(internal.opt = F, cpo = T, waic = T), 
+                     #inla.mode = "classic", control.inla = list(strategy = "laplace"),
+                     control.predictor = list(compute = T),
+                     verbose = T) 
+
+summary(cav_bym_zip_INLA)
+#' Interesting result. The zero-probability
+#' is very low, yet compliance to regularity conditions to approximate
+#' the CPOs improves greatly.
 
 
 ## Spatial regression: MCMC using CARBayes -------------------------------------

@@ -7,4 +7,5 @@ Ongoing analysis. This is a working paper studying the accesses to support cente
   - Markdown file: resume of the main findings. The relevant file is the HTML report.
     PDF report is compiled as well, but it can include compilation errors and only serves internal use.
   - inputs and metadata: all data this analysis is based on. Some datasets are derived by aggregation of sensible data, which we should not make publicly available
-
+  - R script `CAV_full`: analysis performed over three years (full information available).
+    Analytic framework still has to be defined.
