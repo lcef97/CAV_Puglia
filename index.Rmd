@@ -212,12 +212,15 @@ We should do the same for the other couple of variables but since `MFI` is a com
 
 ```{r forward selection, warnings = F}
 covariates <- colnames(X)[-c(1, which(colnames(X) %in% c("AES", "MFI")))]
+# Covariates included:
 covs.in <- c()
+# Covariates not included:
 BIC.min <- c()
 while(length(covs.in) < length(covariates)){
   covs.out <- covariates[which(!covariates %in% covs.in)]
 
   BICs <- c()
+  # At each iteration, we add one of the remaining covariates
   for(j in c(1:length(covs.out))) {
     formula.temp <- paste0("N_ACC ~ 1 + offset(log(nn)) +", 
                            paste(covs.in, collapse = "+"),
@@ -225,17 +228,25 @@ while(length(covs.in) < length(covariates)){
     mod.tmp <- glm(formula.temp, data = dd_con, family = "poisson")
     BICs[j] <- stats::BIC(mod.tmp)
   }
+  # Covariate allowing for the best model is added:
   BIC.min <- c(BIC.min, min(BICs))
-  #if(length(BIC.min)>1 && BIC.min[length(BIC.min)] >= BIC.min[length(BIC.min)-1]){
-  #  break
-  #} else{
-    covs.in <- c(covs.in, covs.out[which.min(BICs)])
-  #}
+  covs.in <- c(covs.in, covs.out[which.min(BICs)])
 }
 ```
 
+
+```{r misc old code, eval = FALSE, echo = FALSE}
+  #BIC.min <- c(BIC.min, min(BICs))
+  #if(length(BIC.min)>1 && BIC.min[length(BIC.min)] >= BIC.min[length(BIC.min)-1]){
+  #  break
+  #} else{
+    #covs.in <- c(covs.in, covs.out[which.min(BICs)])
+  #}
+```
+
+
 The optimal number of covariates (covariates in the model with minimum BIC) is four:
-```{r}
+```{r num covars}
 covs.in[c(1:which.min(BIC.min))]
 ```
 
@@ -337,25 +348,34 @@ spdep::geary.test(resids_glm_th[nonzero_con],
 In both cases, we find evidence for spatial autocorrelation. However, we must stress out this result does not refer to all the regional territory, but only to a subset of all municipalities ($173$ over $257$)
 
 
+Based on the autocorrelation evidence, though it has only been assessed for a subset of all municipalities, we try implementing some simple conditional autoregressive models by augmenting the linear predictor
 
 
-#### ICAR model
-
-Based on the autocorrelation evidence, though it has only been assessed for a subset of all municipalities, we try implementing a simple spatial model, say the intrinsic autoregressive:
 \begin{equation}
 \eta_i = \beta_0 + \beta_{d} d_i + \beta_{PGR} \mathrm{PGR}_i
           + \beta_{ELI} \mathrm{ELI}_i + \beta_{UIS} \mathrm{UIS}_i + z_i 
 \label{eq:mspat}
 \end{equation}
 
-Where 
+Where $z_i$ represents the latent Gaussian effect. We test three models, all of which have a prior distribution depending on the spatial structure of the underplying graph, in this case the Apulia region. 
+
+We describe the spatial structure starting from municipality neighbourhood, and introduce the neighbourhood matrix $W$, whose generic element $w_{ij}$ takes value $1$ if municipalities $i$ and $j$ are neighbours and $0$ otherwise. For each $i \in [1,n]$, $d_i:= \sum_{j=1}^n w_{ij}$ is the number of neigbours of $i$-th municipality. Plase notice we have have $n = 256$.
+
+For all models, we define $\sigma^2$ as the scale parameter of the latent effect, and in order to avoid overfitting we set a PC-prior on it with rate parameter $\lambda = 1.5$, such that $\mathrm{Prob}(\sigma>\lambda) = 0.01$
+
+Spatial models are computed by approximating the marginal posteriors of interest via the Integrated Nested Laplace Approximation (INLA), adopting the novel Variational Bayes Approach \cite{INLAVB}.
+
+#### ICAR model
+
+The Intrinsic CAR model is the simple formulation among spatial autoregressive models. The conditional distribution of each value $z_i \mid z_{-i}$ is:
+
 \begin{equation}
 z_i \mid z_{-i} \sim N \left( \sum_{j=1}^n \frac{w_{ij}}{d_i} z_j \,, \frac{\sigma^2}{d_i}\right)
 \label{eq:icar_loc}
 \end{equation}
-Here $w_{ij}$ is a generic element of the neighbourhood matrix of Apulia's municipalities, tanking value $1$ if two municipalities $i$ and $j$ are neighbours and zero if either $i$ and $j$ are not neighbours or $i = j$; $d_i$ is the number of neighbours of municipality $i$, and $\sigma^2$ is the scale parameter of the spatial effect. $n=256$ and the remainder of the model follows the same notation as eq. \ref{eq:glm}.
+The remainder of the model follows the same notation as eq. \ref{eq:glm}.
 
-On a first stance, we will let the Laplace Approximation approximate posterior distributions of the quantities of interest (instead of e.g. relying on MCMC)
+
 
 ```{r inla nosp, echo = FALSE, message = FALSE, warning = FALSE}
 
@@ -368,8 +388,8 @@ cav_nosp_INLA <- inla(
   verbose = F)
 ```
 
-We set a PC-prior on the random effect to avoid overfitting. 
-The `f()` argument sets the prior model on the spatial latent effect. Arguments `num.threads` and `internal.opt` are used for reproducibility. We use a PC-prior with rate parameter $\lambda = 1.5$, such that $\mathrm{Prob}(\sigma>\lambda) = 0.01$
+
+
 ```{r inla mod, message = FALSE, warning = FALSE}
 
 cav_icar_INLA <- inla(
@@ -422,8 +442,8 @@ z_i \mid z_{-i} \sim N \left( \sum_{j=1}^n \alpha \frac{w_{ij}}{d_i} z_j \,, \fr
 \label{eq:pcar_loc}
 \end{equation}
 
-Although it is not readily implemented in `R-INLA` (the `"besagproper"` effect is actually the Leroux model) we may base the R code on the `INLAMSM`` package [@INLAMSM]:
-```{r pcar definition}
+The `R` code to implement the PCAR model in `R-INLA` is in Appendix.
+```{r pcar definition, echo = FALSE}
 inla.rgeneric.PCAR.model <- 
   function (cmd = c("graph", "Q", "mu", "initial", "log.norm.const", 
                                               "log.prior", "quit"), theta = NULL) {
@@ -483,7 +503,7 @@ inla.rgeneric.PCAR.model <-
 }
 PCAR.model <- function(...) INLA::inla.rgeneric.define(inla.rgeneric.PCAR.model, ...)
 ```
-Then the model is run
+
 ```{r pcar run, message = FALSE, output = FALSE}
 cav_pcar_INLA<- inla(N_ACC ~ 1 + TEP_th_22 + UIS + PGR + ELI + 
                            f(ID, model = PCAR.model(W = W_con, k = 1, lambda = 1.5)),
@@ -525,7 +545,6 @@ inla.zmarginal(inla.tmarginal(fun = expit,
                               marginal = cav_pcar_INLA$marginals.hyperpar[[1]]))
 ```
 
-Lastly, we plot the estimated PCAR field:
 
 ```{r zhat, fig.height = 3, message = F, warning = F, echo = F, fig.cap = "Posterior expectation of the spatial latent effect, PCAR model"}
 dd_con %>% 
@@ -657,6 +676,70 @@ $$
 Where $\theta$ is the full set of model parameters; the variance and the average are computed by integrating over the posterior of $\theta$.
 The first addendum denotes the number of free parameters, while the second term is a measure for goodness of fit. 
 
+## Appendix: R code to implement the PCAR model in `INLA`
+
+Although it is not readily implemented in `R-INLA` (the `"besagproper"` effect is actually the Leroux model) we may base the R code on the `INLAMSM`` package [@INLAMSM]:
+```{r pcar display code, eval = FALSE}
+inla.rgeneric.PCAR.model <- 
+  function (cmd = c("graph", "Q", "mu", "initial", "log.norm.const", 
+                                              "log.prior", "quit"), theta = NULL) {
+  interpret.theta <- function() {
+    alpha <- 1/(1 + exp(-theta[1L])) # alpha modelled in logit scale
+    mprec <- sapply(theta[2L], function(x) {
+      exp(x)
+    })
+    PREC <- mprec
+    return(list(alpha = alpha, mprec = mprec, PREC = PREC))
+  }
+  graph <- function() {
+    G <- Matrix::Diagonal(nrow(W), 1) + W
+    return(G)
+  }
+  Q <- function() {
+    param <- interpret.theta()
+    Q <- param$PREC * 
+      (Matrix::Diagonal(nrow(W), apply(W, 1, sum)) - param$alpha * W)
+    return(Q)
+  }
+  mu <- function() {
+    return(numeric(0))
+  }
+  log.norm.const <- function() {
+    val <- numeric(0)
+    return(val)
+  }
+  log.prior <- function() {
+    param <- interpret.theta()
+    val <- -theta[1L] - 2 * log(1 + exp(-theta[1L]))
+    # # PC prior
+    val <- val + log(lambda/2) - theta[2L]/2 - (lambda * exp(-theta[2L]/2))
+    # # Gamma(1, 5e-5), default prior:
+    #val <- val + dgamma(exp(theta[2L]), shape = 1, rate = 5e-5, log = T) + theta[2L]
+    # # Uniform prior on the standard deviation
+    #val <- val - sum(theta[2L])/2 - k * log(2)
+    return(val)
+  }
+  initial <- function() {
+    return(c(0, 4))
+  }
+  quit <- function() {
+    return(invisible())
+  }
+  if (as.integer(R.version$major) > 3) {
+    if (!length(theta)) 
+      theta = initial()
+  }
+  else {
+    if (is.null(theta)) {
+      theta <- initial()
+    }
+  }
+  val <- do.call(match.arg(cmd), args = list())
+  return(val)
+  }
+
+PCAR.model <- function(...) INLA::inla.rgeneric.define(inla.rgeneric.PCAR.model, ...)
+```
 
 
 ## Bibliography
