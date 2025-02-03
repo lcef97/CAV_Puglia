@@ -2011,7 +2011,7 @@ this case, the local prior for <span class="math inline">\(z_i\)</span>
 is</p>
 <p><span class="math display">\[\begin{equation}
 z_i \mid z_{-i} \sim N \left( \sum_{j=1}^n \frac{\xi}{1 - \xi + \xi d_i}
-\frac{w_{ij}}{d_i} z_j \,, \frac{\sigma^2}{1 - \xi - \xi d_i}\right)
+\frac{w_{ij}}{d_i} z_j \,, \frac{\sigma^2}{1 - \xi + \xi d_i}\right)
 \label{eq:leroux_loc}
 \end{equation}\]</span></p>
 <p>Where <span class="math inline">\(\xi \in [0, 1]\)</span> is the
@@ -2078,7 +2078,7 @@ i.e. removing spatial trends from covariates. Considering we have <span class="
 <p>Estimated covariate effects are shown</p>
 <div data-pagedtable="false">
 <script data-pagedtable-source type="application/json">
-{"columns":[{"label":[""],"name":["_rn_"],"type":[""],"align":["left"]},{"label":["mean"],"name":[1],"type":["dbl"],"align":["right"]},{"label":["sd"],"name":[2],"type":["dbl"],"align":["right"]},{"label":["0.025quant"],"name":[3],"type":["dbl"],"align":["right"]},{"label":["0.5quant"],"name":[4],"type":["dbl"],"align":["right"]},{"label":["0.975quant"],"name":[5],"type":["dbl"],"align":["right"]},{"label":["mode"],"name":[6],"type":["dbl"],"align":["right"]},{"label":["kld"],"name":[7],"type":["dbl"],"align":["right"]}],"data":[{"1":"-7.604","2":"0.065","3":"-7.734","4":"-7.603","5":"-7.478","6":"-7.603","7":"0","_rn_":"(Intercept)"},{"1":"-0.376","2":"0.078","3":"-0.529","4":"-0.376","5":"-0.222","6":"-0.376","7":"0","_rn_":"TEP_th_22"},{"1":"0.113","2":"0.072","3":"-0.028","4":"0.113","5":"0.254","6":"0.113","7":"0","_rn_":"PGR"},{"1":"-0.056","2":"0.069","3":"-0.191","4":"-0.057","5":"0.080","6":"-0.057","7":"0","_rn_":"UIS"},{"1":"-0.041","2":"0.066","3":"-0.170","4":"-0.041","5":"0.090","6":"-0.041","7":"0","_rn_":"ELI"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
+{"columns":[{"label":[""],"name":["_rn_"],"type":[""],"align":["left"]},{"label":["mean"],"name":[1],"type":["dbl"],"align":["right"]},{"label":["sd"],"name":[2],"type":["dbl"],"align":["right"]},{"label":["0.025quant"],"name":[3],"type":["dbl"],"align":["right"]},{"label":["0.5quant"],"name":[4],"type":["dbl"],"align":["right"]},{"label":["0.975quant"],"name":[5],"type":["dbl"],"align":["right"]},{"label":["mode"],"name":[6],"type":["dbl"],"align":["right"]},{"label":["kld"],"name":[7],"type":["dbl"],"align":["right"]}],"data":[{"1":"-7.603","2":"0.065","3":"-7.734","4":"-7.603","5":"-7.478","6":"-7.603","7":"0","_rn_":"(Intercept)"},{"1":"-0.376","2":"0.078","3":"-0.529","4":"-0.376","5":"-0.222","6":"-0.376","7":"0","_rn_":"TEP_th_22"},{"1":"0.113","2":"0.072","3":"-0.028","4":"0.113","5":"0.254","6":"0.113","7":"0","_rn_":"PGR"},{"1":"-0.056","2":"0.069","3":"-0.191","4":"-0.057","5":"0.080","6":"-0.057","7":"0","_rn_":"UIS"},{"1":"-0.041","2":"0.066","3":"-0.170","4":"-0.041","5":"0.090","6":"-0.041","7":"0","_rn_":"ELI"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
   </script>
 </div>
 <p>As we see, removing the spatial patterns from covariates does not
@@ -2089,16 +2089,16 @@ of scarce interest.</p>
 the result:</p>
 <div data-pagedtable="false">
 <script data-pagedtable-source type="application/json">
-{"columns":[{"label":[""],"name":["_rn_"],"type":[""],"align":["left"]},{"label":["mean"],"name":[1],"type":["dbl"],"align":["right"]},{"label":["sd"],"name":[2],"type":["dbl"],"align":["right"]},{"label":["0.025quant"],"name":[3],"type":["dbl"],"align":["right"]},{"label":["0.5quant"],"name":[4],"type":["dbl"],"align":["right"]},{"label":["0.975quant"],"name":[5],"type":["dbl"],"align":["right"]},{"label":["mode"],"name":[6],"type":["dbl"],"align":["right"]},{"label":["kld"],"name":[7],"type":["dbl"],"align":["right"]}],"data":[{"1":"-7.608","2":"0.065","3":"-7.738","4":"-7.607","5":"-7.483","6":"-7.607","7":"0","_rn_":"(Intercept)"},{"1":"-0.354","2":"0.072","3":"-0.495","4":"-0.355","5":"-0.213","6":"-0.355","7":"0","_rn_":"TEP_th_22"},{"1":"0.122","2":"0.068","3":"-0.011","4":"0.122","5":"0.255","6":"0.122","7":"0","_rn_":"PGR"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
+{"columns":[{"label":[""],"name":["_rn_"],"type":[""],"align":["left"]},{"label":["mean"],"name":[1],"type":["dbl"],"align":["right"]},{"label":["sd"],"name":[2],"type":["dbl"],"align":["right"]},{"label":["0.025quant"],"name":[3],"type":["dbl"],"align":["right"]},{"label":["0.5quant"],"name":[4],"type":["dbl"],"align":["right"]},{"label":["0.975quant"],"name":[5],"type":["dbl"],"align":["right"]},{"label":["mode"],"name":[6],"type":["dbl"],"align":["right"]},{"label":["kld"],"name":[7],"type":["dbl"],"align":["right"]}],"data":[{"1":"-7.608","2":"0.065","3":"-7.738","4":"-7.607","5":"-7.483","6":"-7.607","7":"0","_rn_":"(Intercept)"},{"1":"-0.354","2":"0.072","3":"-0.495","4":"-0.354","5":"-0.213","6":"-0.355","7":"0","_rn_":"TEP_th_22"},{"1":"0.122","2":"0.068","3":"-0.011","4":"0.122","5":"0.255","6":"0.122","7":"0","_rn_":"PGR"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
   </script>
 </div>
 <p>And an improved WAIC. Please notice the decrease in WAIC is higher
 than the decrease in free parameters, hence the improvement must also be
 attributed to improved fitting.</p>
 <pre class="r"><code>cav_bym_INLA_2covs$waic$waic</code></pre>
-<pre><code>## [1] 947.2794</code></pre>
+<pre><code>## [1] 947.2792</code></pre>
 <pre class="r"><code>cav_bym_INLA_2covs$waic$p.eff</code></pre>
-<pre><code>## [1] 75.71431</code></pre>
+<pre><code>## [1] 75.71434</code></pre>
 <p>This model may bring to interesting results. We can also notice a
 change in the mixing parameter:</p>
 <pre class="r"><code># Model with four covariates (&quot;full&quot; one)
@@ -2112,7 +2112,7 @@ round(cav_bym_INLA$summary.hyperpar,3)</code></pre>
 round(cav_bym_INLA_2covs$summary.hyperpar,3)</code></pre>
 <div data-pagedtable="false">
 <script data-pagedtable-source type="application/json">
-{"columns":[{"label":[""],"name":["_rn_"],"type":[""],"align":["left"]},{"label":["mean"],"name":[1],"type":["dbl"],"align":["right"]},{"label":["sd"],"name":[2],"type":["dbl"],"align":["right"]},{"label":["0.025quant"],"name":[3],"type":["dbl"],"align":["right"]},{"label":["0.5quant"],"name":[4],"type":["dbl"],"align":["right"]},{"label":["0.975quant"],"name":[5],"type":["dbl"],"align":["right"]},{"label":["mode"],"name":[6],"type":["dbl"],"align":["right"]}],"data":[{"1":"3.219","2":"1.077","3":"1.648","4":"3.041","5":"5.837","6":"2.707","_rn_":"Precision for ID"},{"1":"0.395","2":"0.225","3":"0.050","4":"0.371","5":"0.846","6":"0.203","_rn_":"Phi for ID"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
+{"columns":[{"label":[""],"name":["_rn_"],"type":[""],"align":["left"]},{"label":["mean"],"name":[1],"type":["dbl"],"align":["right"]},{"label":["sd"],"name":[2],"type":["dbl"],"align":["right"]},{"label":["0.025quant"],"name":[3],"type":["dbl"],"align":["right"]},{"label":["0.5quant"],"name":[4],"type":["dbl"],"align":["right"]},{"label":["0.975quant"],"name":[5],"type":["dbl"],"align":["right"]},{"label":["mode"],"name":[6],"type":["dbl"],"align":["right"]}],"data":[{"1":"3.219","2":"1.078","3":"1.647","4":"3.041","5":"5.838","6":"2.707","_rn_":"Precision for ID"},{"1":"0.395","2":"0.225","3":"0.050","4":"0.371","5":"0.846","6":"0.203","_rn_":"Phi for ID"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
   </script>
 </div>
 </div>
@@ -2138,7 +2138,7 @@ to the nonspatial regression section.</p>
 <p>And show the corresponding summaries:</p>
 <pre class="r"><code>summary(cav_bym_zip_INLA)</code></pre>
 <pre><code>## Time used:
-##     Pre = 22.1, Running = 1.83, Post = 0.244, Total = 24.2 
+##     Pre = 18.4, Running = 1.8, Post = 0.133, Total = 20.3 
 ## Fixed effects:
 ##               mean    sd 0.025quant 0.5quant 0.975quant   mode kld
 ## (Intercept) -7.495 0.062     -7.620   -7.494     -7.377 -7.494   0
@@ -2154,19 +2154,19 @@ to the nonspatial regression section.</p>
 ## Model hyperparameters:
 ##                                                         mean    sd 0.025quant
 ## zero-probability parameter for zero-inflated poisson_1 0.054 0.023      0.021
-## Precision for ID                                       6.668 1.986      3.693
-## Phi for ID                                             0.124 0.130      0.006
+## Precision for ID                                       6.670 1.990      3.691
+## Phi for ID                                             0.125 0.130      0.006
 ##                                                        0.5quant 0.975quant
 ## zero-probability parameter for zero-inflated poisson_1    0.051      0.109
-## Precision for ID                                          6.362     11.437
-## Phi for ID                                                0.079      0.496
+## Precision for ID                                          6.363     11.449
+## Phi for ID                                                0.079      0.499
 ##                                                         mode
-## zero-probability parameter for zero-inflated poisson_1 0.044
-## Precision for ID                                       5.768
+## zero-probability parameter for zero-inflated poisson_1 0.043
+## Precision for ID                                       5.766
 ## Phi for ID                                             0.015
 ## 
-## Watanabe-Akaike information criterion (WAIC) ...: 958.86
-## Effective number of parameters .................: 61.79
+## Watanabe-Akaike information criterion (WAIC) ...: 958.87
+## Effective number of parameters .................: 61.80
 ## 
 ## Marginal log-Likelihood:  -455.61 
 ## CPO, PIT is computed 
@@ -2182,11 +2182,11 @@ regularity conditions to approximate the CPO more often than in the
 non-inflated model. Still, CPO must be re-computed manually before
 employing it as an evaluation metrics:</p>
 <pre class="r"><code>sum(cav_bym_INLA$cpo$failure)</code></pre>
-<pre><code>## [1] 96.89356</code></pre>
+<pre><code>## [1] 96.88517</code></pre>
 <pre class="r"><code>sum(cav_bym_INLA$cpo$failure &gt; 0)</code></pre>
 <pre><code>## [1] 222</code></pre>
 <pre class="r"><code>sum(cav_bym_zip_INLA$cpo$failure)</code></pre>
-<pre><code>## [1] 4.912799</code></pre>
+<pre><code>## [1] 4.846706</code></pre>
 <pre class="r"><code>sum(cav_bym_zip_INLA$cpo$failure &gt; 0)</code></pre>
 <pre><code>## [1] 93</code></pre>
 <p>The reason for failures in meeting the regularity conditions to
