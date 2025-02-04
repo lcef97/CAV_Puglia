@@ -1,5 +1,5 @@
 ---
-title: "Explorative analysis of accesses to support centers for gender-based violence
+title: "Exploratory analysis of accesses to support centers for gender-based violence
   in Apulia"
 output:
   #         To make this file work with pdf output, it is
@@ -19,6 +19,7 @@ bibliography: references.bib
 knitr::opts_chunk$set(echo = TRUE)
 library(magrittr)
 library(sf)
+if(!rlang::is_installed("pscl")) install.packages("pscl")
 ```
 
 ```{r input, echo = FALSE, message = FALSE, warning = FALSE, output = FALSE}
@@ -191,9 +192,6 @@ ggplot2::ggplot(data = reshape2::melt(cor(X[,-1]))) +
   ggplot2::theme_minimal()
 ```
 
-
-Then, we implement a very simple forward selection algorithm. At each iteration, we add to the model the covariate allowing for the lowest BIC, until adding an additional covariate does not allow to reduce it anymore:
-
 We see the correlation between the two distances is very high ($0.72$), and so is the correlation between the fragility index decile and the density of productive units. 
 
 In the first case, we drop the distance from the nearest infrastructural pole We do so because, if taken alone, the distance from the closest support center appears a slightly better predictor, using the Schwarz information criterion (or, indifferently, the Akaike Information Criterion):
@@ -209,7 +207,7 @@ stats::BIC(glm(N_ACC ~ 1 + TEP_th_22, family = "poisson",
 
 We should do the same for the other couple of variables but since `MFI` is a combination of all covariate except for `TEP_th`, we will drop the synthetic indicator and leave the remainder.
 
-```{r forward selection, warnings = F}
+```{r forward selection, warnings = FALSE, echo = FALSE, eval=FALSE}
 covariates <- colnames(X)[-c(1, which(colnames(X) %in% c("AES", "MFI")))]
 # Covariates included:
 covs.in <- c()
@@ -234,7 +232,7 @@ while(length(covs.in) < length(covariates)){
 ```
 
 
-```{r misc old code, eval = FALSE, echo = FALSE}
+```{r misc old code, eval = FALSE, echo = FALSE, eval = FALSE}
   #BIC.min <- c(BIC.min, min(BICs))
   #if(length(BIC.min)>1 && BIC.min[length(BIC.min)] >= BIC.min[length(BIC.min)-1]){
   #  break
@@ -244,49 +242,47 @@ while(length(covs.in) < length(covariates)){
 ```
 
 
-The optimal number of covariates (covariates in the model with minimum BIC) is four:
-```{r num covars}
+```{r num covars, echo = FALSE, eval = FALSE}
 covs.in[c(1:which.min(BIC.min))]
 ```
 
-However, a model with up to $4$ covariates would have all significant regression coefficients:
-
-```{r glm five covs}
-summary(glm(
-  as.formula(paste0("N_ACC ~ 1 +", paste(covs.in[c(1:5)], collapse = " + "))),
-  family = "poisson",offset = log(nn), data = dd_con))$coefficients
-```
-  - The distance from the closest support center seems to play the key role. The easiest interpretation is that the physical distance represents a barrier to violence reporting. This is quite intuitive if we think of the material dynamics of reporting gender-based violence: one could reasonably expect violent men to prevent their partners to come out and report the violence suffered.
-  - The asociation with population growth rate is harder to interpret. This association is most likely influenced by several demographic instrumental variables we are not keeping into account and would indeed deserve a more dedicated focus.
-  - The density of production units can be hither considered as a proxy for economic development. The most naive interpretation wuld be that in underdeveloped areas reporting gender violence is somewhat harder than in developed ones.
-  - The association with the proportion of people with low educational level appears lower. However, the interpretation seems quite easy: cultural development, in general, would encourage reporting violence. Still, let us remind that $\beta_\mathrm{ELL}$ is in $\mathcal{\Theta}(10^{-2})$.
-  - The interpretation of $\beta_{ELI}$ should, intuitively, be similar to $\beta_{UIS}$. We have kept both variables due to their correlation not being particularly high.
-
-
-With more covariates, no additional valuable association can be found. 
- 
-
-In the remainder of this work, we will focus on the two covariates $d, \mathrm{PGR}, \mathrm{ELI}, \mathrm{UIS}$
-
 ## Nonspatial regression
 
-We regress the counts of accesses $y$ to support centers on the distance from the former. Both covariates are scaled to zero mean an unit variance. 
+We regress the counts of accesses $y$ to support centers on the aforementioned explanatory variables. To estimate regression coefficients, all covariates are scaled to zero mean an unit variance. 
 
 \begin{equation}
-y_i \mid \eta_i \sim \mathrm{Poisson}(e^{\eta_i - P_i}) \quad \text{where} \quad
-\eta_i = \beta_0 + \beta_\mathrm{TEP} \mathrm{TEP}_i + \beta_{PGR} \mathrm{PGR}_i
-          + \beta_{ELI} \mathrm{ELI}_i + \beta_{UIS} \mathrm{UIS}_i
+y_i \mid \eta_i \sim \mathrm{Poisson}(e^{\eta_i + P_i}) \quad \text{where} \quad
+\eta_i = X_i^{\top} \beta
 \label{eq:glm}
 \end{equation}
 
-Where $P_i$ is the female population aged $\geq 15$ in municipality $i$.
+Where $X$ are the covariate defined earlier, $\beta$ are covariate effects, and $P_i$ is the female population aged $\geq 15$ in municipality $i$.
 
-```{r glm, echo = FALSE}
-cav_glm <- glm(N_ACC ~ 1 + TEP_th_22 + ELI + PGR + UIS, family = "poisson",
-                offset = log(nn), data = dd_con)
+To gain more insight on the role of all explanatory variables we show the posterior summaries of the full regression model
 
+```{r glm full covs}
+cav_glm <- glm(N_ACC ~ 1 +TEP_th_22 + ELI + PGR +
+                 UIS + ELL + PDI + ER,
+               family = "poisson",offset = log(nn), data = dd_con)
 summary(cav_glm)
 ```
+  - `TEP_th_22`: The distance from the closest support center seems to play the key role. The easiest interpretation is that the physical distance represents a barrier to violence reporting. This is quite intuitive if we think of the material dynamics of reporting gender-based violence: one could reasonably expect violent men to prevent their partners to come out and report the violence suffered.
+  
+  - `ELI`: The (ventile of the distribution of the) share of employees in low productivity economic units is a clear indicator of (relative) economic underdevelopment. The most naive interpretation wuld be that in underdeveloped areas reporting gender violence is somewhat harder than in developed ones.
+
+  - `PGR`: The association with population growth rate is harder to interpret. This association is most likely influenced by several demographic instrumental variables we are not keeping into account and would indeed deserve a more dedicated focus.
+  
+  - `UIS`: The (ventile of the distribution of the) density of production units has a somewhat ambiguous interpretation. From the one side, it has a strong negative relationship with the social frailty index. It should be therefore considered an indicator of economic development. Nevertheless, the regression coefficient bears the same sign as the incidence of low-productivity economic units. *Honestly I have no idea on how to interpret it*.
+
+  - `ELL`: The association with the proportion of people with low educational level has negative sign. The interpretation seems quite easy: cultural development, in general, would encourage reporting violence.
+  
+  - `PDI`: The association with population dependency index does not seem significantly different from zero
+  
+  - `ER`: Nor does the association with employment rate.
+
+
+
+
 
 
 
@@ -299,9 +295,38 @@ attr(scale(dists_th_22$TEP_th_22), "scaled:scale")
 
 Hence e.g. each $14'6''$ of distance of the a given municipality from the closest support center are associated with a decrease of $0.399$ units in the log-frequency at which women from that municipality access to support centers.
 
+
+
+Additionally, the number of zero counts is high:
+```{r zero counts}
+sum(dd_con$N_ACC == 0)
+barplot(table(dd_con$N_ACC))
+```
+
+We may wonder if the data generating process incorporates a zero-generating component. We can model this augmented process through zero-inflated Poisson likelihood:
+$$
+p(y_i | \eta_i) = \pi_0 \mathbb{I}{ \lbrace y_i=0 \rbrace } + (1-\pi_0) 
+\frac{e^{-e^{\eta_i + P_i} - (\eta_i + P_i) y_i}}{y_i!}
+$$
+Where $\pi_0 := \mathrm{Prob} \lbrace y_i = 0 \rbrace$ for all $i$. For the time being, we do not seek for explanatory variables for $\pi_0$.  
+When explicitly accounting for the zero-generating process, we find the association of $y$ with some explanatory variables to be reduced:
+```{r ZIP fixed}
+cav_zip <- pscl::zeroinfl(N_ACC ~ 1 +TEP_th_22 + ELI + PGR +
+                            UIS + ELL + PDI + ER | 1, dist = "poisson",
+               link = "log", offset = log(nn), data = dd_con)
+
+summary(cav_zip)$coefficients$count
+```
+
+However, the MLE estimator for $\pi_0$ is low:
+```{r ZIP pizero}
+summary(cav_zip)$coefficients$zero
+```
+
+
 ## Spatial regression
 
-We plot the log-residuals $\varepsilon$ of the regression model in equation \ref{eq:glm}, defined as $\varepsilon := \ln y_i - \ln P_i - \ln \hat{y}_i$ being $\hat{y}_i$ the fitted value.
+We plot the log-residuals $\varepsilon$ of the GLM regression model, defined as $\varepsilon := \ln y_i - \ln P_i - \ln \hat{y}_i$ being $\hat{y}_i$ the fitted value.
 
 
 ```{r glm residuals, echo = FALSE, fig.height = 3, fig.cap = "Log-residuals of glm regression using theorical distance as explanatory variable"}
@@ -347,16 +372,16 @@ spdep::geary.test(resids_glm_th[nonzero_con],
 In both cases, we find evidence for spatial autocorrelation. However, we must stress out this result does not refer to all the regional territory, but only to a subset of all municipalities ($173$ over $257$)
 
 
-Based on the autocorrelation evidence, though it has only been assessed for a subset of all municipalities, we try implementing some simple conditional autoregressive models by augmenting the linear predictor
+Based on the autocorrelation evidence, though it has only been assessed for a subset of all municipalities, we try implementing some simple spatial models by adding a conditionally autoregressive latent effect, say $z$, to the linear predictor
 
 
 \begin{equation}
-\eta_i = \beta_0 + \beta_{d} d_i + \beta_{PGR} \mathrm{PGR}_i
-          + \beta_{ELI} \mathrm{ELI}_i + \beta_{UIS} \mathrm{UIS}_i + z_i 
+\eta_i = X_i^{\top} \beta + z_i 
 \label{eq:mspat}
 \end{equation}
 
-Where $z_i$ represents the latent Gaussian effect. We test three models, all of which have a prior distribution depending on the spatial structure of the underplying graph, in this case the Apulia region. 
+
+We test a total of four models, all of which have a prior distribution depending on the spatial structure of the underlying graph, in this case the Apulia region. 
 
 We describe the spatial structure starting from municipality neighbourhood, and introduce the neighbourhood matrix $W$, whose generic element $w_{ij}$ takes value $1$ if municipalities $i$ and $j$ are neighbours and $0$ otherwise. For each $i \in [1,n]$, $d_i:= \sum_{j=1}^n w_{ij}$ is the number of neigbours of $i$-th municipality. Plase notice we have have $n = 256$.
 
@@ -364,27 +389,36 @@ For all models, we define $\sigma^2$ as the scale parameter of the latent effect
 
 Spatial models are computed by approximating the marginal posteriors of interest via the Integrated Nested Laplace Approximation (INLA), adopting the novel Variational Bayes Approach \cite{INLAVB}.
 
+
+
 #### ICAR model
 
-The Intrinsic CAR model is the simple formulation among spatial autoregressive models. The conditional distribution of each value $z_i \mid z_{-i}$ is:
+The Intrinsic CAR model is the simplest formulation among spatial autoregressive models. The conditional distribution of each value $z_i \mid z_{-i}$ is:
 
 \begin{equation}
 z_i \mid z_{-i} \sim N \left( \sum_{j=1}^n \frac{w_{ij}}{d_i} z_j \,, \frac{\sigma^2}{d_i}\right)
 \label{eq:icar_loc}
 \end{equation}
-The remainder of the model follows the same notation as eq. \ref{eq:glm}.
 
-
+Since the joint distribution of $z$ is improper, a sum-to-zero constraint is required for identifiability.
 
 ```{r inla nosp, echo = FALSE, message = FALSE, warning = FALSE}
 
 library(INLA)
 cav_nosp_INLA <- inla(
-  N_ACC ~ 1 + TEP_th_22 + UIS + PGR + ELI,
+  N_ACC ~ 1 +TEP_th_22 + ELI + PGR + UIS + ELL + PDI + ER,
   family = "poisson", offset = log(nn), data =dd_con,
   num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T), 
   inla.mode = "classic", control.inla = list(strategy = "laplace"),
   verbose = F)
+
+cav_nosp_INLA_ZIP <- inla(
+  N_ACC ~ 1 +TEP_th_22 + ELI + PGR + UIS + ELL + PDI + ER,
+  family = "zeroinflatedpoisson1", offset = log(nn), data =dd_con,
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T), 
+  inla.mode = "classic", control.inla = list(strategy = "laplace"),
+  verbose = F)
+
 ```
 
 
@@ -392,12 +426,20 @@ cav_nosp_INLA <- inla(
 ```{r inla mod, echo = FALSE, message = FALSE, warning = FALSE}
 
 cav_icar_INLA <- inla(
-  N_ACC ~ 1 + TEP_th_22 + UIS + PGR + ELI + f(ID, model = "besag", graph = W_con,
+  N_ACC ~ 1 +TEP_th_22 + ELI + PGR + UIS + ELL + PDI + ER+ f(ID, model = "besag", graph = W_con,
                          scale.model = T, prior = "pc.prec", param = c(1.5, 0.01)),
   family = "poisson", offset = log(nn), data =dd_con,
   num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T), 
   inla.mode = "classic", control.inla = list(strategy = "laplace"),
-  verbose = F) # better
+  verbose = F) 
+
+cav_icar_INLA_ZIP <- inla(
+  N_ACC ~ 1 +TEP_th_22 + ELI + PGR + UIS + ELL + PDI + ER+ f(ID, model = "besag", graph = W_con,
+                         scale.model = T, prior = "pc.prec", param = c(1.5, 0.01)),
+  family = "zeroinflatedpoisson1", offset = log(nn), data =dd_con,
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T), 
+  inla.mode = "classic", control.inla = list(strategy = "laplace"),
+  verbose = F) 
 ```
 
 
@@ -482,7 +524,7 @@ PCAR.model <- function(...) INLA::inla.rgeneric.define(inla.rgeneric.PCAR.model,
 ```
 
 ```{r pcar run, message = FALSE, echo = FALSE, output = FALSE}
-cav_pcar_INLA<- inla(N_ACC ~ 1 + TEP_th_22 + UIS + PGR + ELI + 
+cav_pcar_INLA<- inla(N_ACC ~ 1 +TEP_th_22 + ELI + PGR + UIS + ELL + PDI + ER + 
                            f(ID, model = PCAR.model(W = W_con, k = 1, lambda = 1.5)),
                          family = "poisson", offset = log(nn), data =dd_con,
                          num.threads = 1, control.compute = 
@@ -491,10 +533,18 @@ cav_pcar_INLA<- inla(N_ACC ~ 1 + TEP_th_22 + UIS + PGR + ELI +
                          control.predictor = list(compute = T),
                          verbose = T) 
 
-
+cav_pcar_INLA_ZIP <- inla(N_ACC ~ 1 +TEP_th_22 + ELI + PGR + UIS + ELL + PDI + ER + 
+                           f(ID, model = PCAR.model(W = W_con, k = 1, lambda = 1.5)),
+                         family = "zeroinflatedpoisson1", offset = log(nn), data =dd_con,
+                         num.threads = 1, control.compute = 
+                           list(internal.opt = F, cpo = T, waic = T), 
+                         #inla.mode = "classic", control.inla = list(strategy = "laplace"),
+                         control.predictor = list(compute = T),
+                         verbose = T) 
 ```
 
-We show the posterior summary for the autocorrelation coefficient. It does not appear strong indeed. The credible interval also appears uncannily wide:
+We show the posterior summary for the autocorrelation coefficient. 
+
 ```{r alfa, echo = FALSE}
 expit <- function (X){
   return(1/(1 + exp(-X)))
@@ -523,9 +573,17 @@ where $u$ is an ICAR field, $v$ is an IID standard Gaussian white noise i.e. $v 
 ```{r INLA bym, echo = FALSE}
 
 cav_bym_INLA <- inla(
-  N_ACC ~ 1 + TEP_th_22 + UIS + PGR + ELI + f(ID, model = "bym2", graph = W_con,
+  N_ACC ~ 1 +TEP_th_22 + ELI + PGR + UIS + ELL + PDI + ER+ f(ID, model = "bym2", graph = W_con,
                          scale.model = T, prior = "pc.prec", param = c(1.5, 0.01)),
   family = "poisson", offset = log(nn), data =dd_con,
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T), 
+  #inla.mode = "classic", control.inla = list(strategy = "laplace"),
+  verbose = F)
+
+cav_bym_INLA_ZIP <- inla(
+  N_ACC ~ 1 +TEP_th_22 + ELI + PGR + UIS + ELL + PDI + ER+ f(ID, model = "bym2", graph = W_con,
+                         scale.model = T, prior = "pc.prec", param = c(1.5, 0.01)),
+  family = "zeroinflatedpoisson1", offset = log(nn), data =dd_con,
   num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T), 
   #inla.mode = "classic", control.inla = list(strategy = "laplace"),
   verbose = F)
@@ -548,10 +606,20 @@ where $R := D-W$ is the graph Laplacian matrix, $W$ is the neighbourhood matrix 
 
 
 ```{r INLA Leroux, echo = FALSE}
-cav_leroux_INLA <- inla(N_ACC ~ 1 + TEP_th_22 + PGR + UIS + ELI +
+cav_leroux_INLA <-   inla(N_ACC ~ 1 +TEP_th_22 + ELI + PGR + UIS + ELL + PDI + ER +
                           f(ID, model = "besagproper2", graph = W_con, 
                             hyper = list(prec = list(prior = "pc.prec", param = c(1.5, 0.01)))),
                      family = "poisson", offset = log(nn), data =dd_con,
+                     num.threads = 1, control.compute = 
+                       list(internal.opt = F, cpo = T, waic = T), 
+                     #inla.mode = "classic", control.inla = list(strategy = "laplace"),
+                     control.predictor = list(compute = T),
+                     verbose = F) 
+
+cav_leroux_INLA_ZIP <- inla(N_ACC ~ 1 +TEP_th_22 + ELI + PGR + UIS + ELL + PDI + ER +
+                          f(ID, model = "besagproper2", graph = W_con, 
+                            hyper = list(prec = list(prior = "pc.prec", param = c(1.5, 0.01)))),
+                     family = "zeroinflatedpoisson1", offset = log(nn), data =dd_con,
                      num.threads = 1, control.compute = 
                        list(internal.opt = F, cpo = T, waic = T), 
                      #inla.mode = "classic", control.inla = list(strategy = "laplace"),
@@ -564,149 +632,93 @@ cav_leroux_INLA <- inla(N_ACC ~ 1 + TEP_th_22 + PGR + UIS + ELI +
 
 #### Comparison
 
-We briefly compare these models through the WAIC [@GelmanWAIC]:
+We briefly compare these four through the WAIC [@GelmanWAIC]:
 
 ```{r WAICs table, echo = F}
-WAICS_Poisson <- tibble::tibble(Model = c("ICAR", "PCAR", "BYM", "Leroux"),
-           WAIC = round(c(cav_icar_INLA$waic$waic, cav_pcar_INLA$waic$waic, 
-                    cav_bym_INLA$waic$waic, cav_leroux_INLA$waic$waic),3),
-           Eff_Params = round(c(cav_icar_INLA$waic$p.eff, cav_pcar_INLA$waic$p.eff, 
-                    cav_bym_INLA$waic$p.eff, cav_leroux_INLA$waic$p.eff),3))
 
-WAICS_Poisson
+WAICS <- tibble::tibble(
+  Model = c("Null", "ICAR", "PCAR", "BYM", "Leroux"),
+  WAIC_Poisson = round(c(
+    cav_nosp_INLA$waic$waic,  cav_icar_INLA$waic$waic,  cav_pcar_INLA$waic$waic, 
+    cav_bym_INLA$waic$waic,  cav_leroux_INLA$waic$waic),3),
+  WAIC_ZIP = round(c(
+    cav_nosp_INLA_ZIP$waic$waic, cav_icar_INLA_ZIP$waic$waic, cav_pcar_INLA_ZIP$waic$waic,
+    cav_bym_INLA_ZIP$waic$waic, cav_leroux_INLA_ZIP$waic$waic),3),  
+  Eff_params_Poisson = round(c(
+    cav_nosp_INLA$waic$p.eff,   cav_icar_INLA$waic$p.eff,  cav_pcar_INLA$waic$p.eff,
+    cav_bym_INLA$waic$p.eff, cav_leroux_INLA$waic$p.eff),3),
+  Eff_params_ZIP = round(c(
+    cav_nosp_INLA_ZIP$waic$p.eff,  cav_icar_INLA_ZIP$waic$p.eff,  cav_pcar_INLA_ZIP$waic$p.eff,
+    cav_bym_INLA_ZIP$waic$p.eff,  cav_leroux_INLA_ZIP$waic$p.eff),3) )
+
+WAICS
 
 ```
 As we can see, models taking into account random noise have a better performance. Please notice the effective number of parameters, i.e. the number of *unconstrained* parameters is higher in the ICAR than in the BYM and Leroux models, even though these require an additional parameter.
 
-We show the postetior summary of covariates effects under the BYM model. There are no noteworthy differences with other models in terms of covariate effects estimation.
+## Model results
 
-```{r BYM fixed, echo = FALSE}
-round(cav_bym_INLA$summary.fixed, 3)
+Here, posterior estimates of $\beta$ under the BYM model are shown. We compare the results assuming both the Poisson and the ZIP likelihood:
+
+```{r bym summary fixed, echo = F}
+betas <- cbind(
+  tibble::tibble(Variable = rownames(cav_bym_INLA$summary.fixed)),
+  round(tibble::tibble(
+  Mean_Pois = cav_bym_INLA$summary.fixed$mean,
+  Mean_ZIP = cav_bym_INLA_ZIP$summary.fixed$mean,
+  SD_Pois = cav_bym_INLA$summary.fixed$sd,
+  SD_ZIP = cav_bym_INLA_ZIP$summary.fixed$sd,
+  q0.025_Pois = cav_bym_INLA$summary.fixed$`0.025quant`,
+  q0.025_ZIP = cav_bym_INLA_ZIP$summary.fixed$`0.025quant`,
+  q0.975_Pois = cav_bym_INLA$summary.fixed$`0.975quant`,
+  q0.975_ZIP = cav_bym_INLA_ZIP$summary.fixed$`0.975quant`), 3))
+
+
+
+betas
 ```
 
+Estimations of $\beta$ differ from the nonspatial model. For all variables, credibility intervals are wider due to increased uncertainty. 
 
-The interpretation the posteriors of $\beta$ under this spatial model is not exactly the same as for the GLM. As we see, while the distance from the closest support center remains a strong predictor, the two economic variables seem to lose their significance; this is mainly due to variance inflation. The population growth rate still has a significant association instead.
+  - `TEP_th_22` The effect of the distance from the closest support center remains similar in mean and the interpretation is not altered.
 
-Now, there are two ways we can refine spatial regression:
-  - Try to remove the spatial structure from covariates, at least from `UIS` and `ELI`, e.g. by leveraging on the spectral properties of the underlying graph. To do so, we rely on the innovative methodology of [@Urdangarin].
+  - `ELI`: The effect of the incidence of low-productivity economic units is shrunk in mean while its variability increases
+
+  - `PGR`: The association with population growth rate is still positive and significantly $\neq 0$
   
-  Here, we do **not** mean to affect `TEP_th_22`, but only the other three covariates; this because the spatial pattern in a distance indicator should not, in my view, be removed from a regression model
+  - `UIS`: The association with the density of productive units appears not significant, due to increased variability
   
-  - Drop those two covariates directly and only keep `TEP_th_22` and `ELI`
+  - `ELL`: The association with the incidence of low education levels, instead, is doubled in mean. We interpret this result as a strong *potential* impact of education on the chance that gender violence is reported
+  
+  - `PDI`: The effect of structural dependency index is utterly negligible
+  
+  - `ER`: The effect associated with employment rate is more than doubled in mean with respect to the nonspatial model. How to interpret this finding? Employment rate is clearly an indicator of economic development, hence the easiest interpretation is that - as it was with `ELI` under the nonspatial model - in more developed areas there is a higher chance that gender violence is reported.
+  
+Lastly, we take a look at model hyperparameters:
+```{r bym hyperpar}
+hyperpars <- tibble::tibble(
+  Variable = c("Z_prec_Pois", "Mixing_Pois", "Zero_Prob", "Z_prec_ZIP", "Mixing_ZIP"),
+  Mean = round(c(cav_bym_INLA$summary.hyperpar$mean, cav_bym_INLA_ZIP$summary.hyperpar$mean),3),
+  q0.025 = round(c(cav_bym_INLA$summary.hyperpar$`0.025quant`, cav_bym_INLA_ZIP$summary.hyperpar$`0.025quant`),3),
+  Median = round(c(cav_bym_INLA$summary.hyperpar$`0.5quant`, cav_bym_INLA_ZIP$summary.hyperpar$`0.5quant`),3),
+  q0.975 = round(c(cav_bym_INLA$summary.hyperpar$`0.975quant`, cav_bym_INLA_ZIP$summary.hyperpar$`0.975quant`),3))
 
-
-We show the `R` code for the first alternative approach, i.e. removing spatial trends from covariates. Considering we have $256$ sites, we remove the last $13$ non-constant eigenvectors ($5 \%$ of the total)
-
-```{r INLA deconfound}
-deconfound <- function(X, Lapl = Lapl_con, n.eigen.out){
-  X <- as.matrix(X)
-  V <- eigen(Lapl)$vectors
-  rk <- Matrix::rankMatrix(Lapl)
-  coef <- solve(V, X)
-  eigen.in <- c(1:(rk-n.eigen.out), c((rk+1):ncol(V)))
-  X_nosp <- V[, eigen.in] %*% coef[eigen.in, ]
-  return(X_nosp)
-}
+hyperpars
 ```
+Even though the value of the zero-inflation parameter is low, we can see deep differences in the structure of the latent effects: the precision parameter median of the ZIP model is almost double than under the Poisson model, while the mixing parameter is shrunk.
 
-```{r INLA bym spatplus, echo = FALSE}
+For completeness, we show the hyperparameters posterior summary also for the Leroux model. The mixing parameter is not directly comparable. Neither does the precision parameter, since only under intrinsic models can the Laplacian matrix be scaled *a priori*. That being said, we see the difference between the two likelihoods is analogous.
 
+```{r leroux hyperpar}
+hyperpars_leroux <- tibble::tibble(
+  Variable = c("Z_prec_Pois", "Mixing_Pois", "Zero_Prob", "Z_prec_ZIP", "Mixing_ZIP"),
+  Mean = round(c(cav_leroux_INLA$summary.hyperpar$mean, cav_leroux_INLA_ZIP$summary.hyperpar$mean),3),
+  q0.025 = round(c(cav_leroux_INLA$summary.hyperpar$`0.025quant`, cav_leroux_INLA_ZIP$summary.hyperpar$`0.025quant`),3),
+  Median = round(c(cav_leroux_INLA$summary.hyperpar$`0.5quant`, cav_leroux_INLA_ZIP$summary.hyperpar$`0.5quant`),3),
+  q0.975 = round(c(cav_leroux_INLA$summary.hyperpar$`0.975quant`, cav_leroux_INLA_ZIP$summary.hyperpar$`0.975quant`),3))
 
-dd_con_nosp <- dd_con %>%
-  dplyr::mutate(PGR  = deconfound(.data$PGR, n.eigen.out=13)) %>% 
-  dplyr::mutate(ELI  = deconfound(.data$ELI, n.eigen.out=13)) %>% 
-  dplyr::mutate(UIS  = deconfound(.data$UIS, n.eigen.out=13))
-
-
-cav_bym_INLA_spatplus <- inla(N_ACC ~ 1 + TEP_th_22 + PGR + UIS + ELI +
-                       f(ID, model = "bym2", graph = W_con,  scale.model = T, 
-                         hyper = list(prec = list(prior = "pc.prec", param = c(1.5, 0.01)))),
-                     family = "poisson", offset = log(nn), data = dd_con_nosp,
-                     num.threads = 1, control.compute = 
-                       list(internal.opt = F, cpo = T, waic = T), 
-                     #inla.mode = "classic", control.inla = list(strategy = "laplace"),
-                     control.predictor = list(compute = T),
-                     verbose = F)
+hyperpars_leroux
 ```
-
-Estimated covariate effects are shown
-
-```{r bym spatplus fixed, echo = FALSE}
-
-round(cav_bym_INLA_spatplus$summary.fixed, 3)
-```
-
-As we see, removing the spatial patterns from covariates does not "move" credibility interval of`UIS` and`ELI` from zero. In this particular application, we deem deconfounding covariates of scarce interest. 
-
-If, instead, we remove the non-significant covariates, this would be the result:
-
-```{r INLA bym less covs, echo = FALSE}
-
-cav_bym_INLA_2covs <- inla(N_ACC ~ 1 + TEP_th_22 + PGR +
-                       f(ID, model = "bym2", graph = W_con,  scale.model = T, 
-                         hyper = list(prec = list(prior = "pc.prec", param = c(1.5, 0.01)))),
-                     family = "poisson", offset = log(nn), data = dd_con,
-                     num.threads = 1, control.compute = 
-                       list(internal.opt = F, cpo = T, waic = T), 
-                     #inla.mode = "classic", control.inla = list(strategy = "laplace"),
-                     control.predictor = list(compute = T),
-                     verbose = F)
-round(cav_bym_INLA_2covs$summary.fixed, 3)
-
-```
-
-And an improved WAIC. Please notice the decrease in WAIC is higher than the decrease in free parameters, hence the improvement must also be attributed to improved fitting.
-```{r INLA less covs waic}
-cav_bym_INLA_2covs$waic$waic
-cav_bym_INLA_2covs$waic$p.eff
-```
-
-This model may bring to interesting results. We can also notice a change in the mixing parameter:
-```{r hyperpar bym}
-# Model with four covariates ("full" one)
-round(cav_bym_INLA$summary.hyperpar,3)
-# Model with two covariates ("reduced" one)
-round(cav_bym_INLA_2covs$summary.hyperpar,3)
-
-```
-
-## Further developments: zero-inflated regression
-
-The number of zero counts is high:
-```{r zero counts}
-sum(dd_con$N_ACC == 0)
-barplot(table(dd_con$N_ACC))
-```
-
-We may wonder if the data generating process incorporates a zero-generating component. We can model this augmented process through zero-inflated Poisson likelihood:
-$$
-p(y_i | \eta_i) = \pi_0 \mathbb{I}{ \lbrace y_i=0 \rbrace } + (1-\pi_0) 
-\mathbb{I}{ \lbrace y_i>0 \rbrace }
-\frac{e^{-e^{\eta_i + P_i} - (\eta_i + P_i) y_i}}{y_i!}
-$$
-Where $\pi_0 := \mathrm{Prob} \lbrace y_i = 0 \rbrace$ for all $i$. The remainder of the notation is akin to the nonspatial regression section. 
-
-We estimate the ZIP model maintaining the BYM latent effect inside $\eta$:
-
-```{r ZIP bym inla, echo = FALSE, output = FALSE, message = FALSE}
-cav_bym_zip_INLA <- inla(N_ACC ~ 1 + TEP_th_22 + PGR + UIS + ELI +
-                       f(ID, model = "bym2", graph = W_con,  scale.model = T, 
-                         hyper = list(prec = list(prior = "pc.prec", param = c(1.5, 0.01)))),
-                     family = "zeroinflatedpoisson1", offset = log(nn), data =dd_con,
-                     num.threads = 1, control.compute = 
-                       list(internal.opt = F, cpo = T, waic = T), 
-                     #inla.mode = "classic", control.inla = list(strategy = "laplace"),
-                     control.predictor = list(compute = T),
-                     verbose = F) 
-
-```
-
-And show the corresponding summaries:
-```{r}
-summary(cav_bym_zip_INLA)
-```
-
-Estimates for $\pi_0$ are low, with mean and median $\approx 0.05$. The mixing parameter is highly shrunk with respect to the non-inflated regression model. The latent component in $\eta$ is thus dominated by random noise.
 
 It is, however, worth noticing how INLA manages to meet the regularity conditions to approximate the CPO more often than in the non-inflated model. Still, CPO must be re-computed manually before employing it as an evaluation metrics:
 ```{r cpo failures}
@@ -715,11 +727,31 @@ sum(cav_bym_INLA$cpo$failure)
 sum(cav_bym_INLA$cpo$failure > 0)
 
 
-sum(cav_bym_zip_INLA$cpo$failure)
-sum(cav_bym_zip_INLA$cpo$failure > 0)
+sum(cav_bym_INLA_ZIP$cpo$failure)
+sum(cav_bym_INLA_ZIP$cpo$failure > 0)
+
+sum(cav_leroux_INLA$cpo$failure)
+sum(cav_leroux_INLA$cpo$failure > 0)
+
+
+sum(cav_leroux_INLA_ZIP$cpo$failure)
+sum(cav_leroux_INLA_ZIP$cpo$failure > 0)
 ```
-The reason for failures in meeting the regularity conditions to compute the CPO within INLA would deserve more attention. A preliminary guess would be that the likelihood is strongly skewed with a small sample size. Perhaps. 
- 
+
+Lastly, we plot the estimated latent BYM effect under the ZIP model
+```{r zhat bym zip, echo = FALSE}
+dd_con %>% 
+  dplyr::mutate(zhat = cav_bym_INLA_ZIP$summary.random$ID$mean[c(1:nrow(dd_con))]) %>% 
+  ggplot2::ggplot() +
+  ggplot2::geom_sf(ggplot2::aes(fill = .data$zhat))+
+  ggplot2::labs("Expected BYM spatial effect") +
+  ggplot2::scale_fill_viridis_c(na.value = "white", direction = -1) +
+  ggplot2::theme_classic()
+```
+
+
+
+
 ## Weakness elements and possible developments
 
 From this preliminary analysis, inference on spatial models is hindered by the dominance of random noise over structured spatial effects. This can be argued from the posterior distribution of the mixing parameter in the BYM model, other than from the low spatial autocorrelation parameter in the PCAR.

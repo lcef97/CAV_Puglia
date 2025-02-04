@@ -251,7 +251,8 @@ covs.in[c(1:which.min(BIC.min))]
 #'  
 #'  
 #' 
-cav_glm <- glm(N_ACC ~ 1 + TEP_th_22 + UIS + PGR + ELI, family = "poisson",
+cav_glm <- glm(N_ACC ~ 1 +TEP_th_22 + ELI + PGR + 
+                 UIS + ELL + PDI + ER, family = "poisson",
                offset = log(nn), data = dd_con)
 
 #' For the ZIP regression we are going to need
@@ -261,7 +262,8 @@ if(!rlang::is_installed("pscl")) install.packages("pscl")
 
 #' Simplest way: no explanatory variable for $\pi_0$:
 #' 
-cav_zip <- pscl::zeroinfl(N_ACC ~ 1 + TEP_th_22 + UIS + PGR + ELI | 1, dist = "poisson",
+cav_zip <- pscl::zeroinfl(N_ACC ~ 1 +TEP_th_22 + ELI + PGR +
+                            UIS + ELL + PDI + ER | 1, dist = "poisson",
                link = "log", offset = log(nn), data = dd_con)
 
 summary(cav_glm)
@@ -277,7 +279,7 @@ var(dd_con$N_ACC - cav_zip$fitted.values) # Slightly higher
 
 ## Spatial frequentist Poisson regression: spaMM -------------------------------
 
-cav_car <- spaMM::fitme(N_ACC ~ 1 + TEP_th_22 + UIS + PGR + ELI +
+cav_car <- spaMM::fitme(N_ACC ~ 1 +TEP_th_22 + ELI + PGR + UIS + ELL + PDI + ER+
                           adjacency(1|PRO_COM) +  offset(log(nn)), 
                  adjMatrix = W_con,
                  data = dd_con, family = 'poisson')
@@ -295,7 +297,7 @@ dd_ctr$lat <- sf::st_coordinates(dd_ctr)[,2]
 dd_ctr$long <- sf::st_coordinates(dd_ctr)[,1]
 
 
-cav_gam_TPS <- mgcv::gam(N_ACC ~ 1 + TEP_th_22 + UIS + ELI + PGR + 
+cav_gam_TPS <- mgcv::gam(N_ACC ~ 1 +TEP_th_22 + ELI + PGR + UIS + ELL + PDI + ER + 
                            s(long, lat, bs="tp", m=2),
                          family = "poisson", offset = log(nn),
                          data = dd_ctr)
@@ -401,7 +403,7 @@ PCAR.model <- function(...) INLA::inla.rgeneric.define(inla.rgeneric.PCAR.model,
 #' Comments and analyses can be found in the markdown file
 
 # Replicates the glm quite well
-m_0_INLA <- inla(N_ACC ~ 1 + TEP_th_22 + PGR + UIS + ELI,
+m_0_INLA <- inla(N_ACC ~ 1 +TEP_th_22 + ELI + PGR + UIS + ELL + PDI + ER,
                  family = "poisson",  data =dd_con, offset = log(nn),
                  num.threads = 1, control.compute = 
                    list(internal.opt = F, cpo = T, waic = T), 
@@ -409,7 +411,7 @@ m_0_INLA <- inla(N_ACC ~ 1 + TEP_th_22 + PGR + UIS + ELI,
                  )
 
 # ICAR model
-cav_icar_INLA <- inla(N_ACC ~ 1 + TEP_th_22 + PGR + UIS + ELI +
+cav_icar_INLA <- inla(N_ACC ~ 1 +TEP_th_22 + ELI + PGR + UIS + ELL + PDI + ER +
                         f(ID, model = "besag", graph = W_con, scale.model = T, 
                           hyper = list(prec = list(prior = "pc.prec", param = c(1.5, 0.01)))),
                          family = "poisson", offset = log(nn), data =dd_con,
@@ -420,7 +422,7 @@ cav_icar_INLA <- inla(N_ACC ~ 1 + TEP_th_22 + PGR + UIS + ELI +
                          verbose = T) # better
 
 # PCAR model
-cav_pcar_INLA <- inla(N_ACC ~ 1 + TEP_th_22 + PGR + UIS + ELI +
+cav_pcar_INLA <- inla(N_ACC ~ 1 +TEP_th_22 + ELI + PGR + UIS + ELL + PDI + ER +
                         f(ID, model = PCAR.model(W = W_con, k = 1, lambda = 1.5)),
                          family = "poisson", offset = log(nn), data =dd_con,
                          num.threads = 1, control.compute = 
@@ -430,7 +432,7 @@ cav_pcar_INLA <- inla(N_ACC ~ 1 + TEP_th_22 + PGR + UIS + ELI +
                          verbose = T) 
 
 # BYM model
-cav_bym_INLA <- inla(N_ACC ~ 1 + TEP_th_22 + PGR + UIS + ELI +
+cav_bym_INLA <- inla(N_ACC ~ 1 +TEP_th_22 + ELI + PGR + UIS + ELL + PDI + ER +
                        f(ID, model = "bym2", graph = W_con,  scale.model = T, 
                          hyper = list(prec = list(prior = "pc.prec", param = c(1.5, 0.01)))),
                       family = "poisson", offset = log(nn), data =dd_con,
@@ -441,7 +443,7 @@ cav_bym_INLA <- inla(N_ACC ~ 1 + TEP_th_22 + PGR + UIS + ELI +
                       verbose = T) # better
 
 # Leroux model - sparse precision
-cav_leroux_INLA <- inla(N_ACC ~ 1 + TEP_th_22 + PGR + UIS + ELI +
+cav_leroux_INLA <- inla(N_ACC ~ 1 +TEP_th_22 + ELI + PGR + UIS + ELL + PDI + ER +
                           f(ID, model = "besagproper2", graph = W_con, 
                             hyper = list(prec = list(prior = "pc.prec", param = c(1.5, 0.01)))),
                      family = "poisson", offset = log(nn), data =dd_con,
@@ -484,7 +486,7 @@ dd_con_nosp <- dd_con %>%
   dplyr::mutate(UIS  = deconfound(.data$UIS, n.eigen.out=12))
 
 
-cav_bym_INLA_spatplus <- inla(N_ACC ~ 1 + TEP_th_22 + PGR + UIS + ELI +
+cav_bym_INLA_spatplus <- inla(N_ACC ~ 1 +TEP_th_22 + ELI + PGR + UIS + ELL + PDI + ER +
                        f(ID, model = "bym2", graph = W_con,  scale.model = T, 
                          hyper = list(prec = list(prior = "pc.prec", param = c(1.5, 0.01)))),
                      family = "poisson", offset = log(nn), data = dd_con_nosp,
@@ -499,7 +501,7 @@ summary(cav_bym_INLA_spatplus) # No big changes,as expected
 
 #' Finally, let us try with a different likelihood, i.e. the ZIP
 
-cav_bym_zip_INLA <- inla(N_ACC ~ 1 + TEP_th_22 + PGR + UIS + ELI +
+cav_bym_zip_INLA <- inla(N_ACC ~ 1 +TEP_th_22 + ELI + PGR + UIS + ELL + PDI + ER+
                        f(ID, model = "bym2", graph = W_con,  scale.model = T, 
                          hyper = list(prec = list(prior = "pc.prec", param = c(1.5, 0.01)))),
                      family = "zeroinflatedpoisson1", offset = log(nn), data =dd_con,
@@ -525,7 +527,7 @@ library(CARBayes)
 #' theta: IID component with marginal variance sigma^2
 #' 
 
-cav_bym0_INLA <- INLA::inla( N_ACC ~ 1 + TEP_th_22 + AES + 
+cav_bym0_INLA <- INLA::inla( N_ACC ~ 1 +TEP_th_22 + ELI + PGR + UIS + ELL + PDI + ER + 
                                f(ID, model = "bym", graph = W_con, scale.model = F,
                                  hyper = list(theta1 = list(param = c(1e-3, 1e-3)),
                                               theta2 = list(param = c(1e-3, 1e-3)))),
@@ -538,7 +540,7 @@ cav_bym0_INLA <- INLA::inla( N_ACC ~ 1 + TEP_th_22 + AES +
 
 
 
-cav_bym0_CARBayes <- CARBayes::S.CARbym(N_ACC ~ 1 + TEP_th_22 + AES + offset(log(nn)),
+cav_bym0_CARBayes <- CARBayes::S.CARbym(N_ACC ~ 1 +TEP_th_22 + ELI + PGR + UIS + ELL + PDI + ER+ offset(log(nn)),
                       family = "poisson", data =dd_con,
                       prior.tau2 = c(1e-3, 1e-3), prior.sigma2 = c(1e-3, 1e-3),
                       W = W_con, prior.var.beta = c(1e3, 1e3, 1e3),
@@ -552,7 +554,7 @@ cav_bym0_CARBayes$modelfit
 
 ## TBD: model fitting with BRMS --> warning: slow ------------------------------
 library(brms)
-cav_icar_brms <- brm(N_ACC ~ 1 + TEP_th_22 + AES + offset(log(nn)) +
+cav_icar_brms <- brm(N_ACC ~ 1 +TEP_th_22 + ELI + PGR + UIS + ELL + PDI + ER + offset(log(nn)) +
                        car(W, gr = PRO_COM, type = "icar"),
                      data = dd_con, data2 = list(W = W_con),
                      family = poisson())

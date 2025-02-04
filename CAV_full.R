@@ -379,18 +379,30 @@ dd_list <- list (
                       dd_con$TEP_th_22, rep(NA, 3*n), 
                       dd_con$TEP_th_23), nrow = 3*n,
                   ncol = 3, byrow = FALSE),
-  ER = matrix(c(dd_con$ER, rep(NA, 3*n), 
-                   dd_con$ER, rep(NA, 3*n), 
-                   dd_con$ER), nrow = 3*n,
-               ncol = 3, byrow = FALSE),
+  ELI = matrix(c(dd_con$ELI, rep(NA, 3*n), 
+                dd_con$ELI, rep(NA, 3*n), 
+                dd_con$ELI), nrow = 3*n,
+              ncol = 3, byrow = FALSE),
+  PGR = matrix(c(dd_con$PGR, rep(NA, 3*n), 
+                dd_con$PGR, rep(NA, 3*n), 
+                dd_con$PGR), nrow = 3*n,
+              ncol = 3, byrow = FALSE),
+  UIS = matrix(c(dd_con$UIS, rep(NA, 3*n), 
+                dd_con$UIS, rep(NA, 3*n), 
+                dd_con$UIS), nrow = 3*n,
+              ncol = 3, byrow = FALSE),
   ELL = matrix(c(dd_con$ELL, rep(NA, 3*n), 
                  dd_con$ELL, rep(NA, 3*n), 
                  dd_con$ELL), nrow = 3*n,
                ncol = 3, byrow = FALSE),
-  UIS = matrix(c(dd_con$UIS, rep(NA, 3*n), 
-                 dd_con$UIS, rep(NA, 3*n), 
-                 dd_con$UIS), nrow = 3*n, 
-               ncol = 3, byrow = FALSE),
+  PDI = matrix(c(dd_con$PDI, rep(NA, 3*n), 
+                dd_con$PDI, rep(NA, 3*n), 
+                dd_con$PDI), nrow = 3*n,
+              ncol = 3, byrow = FALSE),
+  ER = matrix(c(dd_con$ER, rep(NA, 3*n), 
+                dd_con$ER, rep(NA, 3*n), 
+                dd_con$ER), nrow = 3*n,
+              ncol = 3, byrow = FALSE),
   ID = c(1:n, (n + c(1:n)), (2*n + c(1:n))),
   nn = c(dd_con$nn21, dd_con$nn22, dd_con$nn23)) 
 
@@ -411,7 +423,7 @@ if(!rlang::is_installed("INLAMSM")) devtools::install_github("becarioprecario/IN
 library(INLAMSM)
 
 cav_PMCAR_inla <- inla(
-  N_ACC ~ 1 + TEP_th + UIS + ELL + ER + 
+  N_ACC ~ 1 +TEP_th_22 + ELI + PGR + UIS + ELL + PDI + ER+ 
     f(ID, model = inla.MCAR.model(k = 3, W = W_con,  alpha.min = 0,alpha.max = 1)),
   offset = log(nn),
   family = rep("poisson", 3), data =dd_list,
