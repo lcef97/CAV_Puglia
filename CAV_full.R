@@ -368,7 +368,6 @@ cov_selector(2023)
 #'  
 #'    -------------------------------------------------------------------------#
 
-#' Tentative: Use three covariates included at least twice.
 n <- nrow(dd_con)
 dd_list <- list (
   N_ACC = matrix(c(dd_con$N_ACC_21, rep(NA, 3*n), 
@@ -422,8 +421,18 @@ if(!rlang::is_installed("INLAMSM")) devtools::install_github("becarioprecario/IN
 
 library(INLAMSM)
 
+cav_IMCAR_inla <- inla(
+  N_ACC ~ 1 +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.IMCAR.model(k = 3, W = W_con), extraconstr = list(
+      A = kronecker(diag(1,3), matrix(1, nrow = 1, ncol = n)), e = c(0,0,0))),
+  offset = log(nn),
+  family = rep("poisson", 3), data =dd_list,
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  verbose = T)
+
+
 cav_PMCAR_inla <- inla(
-  N_ACC ~ 1 +TEP_th_22 + ELI + PGR + UIS + ELL + PDI + ER+ 
+  N_ACC ~ 1 +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
     f(ID, model = inla.MCAR.model(k = 3, W = W_con,  alpha.min = 0,alpha.max = 1)),
   offset = log(nn),
   family = rep("poisson", 3), data =dd_list,
@@ -444,6 +453,7 @@ cav_PMCAR_inla_tHyper <- inla.MCAR.transform(cav_PMCAR_inla, k=3,
 
 inla.zmarginal(inla.tmarginal(
   fun = function(X) 1/(1 + exp(-X)),
-  marginal = cav_PMCAR_inla$marginals.hyperpar[[4]]))
+  marginal = cav_PMCAR_inla$marginals.hyperpar[[7]]))
 
-
+#' Weird result: employment rate has negative association, and 
+#' even stronger in absolute value than for 2022.
