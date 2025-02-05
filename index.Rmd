@@ -264,8 +264,10 @@ To gain more insight on the role of all explanatory variables we show the poster
 cav_glm <- glm(N_ACC ~ 1 +TEP_th_22 + ELI + PGR +
                  UIS + ELL + PDI + ER,
                family = "poisson",offset = log(nn), data = dd_con)
-summary(cav_glm)
+summary(cav_glm)$coefficients
 ```
+
+
   - `TEP_th_22`: The distance from the closest support center seems to play the key role. The easiest interpretation is that the physical distance represents a barrier to violence reporting. This is quite intuitive if we think of the material dynamics of reporting gender-based violence: one could reasonably expect violent men to prevent their partners to come out and report the violence suffered.
   
   - `ELI`: The (ventile of the distribution of the) share of employees in low productivity economic units is a clear indicator of (relative) economic underdevelopment. The most naive interpretation wuld be that in underdeveloped areas reporting gender violence is somewhat harder than in developed ones.
@@ -282,11 +284,7 @@ summary(cav_glm)
 
 
 
-
-
-
-
-How do we interpret the regression coefficients? Keeping in mind we are working on the logarithm of the access rate, the standard deviation of the distance, expressed in minutes, is:
+How do we interpret the size of regression coefficient of `TEP_th_22`? Keeping in mind we are working on the logarithm of the access rate, the standard deviation of the distance, expressed in minutes, is:
 ```{r SDs of X}
 # Distance from closest support center
 attr(scale(dists_th_22$TEP_th_22), "scaled:scale")
@@ -654,7 +652,7 @@ WAICS <- tibble::tibble(
 WAICS
 
 ```
-As we can see, models taking into account random noise have a better performance. Please notice the effective number of parameters, i.e. the number of *unconstrained* parameters is higher in the ICAR than in the BYM and Leroux models, even though these require an additional parameter.
+As we can see, models taking into account random noise have a better performance. 
 
 ## Model results
 

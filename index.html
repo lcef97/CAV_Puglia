@@ -1767,32 +1767,16 @@ the posterior summaries of the full regression model</p>
 <pre class="r"><code>cav_glm &lt;- glm(N_ACC ~ 1 +TEP_th_22 + ELI + PGR +
                  UIS + ELL + PDI + ER,
                family = &quot;poisson&quot;,offset = log(nn), data = dd_con)
-summary(cav_glm)</code></pre>
-<pre><code>## 
-## Call:
-## glm(formula = N_ACC ~ 1 + TEP_th_22 + ELI + PGR + UIS + ELL + 
-##     PDI + ER, family = &quot;poisson&quot;, data = dd_con, offset = log(nn))
-## 
-## Coefficients:
-##             Estimate Std. Error  z value Pr(&gt;|z|)    
-## (Intercept) -7.46749    0.04525 -165.032  &lt; 2e-16 ***
-## TEP_th_22   -0.39714    0.04202   -9.451  &lt; 2e-16 ***
-## ELI         -0.07087    0.03369   -2.103  0.03543 *  
-## PGR          0.12915    0.04270    3.024  0.00249 ** 
-## UIS         -0.09776    0.03511   -2.785  0.00536 ** 
-## ELL         -0.11515    0.04427   -2.601  0.00930 ** 
-## PDI         -0.06869    0.04522   -1.519  0.12872    
-## ER          -0.06641    0.05020   -1.323  0.18586    
-## ---
-## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
-## 
-## (Dispersion parameter for poisson family taken to be 1)
-## 
-##     Null deviance: 729.12  on 255  degrees of freedom
-## Residual deviance: 501.22  on 248  degrees of freedom
-## AIC: 1083.8
-## 
-## Number of Fisher Scoring iterations: 5</code></pre>
+summary(cav_glm)$coefficients</code></pre>
+<pre><code>##                Estimate Std. Error     z value     Pr(&gt;|z|)
+## (Intercept) -7.46748635 0.04524877 -165.031813 0.000000e+00
+## TEP_th_22   -0.39714306 0.04201946   -9.451407 3.343054e-21
+## ELI         -0.07087461 0.03369481   -2.103428 3.542838e-02
+## PGR          0.12914911 0.04270159    3.024457 2.490801e-03
+## UIS         -0.09776366 0.03510686   -2.784745 5.356979e-03
+## ELL         -0.11515036 0.04427412   -2.600851 9.299292e-03
+## PDI         -0.06869493 0.04521827   -1.519185 1.287159e-01
+## ER          -0.06640563 0.05019652   -1.322913 1.858643e-01</code></pre>
 <ul>
 <li><p><code>TEP_th_22</code>: The distance from the closest support
 center seems to play the key role. The easiest interpretation is that
@@ -1826,9 +1810,10 @@ index does not seem significantly different from zero</p></li>
 <li><p><code>ER</code>: Nor does the association with employment
 rate.</p></li>
 </ul>
-<p>How do we interpret the regression coefficients? Keeping in mind we
-are working on the logarithm of the access rate, the standard deviation
-of the distance, expressed in minutes, is:</p>
+<p>How do we interpret the size of regression coefficient of
+<code>TEP_th_22</code>? Keeping in mind we are working on the logarithm
+of the access rate, the standard deviation of the distance, expressed in
+minutes, is:</p>
 <pre class="r"><code># Distance from closest support center
 attr(scale(dists_th_22$TEP_th_22), &quot;scaled:scale&quot;)</code></pre>
 <pre><code>## [1] 14.10021</code></pre>
@@ -2035,10 +2020,7 @@ corresponding degree matrix.</p>
   </script>
 </div>
 <p>As we can see, models taking into account random noise have a better
-performance. Please notice the effective number of parameters, i.e. the
-number of <em>unconstrained</em> parameters is higher in the ICAR than
-in the BYM and Leroux models, even though these require an additional
-parameter.</p>
+performance.</p>
 </div>
 </div>
 <div id="model-results" class="section level2">

@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.24 (MiKTeX 22.1) (preloaded format=pdflatex 2022.2.5)  4 FEB 2025 23:42
+This is pdfTeX, Version 3.141592653-2.6-1.40.24 (MiKTeX 22.1) (preloaded format=pdflatex 2022.2.5)  5 FEB 2025 13:17
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -633,65 +633,66 @@ line 244.
 (pdftex.def)             Requested size: 469.75386pt x 216.80946pt.
 LaTeX Font Info:    Font shape `T1/lmtt/bx/n' in size <10> not available
 (Font)              Font shape `T1/lmtt/b/n' tried instead on input line 258.
-[2 <./index_files/figure-latex/correls-1.pdf>]
-LaTeX Font Info:    Trying to load font information for TS1+lmtt on input line 
-337.
-(C:\Users\Leonardo\AppData\Local\Programs\MiKTeX\tex/latex/lm\ts1lmtt.fd
-File: ts1lmtt.fd 2009/10/30 v1.6 Font defs for Latin Modern
-) [3]
+[2 <./index_files/figure-latex/correls-1.pdf>] [3]
 <index_files/figure-latex/zero counts-1.pdf, id=52, 469.755pt x 325.215pt>
 File: index_files/figure-latex/zero counts-1.pdf Graphic file (type pdf)
 <use index_files/figure-latex/zero counts-1.pdf>
 Package pdftex.def Info: index_files/figure-latex/zero counts-1.pdf  used on in
-put line 420.
+put line 401.
 (pdftex.def)             Requested size: 469.75386pt x 325.2142pt.
-[4] [5 <./index_files/figure-latex/zero counts-1.pdf>]
-<index_files/figure-latex/glm residuals-1.pdf, id=71, 469.755pt x 216.81pt>
+[4 <./index_files/figure-latex/zero counts-1.pdf>]
+<index_files/figure-latex/glm residuals-1.pdf, id=65, 469.755pt x 216.81pt>
 File: index_files/figure-latex/glm residuals-1.pdf Graphic file (type pdf)
 <use index_files/figure-latex/glm residuals-1.pdf>
 Package pdftex.def Info: index_files/figure-latex/glm residuals-1.pdf  used on 
-input line 476.
+input line 457.
 (pdftex.def)             Requested size: 469.75386pt x 216.80946pt.
-[6 <./index_files/figure-latex/glm residuals-1.pdf>]
+[5 <./index_files/figure-latex/glm residuals-1.pdf>]
 
-LaTeX Warning: Citation `INLAVB' on page 7 undefined on input line 576.
+LaTeX Warning: Citation `INLAVB' on page 6 undefined on input line 557.
 
-[7] [8] [9] [10]
-<index_files/figure-latex/zhat bym zip-1.pdf, id=114, 469.755pt x 325.215pt>
+[6] [7] [8]
+LaTeX Font Info:    Trying to load font information for TS1+lmtt on input line 
+729.
+(C:\Users\Leonardo\AppData\Local\Programs\MiKTeX\tex/latex/lm\ts1lmtt.fd
+File: ts1lmtt.fd 2009/10/30 v1.6 Font defs for Latin Modern
+) [9]
+<index_files/figure-latex/zhat bym zip-1.pdf, id=110, 469.755pt x 325.215pt>
 File: index_files/figure-latex/zhat bym zip-1.pdf Graphic file (type pdf)
 <use index_files/figure-latex/zhat bym zip-1.pdf>
 Package pdftex.def Info: index_files/figure-latex/zhat bym zip-1.pdf  used on i
-nput line 891.
+nput line 869.
 (pdftex.def)             Requested size: 469.75386pt x 325.2142pt.
 
-Overfull \hbox (289.2853pt too wide) in paragraph at lines 890--892
+Overfull \hbox (289.2853pt too wide) in paragraph at lines 868--870
 []\T1/lmr/m/n/10 (-20) Lastly, we plot the es-ti-mated la-tent BYM ef-fect un-d
 er the ZIP model [] 
  []
 
+[10]
+
+LaTeX Warning: Citation `GelmanWAIC' on page 11 undefined on input line 912.
+
 [11 <./index_files/figure-latex/zhat bym zip-1.pdf>]
-
-LaTeX Warning: Citation `GelmanWAIC' on page 12 undefined on input line 934.
-
 LaTeX Font Info:    Font shape `T1/lmtt/bx/n' in size <12> not available
-(Font)              Font shape `T1/lmtt/b/n' tried instead on input line 947.
-[12] [13] [14] (index.aux)
+(Font)              Font shape `T1/lmtt/b/n' tried instead on input line 925.
+[12] [13] (index.aux)
 
 LaTeX Warning: There were undefined references.
 
  ) 
 Here is how much of TeX's memory you used:
- 14077 strings out of 478593
- 226587 string characters out of 2843189
- 558333 words of memory out of 3000000
- 31821 multiletter control sequences out of 15000+600000
- 528063 words of font info for 149 fonts, out of 8000000 for 9000
+ 14073 strings out of 478593
+ 226538 string characters out of 2843189
+ 560333 words of memory out of 3000000
+ 31820 multiletter control sequences out of 15000+600000
+ 527933 words of font info for 148 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
- 74i,6n,77p,1004b,501s stack positions out of 5000i,500n,10000p,200000b,80000s
-{C:/Users/Leonardo/AppData/Local/Programs/MiKTeX/fonts/enc/dvips/lm/lm-mathex
-.enc}{C:/Users/Leonardo/AppData/Local/Programs/MiKTeX/fonts/enc/dvips/lm/lm-rm.
-enc}{C:/Users/Leonardo/AppData/Local/Programs/MiKTeX/fonts/enc/dvips/lm/lm-ec.e
-nc}{C:/Users/Leonardo/AppData/Local/Programs/MiKTeX/fonts/enc/dvips/lm/lm-ts1.e
+ 74i,6n,77p,1004b,480s stack positions out of 5000i,500n,10000p,200000b,80000s
+{C:/Users/Leonardo/AppData/Local/Programs/MiKTeX/fonts/enc/dvips/lm/lm-ts1.en
+c}{C:/Users/Leonardo/AppData/Local/Programs/MiKTeX/fonts/enc/dvips/lm/lm-ec.enc
+}{C:/Users/Leonardo/AppData/Local/Programs/MiKTeX/fonts/enc/dvips/lm/lm-mathex.
+enc}{C:/Users/Leonardo/AppData/Local/Programs/MiKTeX/fonts/enc/dvips/lm/lm-rm.e
 nc}{C:/Users/Leonardo/AppData/Local/Programs/MiKTeX/fonts/enc/dvips/lm/lm-maths
 y.enc}{C:/Users/Leonardo/AppData/Local/Programs/MiKTeX/fonts/enc/dvips/lm/lm-ma
 thit.enc}<C:/Users/Leonardo/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm
@@ -712,9 +713,9 @@ s/MiKTeX/fonts/type1/public/lm/lmtk10.pfb><C:/Users/Leonardo/AppData/Local/Prog
 rams/MiKTeX/fonts/type1/public/lm/lmtt10.pfb><C:/Users/Leonardo/AppData/Local/P
 rograms/MiKTeX/fonts/type1/public/lm/lmtti10.pfb><C:/Users/Leonardo/AppData/Loc
 al/Programs/MiKTeX/fonts/type1/public/amsfonts/symbols/msbm10.pfb>
-Output written on index.pdf (14 pages, 922489 bytes).
+Output written on index.pdf (13 pages, 919147 bytes).
 PDF statistics:
- 273 PDF objects out of 1000 (max. 8388607)
- 41 named destinations out of 1000 (max. 500000)
+ 269 PDF objects out of 1000 (max. 8388607)
+ 40 named destinations out of 1000 (max. 500000)
  30818 words of extra memory for PDF output out of 35830 (max. 10000000)
 
