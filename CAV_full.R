@@ -453,7 +453,7 @@ cav_PMCAR_inla_tHyper <- inla.MCAR.transform(cav_PMCAR_inla, k=3,
 
 inla.zmarginal(inla.tmarginal(
   fun = function(X) 1/(1 + exp(-X)),
-  marginal = cav_PMCAR_inla$marginals.hyperpar[[7]]))
+  marginal = cav_PMCAR_inla$marginals.hyperpar[[1]]))
 
 #' Weird result: employment rate has negative association, and 
 #' even stronger in absolute value than for 2022.
