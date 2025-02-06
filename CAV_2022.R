@@ -469,22 +469,32 @@ summary(cav_leroux_INLA)
 
 #' Let us try removing spatial patterns:
 
-deconfound <- function(X, Lapl = Lapl_con, n.eigen.out){
-  X <- as.matrix(X)
+deconfound <- function(X, Lapl = Lapl_con, n.eigen.out, rescale = T){
+  if(!is.matrix(X)) {
+    as.vectorX <- TRUE
+    X <- as.matrix(X)
+  } else {
+      as.vectorX <- FALSE
+      }
   V <- eigen(Lapl)$vectors
   rk <- Matrix::rankMatrix(Lapl)
   coef <- solve(V, X)
   eigen.in <- c(1:(rk-n.eigen.out), c((rk+1):ncol(V)))
   X_nosp <- V[, eigen.in] %*% coef[eigen.in, ]
+  if(rescale) X_nosp <- scale(X_nosp)
+  if(as.vectorX) X_nosp <- as.vector(X_nosp)
   return(X_nosp)
 }
 
 
 dd_con_nosp <- dd_con %>%
-  dplyr::mutate(PGR  = deconfound(.data$PGR, n.eigen.out=12)) %>% 
-  dplyr::mutate(ELI  = deconfound(.data$ELI, n.eigen.out=12)) %>% 
-  dplyr::mutate(UIS  = deconfound(.data$UIS, n.eigen.out=12))
-
+  dplyr::mutate(ELI  = deconfound(.data$ELI, n.eigen.out=13)) %>% 
+  dplyr::mutate(PGR  = deconfound(.data$PGR, n.eigen.out=13)) %>% 
+  dplyr::mutate(UIS  = deconfound(.data$UIS, n.eigen.out=13)) %>% 
+  dplyr::mutate(ELL  = deconfound(.data$ELL, n.eigen.out=13)) %>% 
+  dplyr::mutate(PDI  = deconfound(.data$PDI, n.eigen.out=13)) %>% 
+  dplyr::mutate(ER  = deconfound(.data$ER, n.eigen.out=13))
+  
 
 cav_bym_INLA_spatplus <- inla(N_ACC ~ 1 +TEP_th_22 + ELI + PGR + UIS + ELL + PDI + ER +
                        f(ID, model = "bym2", graph = W_con,  scale.model = T, 
@@ -496,7 +506,21 @@ cav_bym_INLA_spatplus <- inla(N_ACC ~ 1 +TEP_th_22 + ELI + PGR + UIS + ELL + PDI
                      control.predictor = list(compute = T),
                      verbose = T)
 
-summary(cav_bym_INLA_spatplus) # No big changes,as expected
+
+
+summary(cav_bym_INLA_spatplus) # Quite close
+
+
+
+cav_icar_INLA_spatplus <- inla(N_ACC ~ 1 +TEP_th_22 + ELI + PGR + UIS + ELL + PDI + ER +
+                                f(ID, model = "besag", graph = W_con,  scale.model = T, 
+                                  hyper = list(prec = list(prior = "pc.prec", param = c(1.5, 0.01)))),
+                              family = "poisson", offset = log(nn), data = dd_con_nosp,
+                              num.threads = 1, control.compute = 
+                                list(internal.opt = F, cpo = T, waic = T), 
+                              #inla.mode = "classic", control.inla = list(strategy = "laplace"),
+                              control.predictor = list(compute = T),
+                              verbose = T)
 
 
 #' Finally, let us try with a different likelihood, i.e. the ZIP
