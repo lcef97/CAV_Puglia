@@ -128,10 +128,12 @@ Therefore, the municipality-level dataset in scope consists of $256$ observation
 
 We can only take into account the accesses to support centers for which the origin municipality of victims is reported. Therefore, the total count of accesses in scope is $2259$. Among these accesses, $1516$ were taken charge of. 
 
-Here, we plot the log-access rate per residence municipality, i.e. the logarithm of the ratio between access counts and female population. Blank areas correspond to municipalities from which zero women accessed support centers ($82$ municipalities).
+Here, we plot the access rate per residence municipality, i.e. the ratio between access counts and female population, both on the linear and the logarithmic scale. Blank areas in the latter figurecorrespond to municipalities from which zero women accessed support centers ($82$ municipalities).
 
 
-```{r Accesses plot, echo = FALSE, warning = FALSE, message = FALSE, fig.height = 3}
+
+
+```{r Log accesses plot, echo = FALSE, warning = FALSE, message = FALSE, fig.height = 3}
 dd_con %>% 
   dplyr::mutate(rate = log(.data$N_ACC) - log(.data$nn)) %>% 
   ggplot2::ggplot() +
