@@ -670,6 +670,34 @@ betas <- cbind(
 betas
 ```
 
+```{r plot beta, echo = FALSE}
+
+betalimX <-range(do.call(c, lapply(cav_bym_INLA$marginals.fixed[-1], FUN = function(x) x[,1])))
+betalimY <-range(do.call(c, lapply(cav_bym_INLA$marginals.fixed[-1], FUN = function(x) x[,2])))
+
+betamarg <- as.data.frame(do.call(cbind, cav_bym_INLA$marginals.fixed[-1]))
+names(betamarg) <- paste0(rep(names(cav_bym_INLA$marginals.fixed[-1]),each=2), c("__X", "__Y"))
+
+
+betamarg_long <- tidyr::pivot_longer( betamarg, cols = c(1:14),
+  names_to = c("Effect", ".value"),# Split names into "parameter" and value column names
+  names_sep = "__")
+
+ggplot2::ggplot(betamarg_long, ggplot2::aes(x = .data$X, y = .data$Y, color = .data$Effect)) +
+  ggplot2::geom_line(size = 0.7) +
+  ggplot2::geom_vline(xintercept = 0)+
+  ggplot2::coord_cartesian(xlim = betalimX, ylim = betalimY) +
+  ggplot2::labs(
+    title = "Posterior Marginals of covariates effects",
+    x = expression(beta),
+    y = expression(pi(beta ~ "|" ~ y)),
+    color = "Effect") +
+  ggplot2::theme_classic()
+
+
+```
+
+
 Estimations of $\beta$ differ from the nonspatial model. For all variables, credibility intervals are wider due to increased uncertainty. 
 
   - `TEP_th_22` The effect of the distance from the closest support center remains similar in mean and the interpretation is not altered.
@@ -749,16 +777,17 @@ sum(cav_leroux_INLA_ZIP$cpo$failure)
 sum(cav_leroux_INLA_ZIP$cpo$failure > 0)
 ```
 
-Lastly, we plot the estimated latent BYM effect under the ZIP model
-```{r zhat bym zip, echo = FALSE}
+Lastly, we plot the estimated latent BYM effect under the Poisson model
+```{r zhat bym, echo = FALSE}
 dd_con %>% 
-  dplyr::mutate(zhat = cav_bym_INLA_ZIP$summary.random$ID$mean[c(1:nrow(dd_con))]) %>% 
+  dplyr::mutate(zhat = cav_bym_INLA$summary.random$ID$mean[c(1:nrow(dd_con))]) %>% 
   ggplot2::ggplot() +
   ggplot2::geom_sf(ggplot2::aes(fill = .data$zhat))+
   ggplot2::labs("Expected BYM spatial effect") +
   ggplot2::scale_fill_viridis_c(na.value = "white", direction = -1) +
   ggplot2::theme_classic()
 ```
+
 
 
 
