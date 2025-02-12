@@ -666,7 +666,6 @@ betas <- cbind(
   q0.975_ZIP = cav_bym_INLA_ZIP$summary.fixed$`0.975quant`), 3))
 
 
-
 betas
 ```
 

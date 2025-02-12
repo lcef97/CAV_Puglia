@@ -2016,7 +2016,7 @@ corresponding degree matrix.</p>
 <p>We briefly compare these four through the WAIC <span class="citation">(Gelman, Hwang, and Vehtari 2014)</span>:</p>
 <div data-pagedtable="false">
 <script data-pagedtable-source type="application/json">
-{"columns":[{"label":["Model"],"name":[1],"type":["chr"],"align":["left"]},{"label":["WAIC_Poisson"],"name":[2],"type":["dbl"],"align":["right"]},{"label":["WAIC_ZIP"],"name":[3],"type":["dbl"],"align":["right"]},{"label":["Eff_params_Poisson"],"name":[4],"type":["dbl"],"align":["right"]},{"label":["Eff_params_ZIP"],"name":[5],"type":["dbl"],"align":["right"]}],"data":[{"1":"Null","2":"1098.397","3":"1047.493","4":"20.355","5":"18.091"},{"1":"ICAR","2":"951.387","3":"962.571","4":"74.725","5":"66.380"},{"1":"PCAR","2":"947.449","3":"953.208","4":"76.765","5":"64.976"},{"1":"BYM","2":"942.879","3":"952.994","4":"75.336","5":"65.131"},{"1":"Leroux","2":"945.463","3":"951.509","4":"75.595","5":"63.958"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
+{"columns":[{"label":["Model"],"name":[1],"type":["chr"],"align":["left"]},{"label":["WAIC_Poisson"],"name":[2],"type":["dbl"],"align":["right"]},{"label":["WAIC_ZIP"],"name":[3],"type":["dbl"],"align":["right"]},{"label":["Eff_params_Poisson"],"name":[4],"type":["dbl"],"align":["right"]},{"label":["Eff_params_ZIP"],"name":[5],"type":["dbl"],"align":["right"]}],"data":[{"1":"Null","2":"1098.397","3":"1047.493","4":"20.355","5":"18.091"},{"1":"ICAR","2":"951.387","3":"962.571","4":"74.725","5":"66.380"},{"1":"PCAR","2":"947.449","3":"953.208","4":"76.765","5":"64.976"},{"1":"BYM","2":"942.879","3":"952.995","4":"75.336","5":"65.130"},{"1":"Leroux","2":"945.463","3":"951.509","4":"75.595","5":"63.958"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
   </script>
 </div>
 <p>As we can see, models taking into account random noise have a better
@@ -2071,7 +2071,7 @@ reported.</p></li>
 ## generated.</code></pre>
 <div data-pagedtable="false">
 <script data-pagedtable-source type="application/json">
-{"columns":[{"label":["Variable"],"name":[1],"type":["chr"],"align":["left"]},{"label":["mean"],"name":[2],"type":["dbl"],"align":["right"]},{"label":["X0.025quant"],"name":[3],"type":["dbl"],"align":["right"]},{"label":["X0.5quant"],"name":[4],"type":["dbl"],"align":["right"]},{"label":["X0.975quant"],"name":[5],"type":["dbl"],"align":["right"]}],"data":[{"1":"Z_VAR_Pois","2":"0.40156773","3":"0.19232453","4":"0.38050124","5":"0.7319212"},{"1":"Mixing_Pois","2":"0.56228101","3":"0.15598929","4":"0.57674961","5":"0.9027436"},{"1":"Zero_Prob","2":"2.21290978","3":"1.10383840","4":"1.72665601","5":"6.3039328"},{"1":"Z_VAR_ZIP","2":"0.04653114","3":"0.01001942","4":"0.03998609","5":"0.1197606"},{"1":"Mixing_ZIP","2":"0.37325766","3":"0.01267134","4":"0.31709415","5":"0.9237201"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
+{"columns":[{"label":["Variable"],"name":[1],"type":["chr"],"align":["left"]},{"label":["mean"],"name":[2],"type":["dbl"],"align":["right"]},{"label":["X0.025quant"],"name":[3],"type":["dbl"],"align":["right"]},{"label":["X0.5quant"],"name":[4],"type":["dbl"],"align":["right"]},{"label":["X0.975quant"],"name":[5],"type":["dbl"],"align":["right"]}],"data":[{"1":"Z_VAR_Pois","2":"0.40156442","3":"0.19233163","4":"0.38049904","5":"0.7319002"},{"1":"Mixing_Pois","2":"0.56228278","3":"0.15601250","4":"0.57674847","5":"0.9027344"},{"1":"Z_VAR_ZIP","2":"2.21280807","3":"1.10385158","4":"1.72666313","5":"6.3030159"},{"1":"Zero_Prob","2":"0.04652755","3":"0.01002144","4":"0.03998744","5":"0.1197197"},{"1":"Mixing_ZIP","2":"0.37329799","3":"0.01268178","4":"0.31717197","5":"0.9236882"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
   </script>
 </div>
 <p>Even though the value of the zero-inflation parameter is low, we can
@@ -2085,7 +2085,7 @@ can the Laplacian matrix be scaled <em>a priori</em>. That being said,
 we see the difference between the two likelihoods is analogous.</p>
 <div data-pagedtable="false">
 <script data-pagedtable-source type="application/json">
-{"columns":[{"label":["Variable"],"name":[1],"type":["chr"],"align":["left"]},{"label":["mean"],"name":[2],"type":["dbl"],"align":["right"]},{"label":["X0.025quant"],"name":[3],"type":["dbl"],"align":["right"]},{"label":["X0.5quant"],"name":[4],"type":["dbl"],"align":["right"]},{"label":["X0.975quant"],"name":[5],"type":["dbl"],"align":["right"]}],"data":[{"1":"Z_VAR_Pois","2":"0.67625004","3":"0.35695467","4":"0.64713555","5":"1.1614490"},{"1":"Mixing_Pois","2":"0.51379013","3":"0.14101467","4":"0.51579437","5":"0.8768433"},{"1":"Zero_Prob","2":"2.46138228","3":"1.13718100","4":"1.93409675","5":"6.9909591"},{"1":"Z_VAR_ZIP","2":"0.04667846","3":"0.01335169","4":"0.04224466","5":"0.1045616"},{"1":"Mixing_ZIP","2":"0.40876712","3":"0.07886457","4":"0.38970047","5":"0.8262556"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
+{"columns":[{"label":["Variable"],"name":[1],"type":["chr"],"align":["left"]},{"label":["mean"],"name":[2],"type":["dbl"],"align":["right"]},{"label":["X0.025quant"],"name":[3],"type":["dbl"],"align":["right"]},{"label":["X0.5quant"],"name":[4],"type":["dbl"],"align":["right"]},{"label":["X0.975quant"],"name":[5],"type":["dbl"],"align":["right"]}],"data":[{"1":"Z_VAR_Pois","2":"0.67625004","3":"0.35695467","4":"0.64713555","5":"1.1614490"},{"1":"Mixing_Pois","2":"0.51379013","3":"0.14101467","4":"0.51579437","5":"0.8768433"},{"1":"Z_VAR_ZIP","2":"2.46138228","3":"1.13718100","4":"1.93409675","5":"6.9909591"},{"1":"Zero_Prob","2":"0.04667846","3":"0.01335169","4":"0.04224466","5":"0.1045616"},{"1":"Mixing_ZIP","2":"0.40876712","3":"0.07886457","4":"0.38970047","5":"0.8262556"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
   </script>
 </div>
 <p>It is, however, worth noticing how INLA manages to meet the
@@ -2093,11 +2093,11 @@ regularity conditions to approximate the CPO more often than in the
 non-inflated model. Still, CPO must be re-computed manually before
 employing it as an evaluation metrics:</p>
 <pre class="r"><code>sum(cav_bym_INLA$cpo$failure)</code></pre>
-<pre><code>## [1] 103.3472</code></pre>
+<pre><code>## [1] 103.341</code></pre>
 <pre class="r"><code>sum(cav_bym_INLA$cpo$failure &gt; 0)</code></pre>
 <pre><code>## [1] 223</code></pre>
 <pre class="r"><code>sum(cav_bym_INLA_ZIP$cpo$failure)</code></pre>
-<pre><code>## [1] 16.35612</code></pre>
+<pre><code>## [1] 16.35397</code></pre>
 <pre class="r"><code>sum(cav_bym_INLA_ZIP$cpo$failure &gt; 0)</code></pre>
 <pre><code>## [1] 111</code></pre>
 <pre class="r"><code>sum(cav_leroux_INLA$cpo$failure)</code></pre>

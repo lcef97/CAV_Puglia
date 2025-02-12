@@ -701,6 +701,7 @@ cav_MLCAR_inla <- inla(
 
 ```
 
+#### Model assessment 
 
 We briefly compare the three models in scope through the WAIC [@GelmanWAIC]:
 
@@ -719,7 +720,13 @@ print(xtable::xtable(WAICS),include.rowname = F)
 
 ```
 
-As we can see, adding a spatial model is an improving element, not a waste of complexity. Here we show some posterior summaries for $\beta$ under the Leroux model.
+As we can see, adding a spatial model is an improving element, not a waste of complexity.
+
+
+
+## Preliminary findings
+
+Here we show some posterior summaries for $\beta$ under the Leroux model.
 
 Since the latent effect has a proper distribution and does not require sum to zero constraints, using year-specific intercepts would cause confounding between intercepts and latent effects, leading to system crashing and thus failure to estimate the model. As a consequence, we used the same intercept for the three different years, allowing the latent effect to have *a posteriori* an additive year-specific shift.
 
