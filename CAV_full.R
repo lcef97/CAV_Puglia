@@ -173,10 +173,10 @@ ggy23 <- ggplot2::ggplot() +
 gridExtra::grid.arrange(ggy21, ggy22, ggy23, nrow = 3, ncol = 1)
 
 
-## Mapping municipalities from support centers ---------------------------------
 
 
-#'  Loop to compute mini
+#'  ## Mapping municipalities from support centers ----------------------------#
+#'  Loop to compute miniman distances
 #'
 #'
 #' Municipalities hosting a support center:
@@ -238,8 +238,6 @@ gridExtra::grid.arrange(ggy21, ggy22, ggy23, nrow = 3, ncol = 1)
 #'  names(dists_th_23) <- c("PRO_COM", "TEP_th_23")
 #'  dists_th_23$TEP_th <- as.numeric(dists_th_23$TEP_th)
 
-
-
 load("input/dists_th_22.RData")
 load("input/dists_th_23.RData")
 
@@ -288,7 +286,238 @@ glm_all_X <- glm(N_ACC_21 ~ 1 + TEP_th_22 + TEP_th_23 + MFI + AES + PDI + ELL + 
 # model matrix
 X <- model.matrix(glm_all_X)
 
-## Covariates choice ----------------------------------------------------------
+
+n <- nrow(dd_con)
+dd_list <- list (
+  Intercept = matrix(c(rep(1, n), rep(NA, 3*n), 
+                       rep(1,n), rep(NA, 3*n), 
+                       rep(1,n)), nrow = 3*n, 
+                     ncol = 3, byrow = FALSE),
+  N_ACC = matrix(c(dd_con$N_ACC_21, rep(NA, 3*n), 
+                   dd_con$N_ACC_22, rep(NA, 3*n), 
+                   dd_con$N_ACC_23), nrow = 3*n, 
+                 ncol = 3, byrow = FALSE),
+  TEP_th = matrix(c(dd_con$TEP_th_22, rep(NA, 3*n), 
+                    dd_con$TEP_th_22, rep(NA, 3*n), 
+                    dd_con$TEP_th_23), nrow = 3*n,
+                  ncol = 3, byrow = FALSE),
+  ELI = matrix(c(dd_con$ELI, rep(NA, 3*n), 
+                 dd_con$ELI, rep(NA, 3*n), 
+                 dd_con$ELI), nrow = 3*n,
+               ncol = 3, byrow = FALSE),
+  PGR = matrix(c(dd_con$PGR, rep(NA, 3*n), 
+                 dd_con$PGR, rep(NA, 3*n), 
+                 dd_con$PGR), nrow = 3*n,
+               ncol = 3, byrow = FALSE),
+  UIS = matrix(c(dd_con$UIS, rep(NA, 3*n), 
+                 dd_con$UIS, rep(NA, 3*n), 
+                 dd_con$UIS), nrow = 3*n,
+               ncol = 3, byrow = FALSE),
+  ELL = matrix(c(dd_con$ELL, rep(NA, 3*n), 
+                 dd_con$ELL, rep(NA, 3*n), 
+                 dd_con$ELL), nrow = 3*n,
+               ncol = 3, byrow = FALSE),
+  PDI = matrix(c(dd_con$PDI, rep(NA, 3*n), 
+                 dd_con$PDI, rep(NA, 3*n), 
+                 dd_con$PDI), nrow = 3*n,
+               ncol = 3, byrow = FALSE),
+  ER = matrix(c(dd_con$ER, rep(NA, 3*n), 
+                dd_con$ER, rep(NA, 3*n), 
+                dd_con$ER), nrow = 3*n,
+              ncol = 3, byrow = FALSE),
+  ID = c(1:n, (n + c(1:n)), (2*n + c(1:n))),
+  nn = c(dd_con$nn21, dd_con$nn22, dd_con$nn23)) 
+
+#'  May be useful?
+#'  dataframe input obejct ==> same regression coefficients
+#'  for all years (not so trustable indeed)
+
+dd_long <- do.call(rbind, rep(list(
+  dplyr::select(sf::st_drop_geometry(dd_con), 
+                colnames(X)[-c(1:3)])),3) )  %>% 
+  dplyr::mutate(N_ACC = c(dd_con$N_ACC_21, dd_con$N_ACC_22, dd_con$N_ACC_23),
+                TEP_th = c(dd_con$TEP_th_22, dd_con$TEP_th_22, dd_con$TEP_th_23),
+                nn = c(dd_con$nn21, dd_con$nn22, dd_con$nn23),
+                Intercept = rep(1, nrow(.)),
+                ID = c(1:nrow(.)))
+
+
+
+
+## Spatial analysis -----------------------------------------------------------#
+
+#' The simplest way to take into account the three different years
+#' is defining a multivariate model in which each year corresponds
+#' to a different dependent variable.
+#' 
+#' We use the PCAR, as outlined in Gelfand and Vounatsu (2003):
+#' Unique spatial autocorrelation parameter for the three 
+#' target variables.
+#' 
+
+if(!rlang::is_installed("INLAMSM")) devtools::install_github("becarioprecario/INLAMSM")
+
+library(INLA)
+library(INLAMSM)
+
+cav_IMCAR_inla <- inla(
+  N_ACC ~ 0 + Intercept +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.IMCAR.model(k = 3, W = W_con), extraconstr = list(
+      A = kronecker(diag(1,3), matrix(1, nrow = 1, ncol = n)), e = c(0,0,0))),
+  offset = log(nn),
+  family = rep("poisson", 3), data =dd_list,
+  #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  verbose = T)
+
+#' Warning: only works with unique intercept for
+#' all years.
+
+
+inla(N_ACC ~ 0 + Intercept + TEP_th +
+       f(ID, model = inla.MCAR.model(k = 3, W = W_con, alpha.min = 0,
+                                     alpha.max = 1)), data = dd_list,
+     offset = log(nn), family = c("poisson", "poisson", "poisson"),
+     control.predictor = list(compute = TRUE),
+     control.compute = list(dic = TRUE, waic = TRUE, cpo = T, internal.opt = F),
+     verbose = TRUE, num.threads = 1)
+
+
+cav_INDPMCAR_inla <- inla(
+  N_ACC ~ 0 + Intercept +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.INDMCAR.model(k = 3, W = W_con,  alpha.min = 0,alpha.max = 1)),
+  offset = log(nn),
+  family = rep("poisson", 3), data =dd_list,
+  #control.fixed = list(prec = list(Intercept1 = 0, Intercept2 = 0, Intercept3 = 0)),
+  #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  verbose = T)
+
+
+cav_PMCAR_inla <- inla(
+  N_ACC ~ 1 +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.MCAR.model(k = 3, W = W_con,  alpha.min = 0,alpha.max = 1)),
+  offset = log(nn),
+  family = rep("poisson", 3), data =dd_list,
+  #control.fixed = list(prec = list(Intercept1 = 0, Intercept2 = 0, Intercept3 = 0)),
+  #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  verbose = T)
+
+#' Apparently seems nice.
+#' Apparently.
+#' 
+#' The problem is that CPO is utterly messed up, as in 
+#' most INLA applications to this dataset.
+
+cav_PMCAR_inla_tHyper <- inla.MCAR.transform(cav_PMCAR_inla, k=3,
+                                            model = "PMCAR", alpha.min = 0, alpha.max = 1)
+
+#' Autocorrelation seems high. Still, remind the CPO problem:
+#' may it be a red flag for INLA not doing well?
+
+inla.zmarginal(inla.tmarginal(
+  fun = function(X) 1/(1 + exp(-X)),
+  marginal = cav_PMCAR_inla$marginals.hyperpar[[1]]))
+
+#' Weird result: employment rate has negative association, and 
+#' even stronger in absolute value than for 2022.
+
+## Multivariate LCAR code ATTEMPT ----------------------------------------------
+
+inla.rgeneric.MLCAR.model <- 
+  function (cmd = c("graph", "Q", "mu", "initial", "log.norm.const", 
+                    "log.prior", "quit"), theta = NULL) 
+  {
+    interpret.theta <- function() {
+      alpha <-  1/(1 + exp(-theta[1L]))
+      mprec <- sapply(theta[as.integer(2:(k + 1))], function(x) {
+        exp(x)
+      })
+      corre <- sapply(theta[as.integer(-(1:(k + 1)))], function(x) {
+        (2 * exp(x))/(1 + exp(x)) - 1
+      })
+      param <- c(alpha, mprec, corre)
+      n <- (k - 1) * k/2
+      M <- diag(1, k)
+      M[lower.tri(M)] <- param[k + 2:(n + 1)]
+      M[upper.tri(M)] <- t(M)[upper.tri(M)]
+      st.dev <- 1/sqrt(param[2:(k + 1)])
+      st.dev.mat <- matrix(st.dev, ncol = 1) %*% matrix(st.dev, 
+                                                        nrow = 1)
+      M <- M * st.dev.mat
+      PREC <- solve(M)
+      return(list(alpha = alpha, param = param, VACOV = M, 
+                  PREC = PREC))
+    }
+    graph <- function() {
+      PREC <- matrix(1, ncol = k, nrow = k)
+      G <- kronecker(PREC, Matrix::Diagonal(nrow(W), 1) + 
+                       W)
+      return(G)
+    }
+    Q <- function() {
+      param <- interpret.theta()
+      Lapl <- Matrix::Diagonal(nrow(W), apply(W, 1, sum)) -  W
+      #Sigma.u <- MASS::ginv(as.matrix(Lapl))
+      #Sigma <- param$alpha * Sigma.u + (1-param$alpha)*diag(1, nrow(W))
+      R <- param$alpha*Lapl + (1-param$alpha)*diag(1, nrow(W))
+      Q <- kronecker(param$PREC, R)
+      return(Q)
+    }
+    mu <- function() {
+      return(numeric(0))
+    }
+    log.norm.const <- function() {
+      val <- numeric(0)
+      return(val)
+    }
+    log.prior <- function() {
+      param <- interpret.theta()
+      # Uniform prior on \lambda
+      # val <- -theta[1L] - 2 * log(1 + exp(-theta[1L]))
+      # Normal prior on \lambda, in analogy with the univariate default case
+      val <- log(dnorm(theta[1L], mean = 0, sd = sqrt(1/0.45))) -
+        theta[1L] - 2 * log(1 + exp(-theta[1L]))
+      val <- val + log(MCMCpack::dwish(
+        W = param$PREC, v = k, S = diag(rep(1, k)))) +
+        sum(theta[as.integer(2:(k + 1))]) + 
+        sum(log(2) + theta[-as.integer(1:(k + 1))] - 
+              2 * log(1 + exp(theta[-as.integer(1:(k + 1))])))
+      return(val)
+    }
+    initial <- function() {
+      return(c(0, rep(log(1), k), rep(0, (k * (k - 1)/2))))
+    }
+    quit <- function() {
+      return(invisible())
+    }
+    if (as.integer(R.version$major) > 3) {
+      if (!length(theta)) 
+        theta = initial()
+    }
+    else {
+      if (is.null(theta)) {
+        theta <- initial()
+      }
+    }
+    val <- do.call(match.arg(cmd), args = list())
+    return(val)
+  }
+
+inla.MLCAR.model <- function(...) INLA::inla.rgeneric.define(inla.rgeneric.MLCAR.model, ...)
+
+cav_MLCAR_inla <- inla(
+  N_ACC ~ 1 +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.MLCAR.model(k = 3, W = W_con)),
+  offset = log(nn),
+  family = rep("poisson", 3), data =dd_list,
+  #control.fixed = list(prec = list(Intercept1 = 0, Intercept2 = 0, Intercept3 = 0)),
+  #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  verbose = T)
+
+## Obsolete: covariates choice -------------------------------------------------
 
 
 # Plot of covariates correlations:
@@ -350,7 +579,7 @@ cov_selector <- function(year){
   
   return(list(BIC = BIC.min, covs = covs.in))
 }
- 
+
 #' Three different sets.
 cov_selector(2021)
 cov_selector(2022)
@@ -358,7 +587,7 @@ cov_selector(2023)
 
 
 #T_dist_ls <- compindexR::calc_compindex(
-  #as.matrix(sf::st_drop_geometry(dd_con)[,c("TEP_th", "AES")]))
+#as.matrix(sf::st_drop_geometry(dd_con)[,c("TEP_th", "AES")]))
 
 #'    -------------------------------------------------------------------------#
 #'    
@@ -367,93 +596,3 @@ cov_selector(2023)
 #'    How to solve this?
 #'  
 #'    -------------------------------------------------------------------------#
-
-n <- nrow(dd_con)
-dd_list <- list (
-  N_ACC = matrix(c(dd_con$N_ACC_21, rep(NA, 3*n), 
-                 dd_con$N_ACC_22, rep(NA, 3*n), 
-                 dd_con$N_ACC_23), nrow = 3*n, 
-                 ncol = 3, byrow = FALSE),
-  TEP_th = matrix(c(dd_con$TEP_th_22, rep(NA, 3*n), 
-                      dd_con$TEP_th_22, rep(NA, 3*n), 
-                      dd_con$TEP_th_23), nrow = 3*n,
-                  ncol = 3, byrow = FALSE),
-  ELI = matrix(c(dd_con$ELI, rep(NA, 3*n), 
-                dd_con$ELI, rep(NA, 3*n), 
-                dd_con$ELI), nrow = 3*n,
-              ncol = 3, byrow = FALSE),
-  PGR = matrix(c(dd_con$PGR, rep(NA, 3*n), 
-                dd_con$PGR, rep(NA, 3*n), 
-                dd_con$PGR), nrow = 3*n,
-              ncol = 3, byrow = FALSE),
-  UIS = matrix(c(dd_con$UIS, rep(NA, 3*n), 
-                dd_con$UIS, rep(NA, 3*n), 
-                dd_con$UIS), nrow = 3*n,
-              ncol = 3, byrow = FALSE),
-  ELL = matrix(c(dd_con$ELL, rep(NA, 3*n), 
-                 dd_con$ELL, rep(NA, 3*n), 
-                 dd_con$ELL), nrow = 3*n,
-               ncol = 3, byrow = FALSE),
-  PDI = matrix(c(dd_con$PDI, rep(NA, 3*n), 
-                dd_con$PDI, rep(NA, 3*n), 
-                dd_con$PDI), nrow = 3*n,
-              ncol = 3, byrow = FALSE),
-  ER = matrix(c(dd_con$ER, rep(NA, 3*n), 
-                dd_con$ER, rep(NA, 3*n), 
-                dd_con$ER), nrow = 3*n,
-              ncol = 3, byrow = FALSE),
-  ID = c(1:n, (n + c(1:n)), (2*n + c(1:n))),
-  nn = c(dd_con$nn21, dd_con$nn22, dd_con$nn23)) 
-
-## Spatial analysis -----------------------------------------------------------#
-
-#' The simplest way to take into account the three different years
-#' is defining a multivariate model in which each year corresponds
-#' to a different dependent variable.
-#' 
-#' We use the PCAR, as outlined in Gelfand and Vounatsu (2003):
-#' Unique spatial autocorrelation parameter for the three 
-#' target variables.
-#' 
-
-if(!rlang::is_installed("INLAMSM")) devtools::install_github("becarioprecario/INLAMSM")
-
-
-library(INLAMSM)
-
-cav_IMCAR_inla <- inla(
-  N_ACC ~ 1 +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
-    f(ID, model = inla.IMCAR.model(k = 3, W = W_con), extraconstr = list(
-      A = kronecker(diag(1,3), matrix(1, nrow = 1, ncol = n)), e = c(0,0,0))),
-  offset = log(nn),
-  family = rep("poisson", 3), data =dd_list,
-  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
-  verbose = T)
-
-
-cav_PMCAR_inla <- inla(
-  N_ACC ~ 1 +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
-    f(ID, model = inla.MCAR.model(k = 3, W = W_con,  alpha.min = 0,alpha.max = 1)),
-  offset = log(nn),
-  family = rep("poisson", 3), data =dd_list,
-  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
-  verbose = T)
-
-#' Apparently seems nice.
-#' Apparently.
-#' 
-#' The problem is that CPO is utterly messed up, as in 
-#' most INLA applications to this dataset.
-
-cav_PMCAR_inla_tHyper <- inla.MCAR.transform(cav_PMCAR_inla, k=3,
-                                            model = "PMCAR", alpha.min = 0, alpha.max = 1)
-
-#' Autocorrelation seems high. Still, remind the CPO problem:
-#' may it be a red flag for INLA not doing well?
-
-inla.zmarginal(inla.tmarginal(
-  fun = function(X) 1/(1 + exp(-X)),
-  marginal = cav_PMCAR_inla$marginals.hyperpar[[1]]))
-
-#' Weird result: employment rate has negative association, and 
-#' even stronger in absolute value than for 2022.

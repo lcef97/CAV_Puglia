@@ -2,10 +2,10 @@
 title: "Exploratory analysis of accesses to support centers for gender-based violence
   in Apulia"
 output:
+  word_document: default
+  pdf_document: default
   html_document:
     df_print: paged
-  pdf_document: default
-  word_document: default
 bibliography: references.bib
 ---
 
@@ -128,9 +128,7 @@ Therefore, the municipality-level dataset in scope consists of $256$ observation
 
 We can only take into account the accesses to support centers for which the origin municipality of victims is reported. Therefore, the total count of accesses in scope is $2259$. Among these accesses, $1516$ were taken charge of. 
 
-Here, we plot the access rate per residence municipality, i.e. the ratio between access counts and female population, both on the linear and the logarithmic scale. Blank areas in the latter figurecorrespond to municipalities from which zero women accessed support centers ($82$ municipalities).
-
-
+Here, we plot the log-access rate per residence municipality, i.e. the logarithm of the ratio between access counts and female population. Blank areas correspond to municipalities from which zero women accessed support centers ($82$ municipalities).
 
 
 ```{r Log accesses plot, echo = FALSE, warning = FALSE, message = FALSE, fig.height = 3}
@@ -729,7 +727,7 @@ hyperpars<- data.frame(rbind(cav_bym_INLA_marginals.var[c(1,3,5,7)],
                    cav_bym_INLA$summary.hyperpar[2,c(1,3,4,5)],
                   cav_bym_INLA_ZIP_marginals.var[c(1,3,5,7)],
                    cav_bym_INLA_ZIP$summary.hyperpar[c(1,3),c(1,3,4,5)])) %>% 
-  dplyr::mutate(Variable =c("Z_VAR_Pois", "Mixing_Pois", "Zero_Prob", "Z_VAR_ZIP", "Mixing_ZIP")) %>% 
+  dplyr::mutate(Variable =c("Z_VAR_Pois", "Mixing_Pois","Z_VAR_ZIP", "Zero_Prob",  "Mixing_ZIP")) %>% 
                   dplyr::relocate(.data$Variable, .before = 1) 
 
 rownames(hyperpars) <- NULL
@@ -753,7 +751,7 @@ hyperpars_leroux <- data.frame(rbind(cav_leroux_INLA_marginals.var[c(1,3,5,7)],
                    cav_leroux_INLA$summary.hyperpar[2,c(1,3,4,5)],
                   cav_leroux_INLA_ZIP_marginals.var[c(1,3,5,7)],
                    cav_leroux_INLA_ZIP$summary.hyperpar[c(1,3),c(1,3,4,5)])) %>% 
-  dplyr::mutate(Variable =c("Z_VAR_Pois", "Mixing_Pois", "Zero_Prob", "Z_VAR_ZIP", "Mixing_ZIP")) %>% 
+  dplyr::mutate(Variable =c("Z_VAR_Pois", "Mixing_Pois", "Z_VAR_ZIP", "Zero_Prob",  "Mixing_ZIP")) %>% 
                   dplyr::relocate(.data$Variable, .before = 1) 
 
 rownames(hyperpars_leroux) <- NULL

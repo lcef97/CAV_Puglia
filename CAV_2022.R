@@ -407,8 +407,7 @@ m_0_INLA <- inla(N_ACC ~ 1 +TEP_th_22 + ELI + PGR + UIS + ELL + PDI + ER,
                  family = "poisson",  data =dd_con, offset = log(nn),
                  num.threads = 1, control.compute = 
                    list(internal.opt = F, cpo = T, waic = T), 
-                 #inla.mode = "classic", control.inla = list(strategy = "laplace")
-                 )
+                 inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"))
 
 # ICAR model
 cav_icar_INLA <- inla(N_ACC ~ 1 +TEP_th_22 + ELI + PGR + UIS + ELL + PDI + ER +
@@ -417,7 +416,8 @@ cav_icar_INLA <- inla(N_ACC ~ 1 +TEP_th_22 + ELI + PGR + UIS + ELL + PDI + ER +
                          family = "poisson", offset = log(nn), data =dd_con,
                          num.threads = 1, control.compute = 
                            list(internal.opt = F, cpo = T, waic = T), 
-                         #inla.mode = "classic", control.inla = list(strategy = "laplace"),
+                         inla.mode = "classic", control.inla = list(strategy = "laplace",
+                                                                    int.strategy ="grid"),
                          control.predictor = list(compute = T),
                          verbose = T) # better
 
@@ -427,7 +427,7 @@ cav_pcar_INLA <- inla(N_ACC ~ 1 +TEP_th_22 + ELI + PGR + UIS + ELL + PDI + ER +
                          family = "poisson", offset = log(nn), data =dd_con,
                          num.threads = 1, control.compute = 
                            list(internal.opt = F, cpo = T, waic = T), 
-                         #inla.mode = "classic", control.inla = list(strategy = "laplace"),
+                         inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy  = "grid"),
                          control.predictor = list(compute = T),
                          verbose = T) 
 
@@ -438,7 +438,7 @@ cav_bym_INLA <- inla(N_ACC ~ 1 +TEP_th_22 + ELI + PGR + UIS + ELL + PDI + ER +
                       family = "poisson", offset = log(nn), data =dd_con,
                       num.threads = 1, control.compute = 
                         list(internal.opt = F, cpo = T, waic = T), 
-                      #inla.mode = "classic", control.inla = list(strategy = "laplace"),
+                      inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
                       control.predictor = list(compute = T),
                       verbose = T) # better
 
@@ -449,7 +449,7 @@ cav_leroux_INLA <- inla(N_ACC ~ 1 +TEP_th_22 + ELI + PGR + UIS + ELL + PDI + ER 
                      family = "poisson", offset = log(nn), data =dd_con,
                      num.threads = 1, control.compute = 
                        list(internal.opt = F, cpo = T, waic = T), 
-                     #inla.mode = "classic", control.inla = list(strategy = "laplace"),
+                     inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy ="grid"),
                      control.predictor = list(compute = T),
                      verbose = T) # better
 
@@ -502,7 +502,7 @@ cav_bym_INLA_spatplus <- inla(N_ACC ~ 1 +TEP_th_22 + ELI + PGR + UIS + ELL + PDI
                      family = "poisson", offset = log(nn), data = dd_con_nosp,
                      num.threads = 1, control.compute = 
                        list(internal.opt = F, cpo = T, waic = T), 
-                     #inla.mode = "classic", control.inla = list(strategy = "laplace"),
+                     inla.mode = "classic", control.inla = list(strategy = "laplace", strategy = "grid"),
                      control.predictor = list(compute = T),
                      verbose = T)
 
@@ -567,7 +567,7 @@ cav_bym0_INLA <- INLA::inla( N_ACC ~ 1 +TEP_th_22 + ELI + PGR + UIS + ELL + PDI 
 cav_bym0_CARBayes <- CARBayes::S.CARbym(N_ACC ~ 1 +TEP_th_22 + ELI + PGR + UIS + ELL + PDI + ER+ offset(log(nn)),
                       family = "poisson", data =dd_con,
                       prior.tau2 = c(1e-3, 1e-3), prior.sigma2 = c(1e-3, 1e-3),
-                      W = W_con, prior.var.beta = c(1e3, 1e3, 1e3),
+                      W = W_con, prior.var.beta = rep(1e3, 8),
                       burnin = 10000, n.sample = 60000, 
                       n.chains = 3,
                       verbose = T) 
@@ -581,6 +581,8 @@ library(brms)
 cav_icar_brms <- brm(N_ACC ~ 1 +TEP_th_22 + ELI + PGR + UIS + ELL + PDI + ER + offset(log(nn)) +
                        car(W, gr = PRO_COM, type = "icar"),
                      data = dd_con, data2 = list(W = W_con),
+                     prior = c( prior(pc.prec(u = 1.5, alpha = 0.01), 
+                                      class = "car", group = PRO_COM)),
                      family = poisson())
 
 
