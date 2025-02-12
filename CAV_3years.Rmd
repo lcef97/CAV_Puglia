@@ -239,7 +239,7 @@ We can only take into account the accesses to support centers for which the orig
 Here, we plot the log-access rate per residence municipality, i.e. the logarithm of the ratio between access counts and female population. Blank areas correspond to municipalities from which zero women accessed support centers ($82$ municipalities).
 
 
-```{r Log accesses plot, echo = FALSE, warning = FALSE, message = FALSE }
+```{r Log accesses plot, echo = FALSE, warning = FALSE, message = FALSE, fig.cap = "Log-access rate" }
 
 gridExtra::grid.arrange(ggy21, ggy22, ggy23, nrow = 3, ncol = 1)
 
@@ -267,7 +267,7 @@ All covariates are scaled to have null mean and unit variance.
 
 First, we visualise the correlations among these explanatory variables:
 
-```{r correls, echo = F, warning = F, fig.height = 3}
+```{r correls, echo = F, warning = F, fig.height = 3, fig.cap = "Correlations in explanatory variables"}
 ggplot2::ggplot(data = reshape2::melt(cor(X[,-1]))) +
   ggplot2::geom_tile(ggplot2::aes(
     x = .data$Var2, y = .data$Var1, fill = .data$value), color = "black", size = 3) +
@@ -316,7 +316,7 @@ cav_glm_23 <- glm(N_ACC_23~ 1 +TEP_th_23 + ELI + PGR +
 ```
 
 
-```{r glm results, warning = FALSE, message = FALSE, echo = FALSE}
+```{r glm results, warning = FALSE, message = FALSE, echo = FALSE, results = "asis"}
 
 
 betas.glm <- data.frame(
@@ -336,7 +336,7 @@ betas.glm %<>%   tidyr::pivot_wider(
     values_from = c(Mean, Sd)        # Fill in values from Mean and Sd
   )
 
-betas.glm
+print(xtable::xtable(betas.glm, num.digits = 3), include.rowname = FALSE)
 ```
 
 
@@ -381,9 +381,9 @@ betas.nosp.inla  <- cav_nosp_inla$summary.fixed %>%
   
   - `ER`: The association with employment rate is very strong and bears negative sign for 2021 and 2023 data.
 
-## Spatial modelling
+## Spatial regression
 
-We plot the log-residuals $\varepsilon$ of the GLM regression models, defined as $\varepsilon := \ln y_i - \ln P_i - \ln \hat{y}_i$ being $\hat{y}_i$ the fitted value.
+We plot the log-residuals $\varepsilon$ of the GLM regression models, defined as $\varepsilon := \ln y_i - \ln P_i - \ln \hat{\eta}_i$ being $\hat{\eta}_i$ the expected predictor.
 
 
 ```{r glm residuals, echo = FALSE, warnings = FALSE, message = FALSE, output = FALSE}
@@ -455,6 +455,13 @@ nb_con_nonzero_23 <- spdep::poly2nb(dd_con[nonzero_con_23, ])
 
 
 ```
+```{r Log residuals, echo = FALSE, warning = FALSE, message = FALSE, fig.cap = "Log-residuals in GLM regression" }
+
+gridExtra::grid.arrange(ggr21, ggr22, ggr23, nrow = 3, ncol = 1)
+
+
+```
+
 
 Residuals may exhibit spatial structure. To assess it, we employ the Moran and Geary tests. Since 
 
@@ -504,9 +511,9 @@ We describe the spatial structure starting from municipality neighbourhood, and 
 
 For all models, we define $\Lambda$ as the precision parameter of the latent effect, and assign it a Wishart prior.
 
-Spatial models are computed by approximating the marginal posteriors of interest via the Integrated Nested Laplace Approximation (INLA), adopting the novel Variational Bayes Approach \cite{INLAVB}.
+Spatial models are computed by approximating the marginal posteriors of interest via the Integrated Nested Laplace Approximation (INLA), adopting the novel Variational Bayes Approach [@INLAVB].
 
-Priors for spatial effects have been defined using the \texttt{INLAMSM} \texttt{R} package \cite{INLAMSM}.
+Priors for spatial effects have been defined using the \texttt{INLAMSM} \texttt{R} package [@INLAMSM].
 
 
 #### ICAR model
@@ -568,7 +575,7 @@ cav_PMCAR_inla <- inla(
 
 We show the posterior summary for the autocorrelation coefficient. 
 
-```{r alfa, echo = FALSE, fig.height = 3}
+```{r alfa, echo = FALSE, fig.height = 3, fig.cap = "Posterior marginal of the PCAR autocorrelation parameter"}
 alpha_marg_pcar <- inla.tmarginal(
   fun = function(X) 1/(1 + exp(-X)),
   marginal = cav_PMCAR_inla$marginals.hyperpar[[1]])
@@ -695,9 +702,9 @@ cav_MLCAR_inla <- inla(
 ```
 
 
-We briefly compare these four through the WAIC [@GelmanWAIC]:
+We briefly compare the three models in scope through the WAIC [@GelmanWAIC]:
 
-```{r WAICs table, echo = F}
+```{r WAICs table, echo = F, results = "asis"}
 
 WAICS <- tibble::tibble(
   Model = c("Null", "ICAR", "PCAR", "Leroux"),
@@ -708,7 +715,7 @@ WAICS <- tibble::tibble(
     cav_nosp_inla$waic$p.eff,   cav_IMCAR_inla$waic$p.eff,  cav_PMCAR_inla$waic$p.eff,
      cav_MLCAR_inla$waic$p.eff),3))
 
-WAICS
+print(xtable::xtable(WAICS),include.rowname = F)
 
 ```
 
@@ -716,7 +723,7 @@ As we can see, adding a spatial model is an improving element, not a waste of co
 
 Since the latent effect has a proper distribution and does not require sum to zero constraints, using year-specific intercepts would cause confounding between intercepts and latent effects, leading to system crashing and thus failure to estimate the model. As a consequence, we used the same intercept for the three different years, allowing the latent effect to have *a posteriori* an additive year-specific shift.
 
-```{r betas leroux, echo = FALSE}
+```{r betas leroux, echo = FALSE, results = "asis"}
 betas.mlcar.inla.noint  <- cav_MLCAR_inla$summary.fixed[-1,] %>% 
   dplyr::select(.data$mean, .data$sd)  %>%
   dplyr::mutate( year = rep(c(2021, 2022, 2023), 7)) %>% 
@@ -738,7 +745,8 @@ betas.mlcar.inla <- dplyr::bind_rows(
              Sd_2023 = cav_MLCAR_inla$summary.fixed$sd[1]),
   betas.mlcar.inla.noint) 
 
-print(betas.mlcar.inla, digits = 3)
+print(xtable::xtable(betas.mlcar.inla, num.digits = 3), include.rowname = FALSE)
+
 ```
 
 
@@ -761,7 +769,7 @@ Estimations of $\beta$ differ slightly from the nonspatial model. For all variab
 Lastly, we have a look at the mixing parameter.
 
 
-```{r mixing leroux, echo = FALSE, fig.height = 3}
+```{r mixing leroux, echo = FALSE, fig.height = 3, fig.cap = "Posterior marginal of the LCAR mixing parameter"}
 xi_marg_pcar <- inla.tmarginal(
   fun = function(X) 1/(1 + exp(-X)),
   marginal = cav_MLCAR_inla$marginals.hyperpar[[1]])
@@ -776,7 +784,7 @@ As we see, the mixing parameter is not particularly high, but interpreting it pr
 
 
 
-\bibliography{References.bib}
+
 
 
 
