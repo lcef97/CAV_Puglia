@@ -805,21 +805,9 @@ To do so, we should e.g. rerun the same models using MCMC methods, e.g. using  `
 
 Lastly, we did *not* model the rate at which gender violence occurs, but the occurrence of violence reports. Higher occurrence of violence reports from a given territory may thus depend on two factors: either the higher occurrence of violence in that territory, or the ease in reporting violence for the residents. 
 
-Whereas the easiest interpretation is that violence occurrence is underestimated in low-reporting areas, at the time being nothing prevents us from suspecting that the placement of support centers is at least partially strategic, i.e. the distribution of supporting centers is more dense in areas in which violence occurs, for some reason we don't know, aa a higher frequence. 
+Whereas the easiest interpretation is that violence occurrence is underestimated in low-reporting areas, at the time being nothing prevents us from suspecting that the placement of support centers is at least partially strategic, i.e. the distribution of supporting centers is more dense in areas in which violence occurs, for some reason we don't know, at a higher frequence.  
 
-<!--
-To this aim, an issue worthy of being explored is underreporting modelling. If we observe $y_i$ accesses to AVCs, the true number of VAW incidents can be defined as, say, $\chi_i$. A reasonable model would be the *pogit*, assuming that:
-
-\begin{align*}
-y_i \mid \chi_i \sim \mathrm{Bin}(\chi_i, \frac{e^{\gamma_i}}{1 +e^{ \gamma_i}})   \\
-\chi_i \sim \mathrm{Poisson}(e^{\eta_i+P_i})
-\end{align*}
-And this model implies that, marginalising over the true number of VAW cases $\chi$,
-$$
-y_i \sim \mathrm{Poisson}(\frac{e^{\gamma_i}}{1 +e^{\gamma_i}} \, e^{\eta_i+P_i} )
-$$
-
--->
+To this aim, an issue worthy of being explored is underreporting modelling; a reasonable methodology would be *pogit* regression [@Pogit], [@PogitZIP]
 
 ## Appendix: the WAIC
 
