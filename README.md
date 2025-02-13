@@ -8,4 +8,4 @@ Ongoing analysis. This is a working paper studying the accesses to support cente
     PDF report is compiled as well, but it can include compilation errors and only serves internal use.
   - inputs and metadata: all data this analysis is based on. Some datasets are derived by aggregation of sensible data, which we should not make publicly available
   - R script `CAV_full`: analysis performed over three years (full information available).
-    Analytic framework still has to be defined.
+    Analytic framework has to be refined. Corresponding WP is called `CAV_3years` and is only compiled in PDF version.

@@ -2,10 +2,10 @@
 title: "Exploratory analysis of accesses to support centers for gender-based violence
   in Apulia"
 output:
-  word_document: default
-  pdf_document: default
   html_document:
     df_print: paged
+  pdf_document: default
+  word_document: default
 bibliography: references.bib
 ---
 
@@ -379,7 +379,7 @@ We describe the spatial structure starting from municipality neighbourhood, and 
 
 For all models, we define $\sigma^2$ as the scale parameter of the latent effect, and in order to avoid overfitting we set a PC-prior on it with rate parameter $\lambda = 1.5$, such that $\mathrm{Prob}(\sigma>\lambda) = 0.01$
 
-Spatial models are computed by approximating the marginal posteriors of interest via the Integrated Nested Laplace Approximation (INLA), adopting the novel Variational Bayes Approach \cite{INLAVB}.
+Spatial models are computed by approximating the marginal posteriors of interest via the Integrated Nested Laplace Approximation (INLA), adopting the novel Variational Bayes Approach [@INLAVB].
 
 
 
@@ -807,9 +807,23 @@ Lastly, we did *not* model the rate at which gender violence occurs, but the occ
 
 Whereas the easiest interpretation is that violence occurrence is underestimated in low-reporting areas, at the time being nothing prevents us from suspecting that the placement of support centers is at least partially strategic, i.e. the distribution of supporting centers is more dense in areas in which violence occurs, for some reason we don't know, aa a higher frequence. 
 
+<!--
+To this aim, an issue worthy of being explored is underreporting modelling. If we observe $y_i$ accesses to AVCs, the true number of VAW incidents can be defined as, say, $\chi_i$. A reasonable model would be the *pogit*, assuming that:
+
+\begin{align*}
+y_i \mid \chi_i \sim \mathrm{Bin}(\chi_i, \frac{e^{\gamma_i}}{1 +e^{ \gamma_i}})   \\
+\chi_i \sim \mathrm{Poisson}(e^{\eta_i+P_i})
+\end{align*}
+And this model implies that, marginalising over the true number of VAW cases $\chi$,
+$$
+y_i \sim \mathrm{Poisson}(\frac{e^{\gamma_i}}{1 +e^{\gamma_i}} \, e^{\eta_i+P_i} )
+$$
+
+-->
+
 ## Appendix: the WAIC
 
-Following \cite{GelmanWAIC}, the WAIC is given by the sum of two components:
+Following [@GelmanWAIC], the WAIC is given by the sum of two components:
 
 $$
 WAIC := 2 \sum_{i=1}^n \mathrm{VAR}[\ln p(y_i |\theta)]

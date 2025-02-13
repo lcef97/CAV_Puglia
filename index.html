@@ -1935,7 +1935,7 @@ such that <span class="math inline">\(\mathrm{Prob}(\sigma&gt;\lambda) =
 0.01\)</span></p>
 <p>Spatial models are computed by approximating the marginal posteriors
 of interest via the Integrated Nested Laplace Approximation (INLA),
-adopting the novel Variational Bayes Approach .</p>
+adopting the novel Variational Bayes Approach <span class="citation">(Van Niekerk et al. 2023)</span>.</p>
 <div id="icar-model" class="section level4">
 <h4>ICAR model</h4>
 <p>The Intrinsic CAR model is the simplest formulation among spatial
@@ -2016,7 +2016,7 @@ corresponding degree matrix.</p>
 <p>We briefly compare these four through the WAIC <span class="citation">(Gelman, Hwang, and Vehtari 2014)</span>:</p>
 <div data-pagedtable="false">
 <script data-pagedtable-source type="application/json">
-{"columns":[{"label":["Model"],"name":[1],"type":["chr"],"align":["left"]},{"label":["WAIC_Poisson"],"name":[2],"type":["dbl"],"align":["right"]},{"label":["WAIC_ZIP"],"name":[3],"type":["dbl"],"align":["right"]},{"label":["Eff_params_Poisson"],"name":[4],"type":["dbl"],"align":["right"]},{"label":["Eff_params_ZIP"],"name":[5],"type":["dbl"],"align":["right"]}],"data":[{"1":"Null","2":"1098.397","3":"1047.493","4":"20.355","5":"18.091"},{"1":"ICAR","2":"951.387","3":"962.571","4":"74.725","5":"66.380"},{"1":"PCAR","2":"947.449","3":"953.208","4":"76.765","5":"64.976"},{"1":"BYM","2":"942.879","3":"952.995","4":"75.336","5":"65.130"},{"1":"Leroux","2":"945.463","3":"951.509","4":"75.595","5":"63.958"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
+{"columns":[{"label":["Model"],"name":[1],"type":["chr"],"align":["left"]},{"label":["WAIC_Poisson"],"name":[2],"type":["dbl"],"align":["right"]},{"label":["WAIC_ZIP"],"name":[3],"type":["dbl"],"align":["right"]},{"label":["Eff_params_Poisson"],"name":[4],"type":["dbl"],"align":["right"]},{"label":["Eff_params_ZIP"],"name":[5],"type":["dbl"],"align":["right"]}],"data":[{"1":"Null","2":"1098.397","3":"1047.493","4":"20.355","5":"18.091"},{"1":"ICAR","2":"951.387","3":"962.571","4":"74.725","5":"66.380"},{"1":"PCAR","2":"947.449","3":"953.208","4":"76.765","5":"64.976"},{"1":"BYM","2":"942.879","3":"952.994","4":"75.336","5":"65.130"},{"1":"Leroux","2":"945.463","3":"951.509","4":"75.595","5":"63.958"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
   </script>
 </div>
 <p>As we can see, models taking into account random noise have a better
@@ -2071,7 +2071,7 @@ reported.</p></li>
 ## generated.</code></pre>
 <div data-pagedtable="false">
 <script data-pagedtable-source type="application/json">
-{"columns":[{"label":["Variable"],"name":[1],"type":["chr"],"align":["left"]},{"label":["mean"],"name":[2],"type":["dbl"],"align":["right"]},{"label":["X0.025quant"],"name":[3],"type":["dbl"],"align":["right"]},{"label":["X0.5quant"],"name":[4],"type":["dbl"],"align":["right"]},{"label":["X0.975quant"],"name":[5],"type":["dbl"],"align":["right"]}],"data":[{"1":"Z_VAR_Pois","2":"0.40156442","3":"0.19233163","4":"0.38049904","5":"0.7319002"},{"1":"Mixing_Pois","2":"0.56228278","3":"0.15601250","4":"0.57674847","5":"0.9027344"},{"1":"Z_VAR_ZIP","2":"2.21280807","3":"1.10385158","4":"1.72666313","5":"6.3030159"},{"1":"Zero_Prob","2":"0.04652755","3":"0.01002144","4":"0.03998744","5":"0.1197197"},{"1":"Mixing_ZIP","2":"0.37329799","3":"0.01268178","4":"0.31717197","5":"0.9236882"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
+{"columns":[{"label":["Variable"],"name":[1],"type":["chr"],"align":["left"]},{"label":["mean"],"name":[2],"type":["dbl"],"align":["right"]},{"label":["X0.025quant"],"name":[3],"type":["dbl"],"align":["right"]},{"label":["X0.5quant"],"name":[4],"type":["dbl"],"align":["right"]},{"label":["X0.975quant"],"name":[5],"type":["dbl"],"align":["right"]}],"data":[{"1":"Z_VAR_Pois","2":"0.40156442","3":"0.19233163","4":"0.38049904","5":"0.7319002"},{"1":"Mixing_Pois","2":"0.56228278","3":"0.15601250","4":"0.57674847","5":"0.9027344"},{"1":"Z_VAR_ZIP","2":"2.21280807","3":"1.10385158","4":"1.72666313","5":"6.3030159"},{"1":"Zero_Prob","2":"0.04653004","3":"0.01002399","4":"0.03998931","5":"0.1197282"},{"1":"Mixing_ZIP","2":"0.37327443","3":"0.01268566","4":"0.31714810","5":"0.9236589"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
   </script>
 </div>
 <p>Even though the value of the zero-inflation parameter is low, we can
@@ -2097,7 +2097,7 @@ employing it as an evaluation metrics:</p>
 <pre class="r"><code>sum(cav_bym_INLA$cpo$failure &gt; 0)</code></pre>
 <pre><code>## [1] 223</code></pre>
 <pre class="r"><code>sum(cav_bym_INLA_ZIP$cpo$failure)</code></pre>
-<pre><code>## [1] 16.35397</code></pre>
+<pre><code>## [1] 16.35309</code></pre>
 <pre class="r"><code>sum(cav_bym_INLA_ZIP$cpo$failure &gt; 0)</code></pre>
 <pre><code>## [1] 111</code></pre>
 <pre class="r"><code>sum(cav_leroux_INLA$cpo$failure)</code></pre>
@@ -2144,10 +2144,24 @@ prevents us from suspecting that the placement of support centers is at
 least partially strategic, i.e. the distribution of supporting centers
 is more dense in areas in which violence occurs, for some reason we
 don’t know, aa a higher frequence.</p>
+<!--
+To this aim, an issue worthy of being explored is underreporting modelling. If we observe $y_i$ accesses to AVCs, the true number of VAW incidents can be defined as, say, $\chi_i$. A reasonable model would be the *pogit*, assuming that:
+
+\begin{align*}
+y_i \mid \chi_i \sim \mathrm{Bin}(\chi_i, \frac{e^{\gamma_i}}{1 +e^{ \gamma_i}})   \\
+\chi_i \sim \mathrm{Poisson}(e^{\eta_i+P_i})
+\end{align*}
+And this model implies that, marginalising over the true number of VAW cases $\chi$,
+$$
+y_i \sim \mathrm{Poisson}(\frac{e^{\gamma_i}}{1 +e^{\gamma_i}} \, e^{\eta_i+P_i} )
+$$
+
+-->
 </div>
 <div id="appendix-the-waic" class="section level2">
 <h2>Appendix: the WAIC</h2>
-<p>Following , the WAIC is given by the sum of two components:</p>
+<p>Following <span class="citation">(Gelman, Hwang, and Vehtari
+2014)</span>, the WAIC is given by the sum of two components:</p>
 <p><span class="math display">\[
 WAIC := 2 \sum_{i=1}^n \mathrm{VAR}[\ln p(y_i |\theta)]
 - 2 \sum_{j=1}^n \ln \mathbb{E}[p(y_i | \theta)]
@@ -2251,6 +2265,11 @@ Riebler, Andrea, Sigrunn H Sørbye, Daniel Simpson, and Håvard Rue. 2016.
 <span>“An Intuitive Bayesian Spatial Model for Disease Mapping That
 Accounts for Scaling.”</span> <em>Statistical Methods in Medical
 Research</em> 25 (4): 1145–65.
+</div>
+<div id="ref-INLAVB" class="csl-entry">
+Van Niekerk, Janet, Elias Krainski, Denis Rustand, and Haavard Rue.
+2023. <span>“A New Avenue for Bayesian Inference with INLA.”</span>
+<em>Computational Statistics and Data Analysis</em> 181. <a href="https://doi.org/10.1016/j.csda.2023.107692">https://doi.org/10.1016/j.csda.2023.107692</a>.
 </div>
 </div>
 </div>
