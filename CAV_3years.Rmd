@@ -467,27 +467,38 @@ Residuals may exhibit spatial structure. To assess it, we employ the Moran and G
 
 Please notice that log-residuals only take finite values across the municipalities whose female citizens have reported at least one case of violence in 2022.
 
-Additionally, this set of municipalities may include some singletons, which we remove to assess the value of the Moran and Geary statistics. Thus, for each year we have defined the indexes set `nonzero_con` as the set of municipalities from which at least one case of gender-based violence has been reported, *and* which have at least one neighbouring municipality from which at least one case of gender-based violence was reported as well. 
+Additionally, this set of municipalities may include some singletons, which we remove to assess the value of the Moran and Geary statistics. Thus, for each year we have defined the indexes set `nonzero_con` as the set of municipalities from which at least one case of gender-based violence has been reported, *and* which have at least one neighbouring municipality from which at least one case of gender-based violence was reported as well. For brevity, we only show the standardised $I$ values, which under the null hypothesis should be distributed as $N(0,1)$.
 
 ```{r moran residuals 2021}
-spdep::moran.test(resids_glm_21[nonzero_con_21],
-                  listw = spdep::nb2listw(nb_con_nonzero_21))
-spdep::geary.test(resids_glm_21[nonzero_con_21],
-                  listw = spdep::nb2listw(nb_con_nonzero_21))
-
+unlist(spdep::moran.test(
+  resids_glm_21[nonzero_con_21],
+  listw = spdep::nb2listw(
+    nb_con_nonzero_21))[c("statistic", "p.value")])
+unlist(spdep::geary.test(
+  resids_glm_21[nonzero_con_21],
+  listw = spdep::nb2listw(
+    nb_con_nonzero_21))[c("statistic", "p.value")])
 ```
 ```{r moran residuals 2022}
-spdep::moran.test(resids_glm_22[nonzero_con_22],
-                  listw = spdep::nb2listw(nb_con_nonzero_22))
-spdep::geary.test(resids_glm_22[nonzero_con_22],
-                  listw = spdep::nb2listw(nb_con_nonzero_22))
+unlist(spdep::moran.test(
+  resids_glm_22[nonzero_con_22],
+  listw = spdep::nb2listw(
+    nb_con_nonzero_22))[c("statitic", "p.value")])
+unlist(spdep::geary.test(
+  resids_glm_22[nonzero_con_22],
+  listw = spdep::nb2listw(
+    nb_con_nonzero_22))[c("statistic", "p.value")])
 
 ```
 ```{r moran residuals 2023}
-spdep::moran.test(resids_glm_23[nonzero_con_23],
-                  listw = spdep::nb2listw(nb_con_nonzero_23))
-spdep::geary.test(resids_glm_23[nonzero_con_23],
-                  listw = spdep::nb2listw(nb_con_nonzero_23))
+unlist(spdep::moran.test(
+  resids_glm_23[nonzero_con_23],
+  listw = spdep::nb2listw(
+    nb_con_nonzero_23))[c("statistic", "p.value")])
+unlist(spdep::geary.test(
+  resids_glm_23[nonzero_con_23],
+  listw = spdep::nb2listw(
+    nb_con_nonzero_23))[c("statistic", "p.value")])
 
 ```
 
@@ -773,24 +784,260 @@ Estimations of $\beta$ differ slightly from the nonspatial model. For all variab
   
   - `ER`: The effect associated with employment rate is increased for 2021 data,  more than doubled for 2022 data, and slightly increased for 2023 data. How to interpret this finding? Employment rate is clearly an indicator of economic development, hence the easiest interpretation is that - as it was with `ELI` under the nonspatial model - in more developed areas there is a higher chance that gender violence is reported.
   
+  
 Lastly, we have a look at the mixing parameter.
 
 
 ```{r mixing leroux, echo = FALSE, fig.height = 3, fig.cap = "Posterior marginal of the LCAR mixing parameter"}
-xi_marg_pcar <- inla.tmarginal(
+xi_marg_lcar <- inla.tmarginal(
   fun = function(X) 1/(1 + exp(-X)),
   marginal = cav_MLCAR_inla$marginals.hyperpar[[1]])
 
-plot(xi_marg_pcar, type = 'l', xlab = expression(xi), ylab = expression(pi (xi ~ "|" ~ y)  ))
+plot(xi_marg_lcar, type = 'l', xlab = expression(xi), ylab = expression(pi (xi ~ "|" ~ y)  ))
 
-unlist(inla.zmarginal(xi_marg_pcar, silent = TRUE))
+unlist(inla.zmarginal(xi_marg_lcar, silent = TRUE))
 ```
 
 As we see, the mixing parameter is not particularly high, but interpreting it properly is hampered by the difficulty in scaling the precision matrix, which is a drawback of non-intrinsic models. 
 
 
+## Appendix
+
+#### R code to fit the LCAR
+
+The \texttt{R} code for the multivariate Leroux CAR model is shown. It is derived from the code for the PCAR in the     texttt{R} package \texttt{INLAMSM} [@INLAMSM].
+
+A Gaussian prior is set on the logit of the mixing parameter for analogy with the default prior used in the univariate version (model \texttt{"besagproper"} in \texttt{R-INLA})
+
+```{r INLA Leroux silent, eval = FALSE}
+
+inla.rgeneric.MLCAR.model <- 
+  function (cmd = c("graph", "Q", "mu", "initial", "log.norm.const", 
+                    "log.prior", "quit"), theta = NULL) 
+  {
+    interpret.theta <- function() {
+      alpha <-  1/(1 + exp(-theta[1L]))
+      mprec <- sapply(theta[as.integer(2:(k + 1))], function(x) {
+        exp(x)
+      })
+      corre <- sapply(theta[as.integer(-(1:(k + 1)))], function(x) {
+        (2 * exp(x))/(1 + exp(x)) - 1
+      })
+      param <- c(alpha, mprec, corre)
+      n <- (k - 1) * k/2
+      M <- diag(1, k)
+      M[lower.tri(M)] <- param[k + 2:(n + 1)]
+      M[upper.tri(M)] <- t(M)[upper.tri(M)]
+      st.dev <- 1/sqrt(param[2:(k + 1)])
+      st.dev.mat <- matrix(st.dev, ncol = 1) %*% matrix(st.dev, 
+                                                        nrow = 1)
+      M <- M * st.dev.mat
+      PREC <- solve(M)
+      return(list(alpha = alpha, param = param, VACOV = M, 
+                  PREC = PREC))
+    }
+    graph <- function() {
+      PREC <- matrix(1, ncol = k, nrow = k)
+      G <- kronecker(PREC, Matrix::Diagonal(nrow(W), 1) + 
+                       W)
+      return(G)
+    }
+    Q <- function() {
+      param <- interpret.theta()
+      Lapl <- Matrix::Diagonal(nrow(W), apply(W, 1, sum)) -  W
+      #Sigma.u <- MASS::ginv(as.matrix(Lapl))
+      #Sigma <- param$alpha * Sigma.u + (1-param$alpha)*diag(1, nrow(W))
+      R <- param$alpha*Lapl + (1-param$alpha)*diag(1, nrow(W))
+      Q <- kronecker(param$PREC, R)
+      return(Q)
+    }
+    mu <- function() {
+      return(numeric(0))
+    }
+    log.norm.const <- function() {
+      val <- numeric(0)
+      return(val)
+    }
+    log.prior <- function() {
+      param <- interpret.theta()
+      # Uniform prior on \lambda
+      # val <- -theta[1L] - 2 * log(1 + exp(-theta[1L]))
+      # Normal prior on \lambda, in analogy with the univariate default case
+      val <- log(dnorm(theta[1L], mean = 0, sd = sqrt(1/0.45))) -
+        theta[1L] - 2 * log(1 + exp(-theta[1L]))
+      val <- val + log(MCMCpack::dwish(
+        W = param$PREC, v = k, S = diag(rep(1, k)))) +
+        sum(theta[as.integer(2:(k + 1))]) + 
+        sum(log(2) + theta[-as.integer(1:(k + 1))] - 
+              2 * log(1 + exp(theta[-as.integer(1:(k + 1))])))
+      return(val)
+    }
+    initial <- function() {
+      return(c(0, rep(log(1), k), rep(0, (k * (k - 1)/2))))
+    }
+    quit <- function() {
+      return(invisible())
+    }
+    if (as.integer(R.version$major) > 3) {
+      if (!length(theta)) 
+        theta = initial()
+    }
+    else {
+      if (is.null(theta)) {
+        theta <- initial()
+      }
+    }
+    val <- do.call(match.arg(cmd), args = list())
+    return(val)
+  }
+
+inla.MLCAR.model <- function(...) INLA::inla.rgeneric.define(inla.rgeneric.MLCAR.model, ...)
 
 
+```
+
+
+
+
+#### Addressing the potential issue of spatial confounding
+
+The changes in $E[\beta|y]$ may suggest we are in presence of confounding bias. 
+We adopt the most parsimonious approach to overcome this situation, i.e. removing spatial trends up to a certain order from all explanatory variables except for the distance from the closest AVC. In this case, interpreting a distance indicator from which spatial structure is removed becomes challenging. For all other covariates we follow the methodology of [@Urdangarin].
+
+The fundamental decision regards the number of spatial trends to remove from each covariate. We try at removing as few spatial trends as possible in order to obtain a value of the Moran's standardised index less than $1.645$, which corresponds to the $95$-th percentile of the standard Normal distribution.
+
+To do so, we remove the last $3$ eigenvectors from \texttt{ELI} covariate, $13$ eigenvectors from \texttt{PGR}, $19$ from \texttt{UIS}, $19$ from \texttt{ELL}, $6$ from \texttt{PDI} and $31$ from \texttt{ER}.
+
+```{r deconfound, echo = FALSE}
+deconfound <- function(X, Lapl = Lapl_con, n.eigen.out, rescale = T){
+  if(!is.matrix(X)) {
+    as.vectorX <- TRUE
+    X <- as.matrix(X)
+  } else {
+      as.vectorX <- FALSE
+      }
+  V <- eigen(Lapl)$vectors
+  rk <- Matrix::rankMatrix(Lapl)
+  coef <- solve(V, X)
+  eigen.in <- c(1:(rk-n.eigen.out), c((rk+1):ncol(V)))
+  X_nosp <- V[, eigen.in] %*% coef[eigen.in, ]
+  if(rescale) X_nosp <- scale(X_nosp)
+  if(as.vectorX) X_nosp <- as.vector(X_nosp)
+  return(X_nosp)
+}
+
+dd_list_nosp_fn <- function(n.eigen.out){
+  res  <- list (
+  Intercept = dd_list$Intercept,
+  N_ACC = dd_list$N_ACC,
+  TEP_th = dd_list$TEP_th,
+  ELI = matrix(c(deconfound(dd_con$ELI, n.eigen.out=n.eigen.out), rep(NA, 3*n), 
+                deconfound(dd_con$ELI, n.eigen.out=n.eigen.out), rep(NA, 3*n),  
+                deconfound(dd_con$ELI, n.eigen.out=n.eigen.out)), nrow = 3*n,
+              ncol = 3, byrow = FALSE),
+  PGR = matrix(c(deconfound(dd_con$PGR, n.eigen.out=n.eigen.out), rep(NA, 3*n), 
+                deconfound(dd_con$PGR, n.eigen.out=n.eigen.out), rep(NA, 3*n),  
+                deconfound(dd_con$PGR, n.eigen.out=n.eigen.out)), nrow = 3*n,
+              ncol = 3, byrow = FALSE),
+  UIS =  matrix(c(deconfound(dd_con$UIS, n.eigen.out=n.eigen.out), rep(NA, 3*n), 
+                deconfound(dd_con$UIS, n.eigen.out=n.eigen.out), rep(NA, 3*n),  
+                deconfound(dd_con$UIS, n.eigen.out=n.eigen.out)), nrow = 3*n,
+              ncol = 3, byrow = FALSE),
+  ELL = matrix(c(deconfound(dd_con$ELL, n.eigen.out=n.eigen.out), rep(NA, 3*n), 
+                deconfound(dd_con$ELL, n.eigen.out=n.eigen.out), rep(NA, 3*n),  
+                deconfound(dd_con$ELL, n.eigen.out=n.eigen.out)), nrow = 3*n,
+              ncol = 3, byrow = FALSE),
+  PDI = matrix(c(deconfound(dd_con$PDI, n.eigen.out=n.eigen.out), rep(NA, 3*n), 
+                deconfound(dd_con$PDI, n.eigen.out=n.eigen.out), rep(NA, 3*n),  
+                deconfound(dd_con$PDI, n.eigen.out=n.eigen.out)), nrow = 3*n,
+              ncol = 3, byrow = FALSE),
+  ER = matrix(c(deconfound(dd_con$ER, n.eigen.out=n.eigen.out), rep(NA, 3*n), 
+                deconfound(dd_con$ER, n.eigen.out=n.eigen.out), rep(NA, 3*n),  
+                deconfound(dd_con$ER, n.eigen.out=n.eigen.out)), nrow = 3*n,
+              ncol = 3, byrow = FALSE),
+  ID = dd_list$ID,
+  nn = dd_list$nn)
+  return(res)
+}
+
+dd_list_nosp <- list (
+  Intercept = dd_list$Intercept,
+  N_ACC = dd_list$N_ACC,
+  TEP_th = dd_list$TEP_th,
+  ELI = matrix(c(deconfound(dd_con$ELI, n.eigen.out=3), rep(NA, 3*n), 
+                deconfound(dd_con$ELI, n.eigen.out=3), rep(NA, 3*n),  
+                deconfound(dd_con$ELI, n.eigen.out=3)), nrow = 3*n,
+              ncol = 3, byrow = FALSE),
+  PGR = matrix(c(deconfound(dd_con$PGR, n.eigen.out=13), rep(NA, 3*n), 
+                deconfound(dd_con$PGR, n.eigen.out=13), rep(NA, 3*n),  
+                deconfound(dd_con$PGR, n.eigen.out=13)), nrow = 3*n,
+              ncol = 3, byrow = FALSE),
+  UIS =  matrix(c(deconfound(dd_con$UIS, n.eigen.out=19), rep(NA, 3*n), 
+                deconfound(dd_con$UIS, n.eigen.out=19), rep(NA, 3*n),  
+                deconfound(dd_con$UIS, n.eigen.out=19)), nrow = 3*n,
+              ncol = 3, byrow = FALSE),
+  ELL = matrix(c(deconfound(dd_con$ELL, n.eigen.out=19), rep(NA, 3*n), 
+                deconfound(dd_con$ELL, n.eigen.out=19), rep(NA, 3*n),  
+                deconfound(dd_con$ELL, n.eigen.out=19)), nrow = 3*n,
+              ncol = 3, byrow = FALSE),
+  PDI = matrix(c(deconfound(dd_con$PDI, n.eigen.out=6), rep(NA, 3*n), 
+                deconfound(dd_con$PDI, n.eigen.out=6), rep(NA, 3*n),  
+                deconfound(dd_con$PDI, n.eigen.out=6)), nrow = 3*n,
+              ncol = 3, byrow = FALSE),
+  ER = matrix(c(deconfound(dd_con$ER, n.eigen.out=31), rep(NA, 3*n), 
+                deconfound(dd_con$ER, n.eigen.out=31), rep(NA, 3*n),  
+                deconfound(dd_con$ER, n.eigen.out=31)), nrow = 3*n,
+              ncol = 3, byrow = FALSE),
+  ID = dd_list$ID,
+  nn = dd_list$nn) 
+
+```
+
+Then we fit the Leroux model to the deconfounded data
+```{r MLCAR nosp, echo = FALSE, message = FALSE, output = FALSE}
+
+
+
+cav_MLCAR_inla_spatplus <- inla(
+  N_ACC ~ 1 + TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.MLCAR.model(k = 3, W = W_con)),
+  offset = log(nn),
+  family = rep("poisson", 3), data =dd_list_nosp,
+  #control.fixed = list(prec = list(Intercept1 = 0, Intercept2 = 0, Intercept3 = 0)),
+  #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  verbose = T)
+
+```
+
+Resulting estimates for covariate effects are summarised:
+```{r betas leroux spatplus, echo = FALSE, results = "asis"}
+betas.mlcar.inla.noint1  <- cav_MLCAR_inla_spatplus$summary.fixed[-1,] %>% 
+  dplyr::select(.data$mean, .data$sd)  %>%
+  dplyr::mutate( year = rep(c(2021, 2022, 2023), 7)) %>% 
+  dplyr::mutate(Effect = rep(c("TEP", rownames(summary(cav_glm_21)$coefficients)[-c(1,2)]),each=3)) %>% 
+  dplyr::relocate(.data$Effect, .before = 1) %>%  
+  dplyr::rename(Mean = .data$mean, Sd = .data$sd) %>% 
+  tidyr::pivot_wider( 
+    id_cols = .data$Effect,            
+    names_from = .data$year,                
+    values_from = c(.data$Mean, .data$Sd))
+
+betas.mlcar.inla1 <- dplyr::bind_rows(
+  data.frame(Effect = "Intercept", 
+             Mean_2021 = cav_MLCAR_inla_spatplus$summary.fixed$mean[1],
+             Sd_2021 = cav_MLCAR_inla_spatplus$summary.fixed$sd[1],
+             Mean_2022 = cav_MLCAR_inla_spatplus$summary.fixed$mean[1],
+             Sd_2022 = cav_MLCAR_inla_spatplus$summary.fixed$sd[1],
+             Mean_2023 = cav_MLCAR_inla_spatplus$summary.fixed$mean[1],
+             Sd_2023 = cav_MLCAR_inla_spatplus$summary.fixed$sd[1]),
+  betas.mlcar.inla.noint1) 
+
+print(xtable::xtable(betas.mlcar.inla1, num.digits = 3), include.rowname = FALSE)
+
+```
+
+The most notable change is the shrinkage in the effect of employment rate in 2021 and 2023. This being said, the interpretation of 
 
 
 
