@@ -114,6 +114,7 @@ ggy21 <- ggplot2::ggplot() +
   ggplot2::geom_sf(data = dd, 
                    ggplot2::aes(fill = .data$LN_ACC_21))+
   ggplot2::scale_fill_viridis_c(na.value = "white",
+                                direction = -1,
                                 limits = c(-9.5, -4.5))+
   ggplot2::theme_classic()
 
@@ -121,6 +122,7 @@ ggy22 <- ggplot2::ggplot() +
   ggplot2::geom_sf(data = dd, 
                    ggplot2::aes(fill = .data$LN_ACC_22))+
   ggplot2::scale_fill_viridis_c(na.value = "white",
+                                direction = -1,
                                 limits = c(-9.5, -4.5))+
   ggplot2::theme_classic()
 
@@ -128,6 +130,7 @@ ggy23 <- ggplot2::ggplot() +
   ggplot2::geom_sf(data = dd, 
                    ggplot2::aes(fill = .data$LN_ACC_23))+
   ggplot2::scale_fill_viridis_c(na.value = "white",
+                                direction = -1,
                                 limits = c(-9.5, -4.5))+
   ggplot2::theme_classic()
 
@@ -784,6 +787,43 @@ Estimations of $\beta$ differ slightly from the nonspatial model. For all variab
   
   - `ER`: The effect associated with employment rate is increased for 2021 data,  more than doubled for 2022 data, and slightly increased for 2023 data. How to interpret this finding? Employment rate is clearly an indicator of economic development, hence the easiest interpretation is that - as it was with `ELI` under the nonspatial model - in more developed areas there is a higher chance that gender violence is reported.
   
+  
+We show the expected latent effects
+```{r zhat mlcar, echo = FALSE, message = FALSE, warning = FALSE, output = FALSE}
+
+zbound <- range(cav_MLCAR_inla$summary.random$ID$mean)
+
+ggzhat21 <- dd_con %>% 
+  dplyr::mutate(zhat_21 = cav_MLCAR_inla$summary.random$ID$mean[c(1:n)]) %>% 
+  ggplot2::ggplot() +
+  ggplot2::geom_sf(ggplot2::aes(fill = .data$zhat_21))+
+  ggplot2::scale_fill_viridis_c(na.value = "white", direction = -1, limits = zbound) +
+  ggplot2::theme_classic()
+
+ggzhat22 <- dd_con %>% 
+  dplyr::mutate(zhat_22 = cav_MLCAR_inla$summary.random$ID$mean[c(n+(1:n))]) %>% 
+  ggplot2::ggplot() +
+  ggplot2::geom_sf(ggplot2::aes(fill = .data$zhat_22))+
+  ggplot2::scale_fill_viridis_c(na.value = "white", direction = -1, limits = zbound) +
+  ggplot2::theme_classic()
+
+
+ggzhat23 <- dd_con %>% 
+  dplyr::mutate(zhat_23 = cav_MLCAR_inla$summary.random$ID$mean[c((2*n)+(1:n))]) %>% 
+  ggplot2::ggplot() +
+  ggplot2::geom_sf(ggplot2::aes(fill = .data$zhat_23))+
+  ggplot2::scale_fill_viridis_c(na.value = "white", direction = -1, limits = zbound) +
+  ggplot2::theme_classic()
+
+```
+
+```{r zhat plot, echo = FALSE, warning = FALSE, message = FALSE, fig.cap = "Expected latent effect" }
+
+gridExtra::grid.arrange(ggzhat21, ggzhat22, ggzhat23, nrow = 3, ncol = 1)
+
+
+```
+As we can see, the behaviour of 2023 data is quite puzzling, since high values of the latent effect are observed in areas such as the Northern province of Foggia, which was previously characterised by low accesses.
   
 Lastly, we have a look at the mixing parameter.
 
