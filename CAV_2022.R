@@ -251,9 +251,18 @@ covs.in[c(1:which.min(BIC.min))]
 #'  
 #'  
 #' 
+
+
 cav_glm <- glm(N_ACC ~ 1 +TEP_th_22 + ELI + PGR + 
                  UIS + ELL + PDI + ER, family = "poisson",
                offset = log(nn), data = dd_con)
+
+#' Interaction between economic variables
+cav_glm_EI <- glm(N_ACC ~ 1 +TEP_th_22 + ELI + PGR + 
+                 UIS + ELL + PDI + ER + ELL*ER, family = "poisson",
+               offset = log(nn), data = dd_con)
+#' Not particularly interesting
+
 
 #' For the ZIP regression we are going to need
 #' a dedicated package, e.g. `pscl`:

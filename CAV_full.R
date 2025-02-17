@@ -343,8 +343,7 @@ dd_long <- do.call(rbind, rep(list(
 
 
 
-
-## Spatial analysis -----------------------------------------------------------#
+## Spatial analysis ------------------------------------------------------------
 
 #' The simplest way to take into account the three different years
 #' is defining a multivariate model in which each year corresponds
@@ -374,17 +373,9 @@ cav_IMCAR_inla <- inla(
 #' all years.
 
 
-inla(N_ACC ~ 0 + Intercept + TEP_th +
-       f(ID, model = inla.MCAR.model(k = 3, W = W_con, alpha.min = 0,
-                                     alpha.max = 1)), data = dd_list,
-     offset = log(nn), family = c("poisson", "poisson", "poisson"),
-     control.predictor = list(compute = TRUE),
-     control.compute = list(dic = TRUE, waic = TRUE, cpo = T, internal.opt = F),
-     verbose = TRUE, num.threads = 1)
-
 
 cav_INDPMCAR_inla <- inla(
-  N_ACC ~ 0 + Intercept +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+  N_ACC ~ 0 + 1 +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
     f(ID, model = inla.INDMCAR.model(k = 3, W = W_con,  alpha.min = 0,alpha.max = 1)),
   offset = log(nn),
   family = rep("poisson", 3), data =dd_list,
@@ -422,6 +413,8 @@ inla.zmarginal(inla.tmarginal(
 
 #' Weird result: employment rate has negative association, and 
 #' even stronger in absolute value than for 2022.
+
+
 
 ## Multivariate LCAR code ATTEMPT ----------------------------------------------
 
@@ -516,6 +509,110 @@ cav_MLCAR_inla <- inla(
   #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
   num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
   verbose = T)
+
+#' Mixing parameter
+#' (hard to interpret etcetera)
+
+inla.zmarginal(inla.tmarginal(
+  fun = function(X) 1/(1 + exp(-X)),
+  marginal = cav_MLCAR_inla$marginals.hyperpar[[1]]))
+
+#' Covariances
+
+inla.MCAR.transform(cav_MLCAR_inla, model = "PMCAR", k = 3, alpha.min = 0, alpha.max = 1)$summary.hyperpar
+inla.MCAR.transform(cav_PMCAR_inla, model = "PMCAR", k = 3, alpha.min = 0, alpha.max = 1)$summary.hyperpar
+
+
+inla.zmarginal(inla.tmarginal(fun = function(x) (2 * exp(x))/(1 + exp(x)) - 1, 
+                              marginal = cav_MLCAR_inla$marginals.hyperpar[[5]]))
+inla.zmarginal(inla.tmarginal(fun = function(x) (2 * exp(x))/(1 + exp(x)) - 1, 
+                              marginal = cav_MLCAR_inla$marginals.hyperpar[[6]]))
+inla.zmarginal(inla.tmarginal(fun = function(x) (2 * exp(x))/(1 + exp(x)) - 1, 
+                              marginal = cav_MLCAR_inla$marginals.hyperpar[[7]]))
+
+
+
+
+## M-Model PCAR attempt --------------------------------------------------------
+
+
+inla.Mmodel.man <- function(...) INLA::inla.rgeneric.define(inla.rgeneric.Mmodel.man, ...)
+
+
+inla.rgeneric.Mmodel.man <- function (cmd = c("graph", "Q", "mu", "initial", "log.norm.const", 
+  "log.prior", "quit"), theta = NULL) {
+  interpret.theta <- function() {
+    alpha <- alpha.min + (alpha.max - alpha.min)/(1 + exp(-theta[as.integer(1:k)]))
+    M <- matrix(theta[-as.integer(1:k)], ncol = k)
+    return(list(alpha = alpha, M = M))
+  }
+  graph <- function() {
+    MI <- kronecker(Matrix::Matrix(1, ncol = k, nrow = k), 
+      Matrix::Diagonal(nrow(W), 1))
+    IW <- Matrix::Diagonal(nrow(W), 1) + W
+    BlockIW <- Matrix::bdiag(replicate(k, IW, simplify = FALSE))
+    G <- (MI %*% BlockIW) %*% MI
+    return(G)
+  }
+  Q <- function() {
+    param <- interpret.theta()
+    M.inv <- solve(param$M)
+    MI <- kronecker(M.inv, Matrix::Diagonal(nrow(W), 1))
+    D <- as.vector(apply(W, 1, sum))
+    BlockIW <- Matrix::bdiag(lapply(1:k, function(i) {
+      Matrix::Diagonal(x = D) - param$alpha[i] * W
+    }))
+    Q <- (MI %*% BlockIW) %*% kronecker(t(M.inv), Matrix::Diagonal(nrow(W), 
+      1))
+    return(Q)
+  }
+  mu <- function() {
+    return(numeric(0))
+  }
+  log.norm.const <- function() {
+    val <- numeric(0)
+    return(val)
+  }
+  log.prior <- function() {
+    param <- interpret.theta()
+    val <- sum(-theta[as.integer(1:k)] - 2 * log(1 + exp(-theta[as.integer(1:k)])))
+    sigma2 <- 1000
+    val = val + log(MCMCpack::dwish(W = crossprod(param$M), 
+      v = k, S = diag(rep(sigma2, k))))
+    return(val)
+  }
+  initial <- function() {
+    return(c(rep(0, k), as.vector(diag(rep(1, k)))))
+  }
+  quit <- function() {
+    return(invisible())
+  }
+  if (as.integer(R.version$major) > 3) {
+    if (!length(theta)) 
+      theta = initial()
+  }
+  else {
+    if (is.null(theta)) {
+      theta <- initial()
+    }
+  }
+  val <- do.call(match.arg(cmd), args = list())
+  return(val)
+}
+
+
+cav_PMMCAR_inla <- inla(
+  N_ACC ~ 1 +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.Mmodel.man(k = 3, W = W_con,  alpha.min = 0,alpha.max = 1)),
+  offset = log(nn),
+  family = rep("poisson", 3), data =dd_list,
+  #control.fixed = list(prec = list(Intercept1 = 0, Intercept2 = 0, Intercept3 = 0)),
+  #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  verbose = T)
+
+
+
 
 ## Obsolete: covariates choice -------------------------------------------------
 

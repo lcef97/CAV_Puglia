@@ -673,8 +673,7 @@ inla.rgeneric.MLCAR.model <-
       # Uniform prior on \lambda
       # val <- -theta[1L] - 2 * log(1 + exp(-theta[1L]))
       # Normal prior on \lambda, in analogy with the univariate default case
-      val <- log(dnorm(theta[1L], mean = 0, sd = sqrt(1/0.45))) -
-        theta[1L] - 2 * log(1 + exp(-theta[1L]))
+      val <- log(dnorm(theta[1L], mean = 0, sd = sqrt(1/0.45))) 
       val <- val + log(MCMCpack::dwish(
         W = param$PREC, v = k, S = diag(rep(1, k)))) +
         sum(theta[as.integer(2:(k + 1))]) + 
@@ -902,9 +901,9 @@ inla.rgeneric.MLCAR.model <-
       param <- interpret.theta()
       # Uniform prior on \lambda
       # val <- -theta[1L] - 2 * log(1 + exp(-theta[1L]))
-      # Normal prior on \lambda, in analogy with the univariate default case
-      val <- log(dnorm(theta[1L], mean = 0, sd = sqrt(1/0.45))) -
-        theta[1L] - 2 * log(1 + exp(-theta[1L]))
+      # Normal prior on logit lambda, in analogy with the univariate default case
+      val <- log(dnorm(theta[1L], mean = 0, sd = sqrt(1/0.45))) 
+      
       val <- val + log(MCMCpack::dwish(
         W = param$PREC, v = k, S = diag(rep(1, k)))) +
         sum(theta[as.integer(2:(k + 1))]) + 
