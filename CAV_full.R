@@ -339,7 +339,8 @@ dd_long <- do.call(rbind, rep(list(
                 TEP_th = c(dd_con$TEP_th_22, dd_con$TEP_th_22, dd_con$TEP_th_23),
                 nn = c(dd_con$nn21, dd_con$nn22, dd_con$nn23),
                 Intercept = rep(1, nrow(.)),
-                ID = c(1:nrow(.)))
+                ID = rep(dd_con$ID, 3), 
+                Year = rep(c(1,2,3), each = nrow(dd_con)))
 
 
 
@@ -470,8 +471,7 @@ inla.rgeneric.MLCAR.model <-
       # Uniform prior on \lambda
       # val <- -theta[1L] - 2 * log(1 + exp(-theta[1L]))
       # Normal prior on \lambda, in analogy with the univariate default case
-      val <- log(dnorm(theta[1L], mean = 0, sd = sqrt(1/0.45))) -
-        theta[1L] - 2 * log(1 + exp(-theta[1L]))
+      val <- log(dnorm(theta[1L], mean = 0, sd = sqrt(1/0.45))) 
       val <- val + log(MCMCpack::dwish(
         W = param$PREC, v = k, S = diag(rep(1, k)))) +
         sum(theta[as.integer(2:(k + 1))]) + 
@@ -523,15 +523,44 @@ inla.MCAR.transform(cav_MLCAR_inla, model = "PMCAR", k = 3, alpha.min = 0, alpha
 inla.MCAR.transform(cav_PMCAR_inla, model = "PMCAR", k = 3, alpha.min = 0, alpha.max = 1)$summary.hyperpar
 
 
+inla.zmarginal(inla.tmarginal(fun = function(x) exp(-x), 
+                              marginal = cav_MLCAR_inla$marginals.hyperpar[[2]]))
+
+inla.zmarginal(inla.tmarginal(fun = function(x) exp(-x), 
+                              marginal = cav_MLCAR_inla$marginals.hyperpar[[3]]))
+
+inla.zmarginal(inla.tmarginal(fun = function(x) exp(-x), 
+                              marginal = cav_MLCAR_inla$marginals.hyperpar[[4]]))
+
+
 inla.zmarginal(inla.tmarginal(fun = function(x) (2 * exp(x))/(1 + exp(x)) - 1, 
                               marginal = cav_MLCAR_inla$marginals.hyperpar[[5]]))
+
 inla.zmarginal(inla.tmarginal(fun = function(x) (2 * exp(x))/(1 + exp(x)) - 1, 
                               marginal = cav_MLCAR_inla$marginals.hyperpar[[6]]))
+
 inla.zmarginal(inla.tmarginal(fun = function(x) (2 * exp(x))/(1 + exp(x)) - 1, 
                               marginal = cav_MLCAR_inla$marginals.hyperpar[[7]]))
 
 
+Sigma_diagonal <- sapply(c(2,3,4), function(i){
+  inla.zmarginal(inla.tmarginal(fun = function(x) exp(-x), 
+                                marginal = 
+                                  cav_MLCAR_inla$marginals.hyperpar[[i]]),
+                 silent = T)$quant0.5
+})
 
+Sigma_offdiag <- sapply(c(5, 6, 7), function(i){
+  inla.zmarginal(inla.tmarginal(fun = function(x) (2 * exp(x))/(1 + exp(x)) - 1, 
+                                marginal = 
+                                  cav_MLCAR_inla$marginals.hyperpar[[i]]),
+                 silent = T)$quant0.5
+})
+
+Sigma <- Matrix::Diagonal(x = Sigma_diagonal)
+Sigma[lower.tri(Sigma)] <- Sigma_offdiag
+Sigma[upper.tri(Sigma)] <- t(Sigma[lower.tri(Sigma)])
+Sigma
 
 ## M-Model PCAR attempt --------------------------------------------------------
 
@@ -612,6 +641,63 @@ cav_PMMCAR_inla <- inla(
   verbose = T)
 
 
+
+
+## TBD: Spatiotemporal attempt -------------------------------------------------
+
+dd_list_st <- dd_list
+
+names(dd_list_st)[which(names(dd_list_st)=="ID")] <- "Area"
+
+dd_list_st$Area <- (dd_list_st$Area - 1)%%nrow(dd_con) + 1
+dd_list_st$Year <- rep(c(1,2,3), each = nrow(dd_con))
+
+dd_list_st$ID_bis <- dd_list_st$Area
+dd_list_st$Year_bis <- dd_list_st$Year
+dd_list_st$ID <- dd_list_st$Area + (dd_list_st$Year-1)*nrow(dd_con)
+
+#' Null model: no interaction, only a temporal effect
+cav_STbym_null_INLA <- inla(N_ACC ~ 1 +TEP_th + ELI + PGR + UIS + ELL + PDI + ER +
+                       f(Area, model = "bym2", graph = W_con,  scale.model = T, 
+                         hyper = list(prec = list(prior = "pc.prec", param = c(1.5, 0.01))))+
+                         f(Year, model = "iid"),
+                     family = c("poisson", "poisson", "poisson"), offset = log(nn), data =dd_list_st,
+                     num.threads = 1, control.compute = 
+                       list(internal.opt = F, cpo = T, waic = T), 
+                     #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
+                     control.predictor = list(compute = T),
+                     verbose = T)
+
+#' Works bad, but this makes sense since a unique spatial field is used for all years
+
+#' Next: type-1 interaction:
+
+cav_STbym_i1_INLA <- inla(N_ACC ~ 1 +TEP_th + ELI + PGR + UIS + ELL + PDI + ER +
+                            f(Area, model = "bym2", graph = W_con,  scale.model = T, 
+                              hyper = list(prec = list(prior = "pc.prec", param = c(1.5, 0.01))))+
+                            #f(Year, model = "iid") + 
+                            f(ID, model = "iid",
+                              hyper = list(prec = list(prior = "pc.prec", param = c(1.5, 0.01)))),
+                            family = c("poisson", "poisson", "poisson"), offset = log(nn), data =dd_list_st,
+                            num.threads = 1, control.compute = 
+                              list(internal.opt = F, cpo = T, waic = T), 
+                            #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
+                            control.predictor = list(compute = T),
+                            verbose = T)
+
+cav_STbym_i3_INLA <- inla(N_ACC ~ 1 +TEP_th + ELI + PGR + UIS + ELL + PDI + ER +
+                            f(Area, model = "bym2", graph = W_con,  scale.model = T, 
+                              hyper = list(prec = list(prior = "pc.prec", param = c(1.5, 0.01))))+
+                            #f(Year, model = "iid", hyper = list(prec = list(prior = "pc.prec", param = c(1.5, 0.01)))) + 
+                            f(Year_bis, model="iid", group=Area,
+                              control.group=list(model="besag", graph=W_con),
+                              hyper = list(prec = list(prior = "pc.prec", param = c(1.5, 0.01)))),
+                          family = c("poisson", "poisson", "poisson"), offset = log(nn), data =dd_list_st,
+                          num.threads = 1, control.compute = 
+                            list(internal.opt = F, cpo = T, waic = T), 
+                          #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
+                          control.predictor = list(compute = T),
+                          verbose = T)
 
 
 ## Obsolete: covariates choice -------------------------------------------------
