@@ -868,13 +868,55 @@ ggzhat23 <- dd_con %>%
 
 ```
 
-```{r zhat plot, echo = FALSE, warning = FALSE, message = FALSE, fig.cap = "Expected latent effect" }
+```{r zhat plot, echo = FALSE, warning = FALSE, message = FALSE, fig.cap = "Expected latent effect using the Leroux model" }
 
 gridExtra::grid.arrange(ggzhat21, ggzhat22, ggzhat23, nrow = 3, ncol = 1)
 
 
 ```
 As we can see, the behaviour of 2023 data is quite puzzling, since high values of the latent effect are observed in areas such as the Northern province of Foggia, which was previously characterised by low accesses.
+
+We additionally show the fitted values of the counts of accesses, rounded to the closest integer.
+
+```{r yhat mlcar, echo = FALSE, message = FALSE, warning = FALSE, output = FALSE}
+
+ybound <- c(0, (max(cav_MLCAR_inla$summary.fitted.values$mean)+1))
+
+ggyhat21 <- dd_con %>% 
+  dplyr::mutate(yhat_21 = round(cav_MLCAR_inla$summary.fitted.values$mean[c(1:n)],0)) %>% 
+  ggplot2::ggplot() +
+  ggplot2::geom_sf(ggplot2::aes(fill = .data$yhat_21))+
+  ggplot2::scale_fill_viridis_c(na.value = "white", direction = -1, limits = ybound) +
+  ggplot2::theme_classic()
+
+ggyhat22 <- dd_con %>% 
+  dplyr::mutate(yhat_22 = round(cav_MLCAR_inla$summary.fitted.values$mean[c(n+(1:n))], 0)) %>% 
+  ggplot2::ggplot() +
+  ggplot2::geom_sf(ggplot2::aes(fill = .data$yhat_22))+
+  ggplot2::scale_fill_viridis_c(na.value = "white", direction = -1, limits = ybound) +
+  ggplot2::theme_classic()
+
+
+ggyhat23 <- dd_con %>% 
+  dplyr::mutate(yhat_23 = round(cav_MLCAR_inla$summary.fitted.values$mean[c((2*n)+(1:n))],0)) %>% 
+  ggplot2::ggplot() +
+  ggplot2::geom_sf(ggplot2::aes(fill = .data$yhat_23))+
+  ggplot2::scale_fill_viridis_c(na.value = "white", direction = -1, limits = ybound) +
+  ggplot2::theme_classic()
+
+```
+
+```{r yhat plot, echo = FALSE, warning = FALSE, message = FALSE, fig.cap = "Fitted values using the Leroux model" }
+
+gridExtra::grid.arrange(ggyhat21, ggyhat22, ggyhat23, nrow = 3, ncol = 1)
+
+
+```
+
+
+
+
+
   
 We show the posterior median of the marginal variances and correlations of $z$, i.e. $\Lambda^{-1}$:
 ```{r Sigma LCAR, message = FALSE, warning = FALSE}
