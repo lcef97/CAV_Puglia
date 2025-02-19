@@ -900,7 +900,7 @@ print(Sigma)
 ```
 
 In terms of point estimates, the only high correlation appears that of 2021-2022; to have more insight on the dependence structure in $z$ we show some posterior summaries for the covariances:
-```{r covariances, message = FALSE, warning = FALSE, echo = FALSE}
+```{r covariances, message = FALSE, warning = FALSE, echo = FALSE, results = "asis"}
 
 covars_ls <- sapply(c(5, 6, 7), function(i){
   inla.zmarginal(inla.tmarginal(fun = function(x) {
