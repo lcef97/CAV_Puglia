@@ -346,6 +346,18 @@ dd_long <- do.call(rbind, rep(list(
 
 ## Spatial analysis ------------------------------------------------------------
 
+
+#' But before spatial analysis, let's do some NONspatial analysis:
+
+cav_nosp_inla <- inla(
+  N_ACC ~ 0 + Intercept +TEP_th + ELI + PGR + UIS + ELL + PDI + ER,
+  offset = log(nn),
+  family = rep("poisson", 3), data =dd_list,
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  verbose = T)
+
+
+
 #' The simplest way to take into account the three different years
 #' is defining a multivariate model in which each year corresponds
 #' to a different dependent variable.
@@ -416,13 +428,11 @@ inla.zmarginal(inla.tmarginal(
 #' even stronger in absolute value than for 2022.
 
 
-
-## Multivariate LCAR code ATTEMPT ----------------------------------------------
+#' Leroux model, tentative manual definition:
 
 inla.rgeneric.MLCAR.model <- 
   function (cmd = c("graph", "Q", "mu", "initial", "log.norm.const", 
-                    "log.prior", "quit"), theta = NULL) 
-  {
+                    "log.prior", "quit"), theta = NULL) {
     interpret.theta <- function() {
       alpha <-  1/(1 + exp(-theta[1L]))
       mprec <- sapply(theta[as.integer(2:(k + 1))], function(x) {
@@ -518,10 +528,10 @@ inla.zmarginal(inla.tmarginal(
   marginal = cav_MLCAR_inla$marginals.hyperpar[[1]]))
 
 #' Covariances
-
 inla.MCAR.transform(cav_MLCAR_inla, model = "PMCAR", k = 3, alpha.min = 0, alpha.max = 1)$summary.hyperpar
 inla.MCAR.transform(cav_PMCAR_inla, model = "PMCAR", k = 3, alpha.min = 0, alpha.max = 1)$summary.hyperpar
 
+#' Manual transformation of ALL the covariance matrix 
 
 inla.zmarginal(inla.tmarginal(fun = function(x) exp(-x), 
                               marginal = cav_MLCAR_inla$marginals.hyperpar[[2]]))
@@ -543,6 +553,9 @@ inla.zmarginal(inla.tmarginal(fun = function(x) (2 * exp(x))/(1 + exp(x)) - 1,
                               marginal = cav_MLCAR_inla$marginals.hyperpar[[7]]))
 
 
+#' Median of the scale parameter.
+#' Yes, this is too much code for a 3x3 matrix.
+#' 
 Sigma_diagonal <- sapply(c(2,3,4), function(i){
   inla.zmarginal(inla.tmarginal(fun = function(x) exp(-x), 
                                 marginal = 
@@ -562,6 +575,104 @@ Sigma[lower.tri(Sigma)] <- Sigma_offdiag
 Sigma[upper.tri(Sigma)] <- t(Sigma[lower.tri(Sigma)])
 Sigma
 
+
+
+
+
+## Multivariate BYM ATTEMPT - Warning: slow ------------------------------------
+
+
+inla.rgeneric.MBYM.dense <- 
+  function (cmd = c("graph", "Q", "mu", "initial", "log.norm.const", 
+                    "log.prior", "quit"), theta = NULL) {
+    interpret.theta <- function() {
+      alpha <-  1/(1 + exp(-theta[1L]))
+      mprec <- sapply(theta[as.integer(2:(k + 1))], function(x) {
+        exp(x)
+      })
+      corre <- sapply(theta[as.integer(-(1:(k + 1)))], function(x) {
+        (2 * exp(x))/(1 + exp(x)) - 1
+      })
+      param <- c(alpha, mprec, corre)
+      n <- (k - 1) * k/2
+      M <- diag(1, k)
+      M[lower.tri(M)] <- param[k + 2:(n + 1)]
+      M[upper.tri(M)] <- t(M)[upper.tri(M)]
+      st.dev <- 1/sqrt(param[2:(k + 1)])
+      st.dev.mat <- matrix(st.dev, ncol = 1) %*% matrix(st.dev, 
+                                                        nrow = 1)
+      M <- M * st.dev.mat
+      PREC <- solve(M)
+      return(list(alpha = alpha, param = param, VACOV = M, 
+                  PREC = PREC))
+    }
+    graph <- function() {
+      PREC <- matrix(1, ncol = k, nrow = k)
+      G <- kronecker(PREC, Matrix::Diagonal(nrow(W), 1) + 
+                       W)
+      return(G)
+    }
+    Q <- function() {
+      param <- interpret.theta()
+      L.unscaled <- Matrix::Diagonal(nrow(W), apply(W, 1, sum)) -  W
+      # Constraint on the Laplacian matrix
+      A.mat <- t(pracma::nullspace(as.matrix(L.unscaled)))
+      # Scaled Laplacian matrix, the actual precision of the ICAR field
+      L <- INLA::inla.scale.model(L.unscaled, constr = list(A = A.mat, e = rep(0, nrow(A.mat))))
+      Sigma.u <- MASS::ginv(as.matrix(L))
+      Sigma <- param$alpha * Sigma.u + (1-param$alpha)*diag(1, nrow(W))
+      Q <- kronecker(param$PREC, solve(Sigma))
+      return(Q)
+    }
+    mu <- function() {
+      return(numeric(0))
+    }
+    log.norm.const <- function() {
+      val <- numeric(0)
+      return(val)
+    }
+    log.prior <- function() {
+      param <- interpret.theta()
+      val <- -theta[1L] - 2 * log(1 + exp(-theta[1L]))
+      val <- val + log(MCMCpack::dwish(W = param$PREC, v = k,
+                                       S = diag(rep(1, k)))) +
+        sum(theta[as.integer(2:(k +  1))]) +
+        sum(log(2) + theta[-as.integer(1:(k + 1))] - 2 * log(1 + exp(theta[-as.integer(1:(k + 1))])))
+      return(val)
+    }
+    initial <- function() {
+      return(c(0, rep(log(1), k), rep(0, (k * (k - 1)/2))))
+    }
+    quit <- function() {
+      return(invisible())
+    }
+    if (as.integer(R.version$major) > 3) {
+      if (!length(theta)) 
+        theta = initial()
+    }
+    else {
+      if (is.null(theta)) {
+        theta <- initial()
+      }
+    }
+    val <- do.call(match.arg(cmd), args = list())
+    return(val)
+  }
+
+inla.MBYM.dense <- function(...) INLA::inla.rgeneric.define(inla.rgeneric.MBYM.dense, ...)
+
+cav_MBYM_inla <- inla(
+  N_ACC ~ 1 +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.MBYM.dense(k = 3, W = W_con)),
+  offset = log(nn),
+  family = rep("poisson", 3), data =dd_list,
+  #control.fixed = list(prec = list(Intercept1 = 0, Intercept2 = 0, Intercept3 = 0)),
+  #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  verbose = T)
+
+
+
 ## M-Model PCAR attempt --------------------------------------------------------
 
 
@@ -569,7 +680,7 @@ inla.Mmodel.man <- function(...) INLA::inla.rgeneric.define(inla.rgeneric.Mmodel
 
 
 inla.rgeneric.Mmodel.man <- function (cmd = c("graph", "Q", "mu", "initial", "log.norm.const", 
-  "log.prior", "quit"), theta = NULL) {
+                                              "log.prior", "quit"), theta = NULL) {
   interpret.theta <- function() {
     alpha <- alpha.min + (alpha.max - alpha.min)/(1 + exp(-theta[as.integer(1:k)]))
     M <- matrix(theta[-as.integer(1:k)], ncol = k)
@@ -577,7 +688,7 @@ inla.rgeneric.Mmodel.man <- function (cmd = c("graph", "Q", "mu", "initial", "lo
   }
   graph <- function() {
     MI <- kronecker(Matrix::Matrix(1, ncol = k, nrow = k), 
-      Matrix::Diagonal(nrow(W), 1))
+                    Matrix::Diagonal(nrow(W), 1))
     IW <- Matrix::Diagonal(nrow(W), 1) + W
     BlockIW <- Matrix::bdiag(replicate(k, IW, simplify = FALSE))
     G <- (MI %*% BlockIW) %*% MI
@@ -592,7 +703,7 @@ inla.rgeneric.Mmodel.man <- function (cmd = c("graph", "Q", "mu", "initial", "lo
       Matrix::Diagonal(x = D) - param$alpha[i] * W
     }))
     Q <- (MI %*% BlockIW) %*% kronecker(t(M.inv), Matrix::Diagonal(nrow(W), 
-      1))
+                                                                   1))
     return(Q)
   }
   mu <- function() {
@@ -607,7 +718,7 @@ inla.rgeneric.Mmodel.man <- function (cmd = c("graph", "Q", "mu", "initial", "lo
     val <- sum(-theta[as.integer(1:k)] - 2 * log(1 + exp(-theta[as.integer(1:k)])))
     sigma2 <- 1000
     val = val + log(MCMCpack::dwish(W = crossprod(param$M), 
-      v = k, S = diag(rep(sigma2, k))))
+                                    v = k, S = diag(rep(sigma2, k))))
     return(val)
   }
   initial <- function() {
@@ -639,6 +750,7 @@ cav_PMMCAR_inla <- inla(
   #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
   num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
   verbose = T)
+
 
 
 
@@ -700,6 +812,18 @@ cav_STbym_i3_INLA <- inla(N_ACC ~ 1 +TEP_th + ELI + PGR + UIS + ELL + PDI + ER +
                           verbose = T)
 
 
+## Some diagnostics (taken from markdown) --------------------------------------
+
+WAICS <- tibble::tibble(
+  Model = c("Null", "ICAR", "PCAR", "Leroux", "ST_I"),
+  WAIC = round(c(
+    cav_nosp_inla$waic$waic,  cav_IMCAR_inla$waic$waic,  cav_PMCAR_inla$waic$waic, 
+    cav_MLCAR_inla$waic$waic, cav_STbym_i1_INLA$waic$waic),3),
+  Eff_params = round(c(
+    cav_nosp_inla$waic$p.eff,   cav_IMCAR_inla$waic$p.eff,  cav_PMCAR_inla$waic$p.eff,
+    cav_MLCAR_inla$waic$p.eff, cav_STbym_i1_INLA$waic$p.eff),3))
+
+WAICS
 ## Obsolete: covariates choice -------------------------------------------------
 
 
