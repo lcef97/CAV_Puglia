@@ -984,7 +984,7 @@ unlist(inla.zmarginal(xi_marg_lcar, silent = TRUE))
 As we see, the mixing parameter is not particularly high, but interpreting it properly is hampered by the difficulty in scaling the precision matrix, which is a drawback of non-intrinsic models. 
 
 
-## Appendix
+## Appendices
 
 #### R code to fit the LCAR
 
@@ -1081,6 +1081,169 @@ inla.MLCAR.model <- function(...) INLA::inla.rgeneric.define(inla.rgeneric.MLCAR
 
 
 
+
+#### Future developments: the BYM model
+
+A possible improvement on the modelistic side would be implementing the BYM model [@BYM2]
+
+\begin{equation}
+z = \sqrt{\phi} u M + \sqrt{1-\phi} vM
+\label{eq:bym}
+\end{equation}
+
+Where $\phi$ is a mixing parameter (this rather crude simplification of employing a unique mixing parameter for all variables could be relaxed at a later stage), $\mathrm{vec}(u) \sim N(0, I_p \otimes L_{\mathrm{scaled}})$ is an ICAR latent field and $L_\mathrm{scaled}$ is the scaled Laplacian matrix, i.e. the Laplacian matrix multiplied by the graph typical variance in order to have the geometric mean of diagonal entries equal to $1$, and $v$ is an IID multivariate Standard Normal vector, such that $\mathrm{vec} (v) \sim N(0, I_p \otimes I_n)$. The matrix $M :/ M'M = \Lambda^{-1}$ is a generic full-rank matrix which does not necessarily need to be the Cholesky factor of the scale parameter; in fact, a convenient but not unique way to define it may be $M = D^{-\frac{1}{2}}E^{\top}$ where $E$ and $D$ are the eigenvector and eigenvalues matrices of $\Lambda$ [@Urdangarin]. 
+
+The BYM model intruduces a mixing parameter as the LCAR does, but improves its interpretability by allowing to scale the ICAR and IID components. 
+
+A problematic element of the BYM model is that the precision matrix of $z$ is sparse, being it defined as $\mathrm{prec}[z] = \left( \phi \Lambda \otimes L^{+} + (1-\phi) \Lambda \otimes I_n \right)^{-1}$.
+
+In the univariate framework, the model can be reparametrised as a joint model of the form $(z, u)$, such that  $\mathrm{Prec}[(\mathrm{vec}(z)^{\top}, \mathrm{vec}(u)^{\top})^{\top}]$ is indeed sparse [@BYM2]. In the multivariate framework, this idea can be easily applied to the joint field $(z, uM)$.
+
+The problem is that to do so we need to define a latent field of length $2 np$, i.e. twice the observational length. Only the first half of this latent effect actually enters the linear predictor, still implementing such a reparametrisation in INLA is challenging.
+
+Therefore, for the time being we rely on the classic, dense parametrisation, which is however very inefficient in computational terms.
+
+Here we only show the R code to fit this model. The uniform prior of $\phi$ is another rather crude choice and more sophisticated priors ought to be implemented as well.
+
+```{r mbym dense}
+inla.rgeneric.MBYM.dense <- 
+  function (cmd = c("graph", "Q", "mu", "initial", "log.norm.const", 
+                    "log.prior", "quit"), theta = NULL) {
+    interpret.theta <- function() {
+      alpha <-  1/(1 + exp(-theta[1L]))
+      mprec <- sapply(theta[as.integer(2:(k + 1))], function(x) {
+        exp(x)
+      })
+      corre <- sapply(theta[as.integer(-(1:(k + 1)))], function(x) {
+        (2 * exp(x))/(1 + exp(x)) - 1
+      })
+      param <- c(alpha, mprec, corre)
+      n <- (k - 1) * k/2
+      M <- diag(1, k)
+      M[lower.tri(M)] <- param[k + 2:(n + 1)]
+      M[upper.tri(M)] <- t(M)[upper.tri(M)]
+      st.dev <- 1/sqrt(param[2:(k + 1)])
+      st.dev.mat <- matrix(st.dev, ncol = 1) %*% matrix(st.dev, 
+                                                        nrow = 1)
+      M <- M * st.dev.mat
+      PREC <- solve(M)
+      return(list(alpha = alpha, param = param, VACOV = M, 
+                  PREC = PREC))
+    }
+    graph <- function() {
+      PREC <- matrix(1, ncol = k, nrow = k)
+      G <- kronecker(PREC, Matrix::Diagonal(nrow(W), 1) + 
+                       W)
+      return(G)
+    }
+    Q <- function() {
+      param <- interpret.theta()
+      L.unscaled <- Matrix::Diagonal(nrow(W), apply(W, 1, sum)) -  W
+      #' Constraint on the Laplacian matrix
+      A.mat <- t(pracma::nullspace(as.matrix(L.unscaled)))
+      #' Scaled Laplacian matrix, the actual precision of the ICAR field
+      L <- INLA::inla.scale.model(L.unscaled, constr = list(A = A.mat, e = rep(0, nrow(A.mat))))
+      Sigma.u <- MASS::ginv(as.matrix(L))
+      #' Weighted average of ICAR and IID variables: variance is the sum of variances.
+      #' Precision here defined as inverse variance. Not
+      #' the best way to do it; still using sparse
+      #' parametrisation requires a latent effect of length 2*np
+      Sigma <- param$alpha * Sigma.u + (1-param$alpha)*diag(1, nrow(W))
+      Q <- kronecker(param$PREC, solve(Sigma))
+      return(Q)
+    }
+    mu <- function() {
+      return(numeric(0))
+    }
+    log.norm.const <- function() {
+      val <- numeric(0)
+      return(val)
+    }
+    log.prior <- function() {
+      param <- interpret.theta()
+      #' Too lazy maybe: Uniform prior on the mixing parameter
+      val <- -theta[1L] - 2 * log(1 + exp(-theta[1L]))
+      #' Whishart prior on precision (inverse scale)
+      val <- val + log(MCMCpack::dwish(W = param$PREC, v = k,
+                                       S = diag(rep(1, k)))) +
+        #' This for the change of variable
+        #' (code from INLAMSM)
+        sum(theta[as.integer(2:(k +  1))]) +
+        sum(log(2) + theta[-as.integer(1:(k + 1))] - 2 * log(1 + exp(theta[-as.integer(1:(k + 1))])))
+      return(val)
+    }
+    initial <- function() {
+      return(c(0, rep(log(1), k), rep(0, (k * (k - 1)/2))))
+    }
+    quit <- function() {
+      return(invisible())
+    }
+    if (as.integer(R.version$major) > 3) {
+      if (!length(theta)) 
+        theta = initial()
+    }
+    else {
+      if (is.null(theta)) {
+        theta <- initial()
+      }
+    }
+    val <- do.call(match.arg(cmd), args = list())
+    return(val)
+  }
+
+
+```
+```{r load mbym, echo = FALSE, warning = FALSE}
+load("input/BYM_dense_uniquePhi.RData")
+```
+
+The fitting of the BYM model, though we used the simplest formulation,is slightly better than the LCAR:
+
+```{r new WAICS, results = "asis", echo = FALSE, warning = FALSE, message = FALSE}
+WAICS_0 <- WAICS
+WAICS <- data.frame(
+  Model = c(WAICS_0$Model, "BYM"),
+  WAIC = c(WAICS_0$WAIC, cav_MBYM_inla$waic$waic),
+  Eff_params= c(WAICS_0$Eff_params, cav_MBYM_inla$waic$p.eff))
+print(xtable::xtable(WAICS, digits = 3), include.rownames = F)
+```
+
+The estimated mixing parameter, however, is unexpectedly high:
+
+```{r mixing BYM, echo = FALSE}
+phi_marg_bym <- inla.tmarginal(
+  fun = function(X) 1/(1 + exp(-X)),
+  marginal = cav_MBYM_inla$marginals.hyperpar[[1]])
+
+plot(phi_marg_bym, type = 'l', xlab = expression(phi), ylab = expression(pi (phi ~ "|" ~ y)  ))
+cat("Posterior summaries of BYM mixing parameter: \n")
+print(unlist(inla.zmarginal(phi_marg_bym, silent = TRUE)))
+```
+
+```{r Sigma BYM, message = FALSE, warning = FALSE, echo = FALSE}
+Sigma_diagonal_bym <- sapply(c(2,3,4), function(i){
+  inla.zmarginal(inla.tmarginal(fun = function(x) {
+    exp(-x)
+    },  marginal =  cav_MBYM_inla$marginals.hyperpar[[i]]),
+    silent = T)$quant0.5
+})
+
+Sigma_offdiag_bym <- sapply(c(5, 6, 7), function(i){
+  inla.zmarginal(inla.tmarginal(fun = function(x) {
+    (2 * exp(x))/(1 + exp(x)) - 1
+    }, marginal =  cav_MBYM_inla$marginals.hyperpar[[i]]),
+    silent = T)$quant0.5
+})
+
+Sigma_bym <- Matrix::Diagonal(x = Sigma_diagonal_bym)
+Sigma_bym[lower.tri(Sigma_bym)] <- Sigma_offdiag_bym
+Sigma_bym[upper.tri(Sigma_bym)] <- t(Sigma[lower.tri(Sigma_bym)])
+cat("Median of the BYM scale matrix: \n")
+print(Sigma_bym)
+
+```
+
+The scale parameter instead is quite close to the LCAR result instead.
 
 #### Addressing the potential issue of spatial confounding
 
