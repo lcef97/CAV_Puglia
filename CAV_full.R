@@ -342,6 +342,40 @@ dd_long <- do.call(rbind, rep(list(
                 ID = rep(dd_con$ID, 3), 
                 Year = rep(c(1,2,3), each = nrow(dd_con)))
 
+#' Here some internal function that may or may not be useful
+zhat_plot <- function(model, main = NULL){
+  
+  zbound <- range(model$summary.random$ID$mean)
+  
+  if(is.null(main)) main <- deparse(substitute(model))
+  
+  ggzhat21 <- dd_con %>% 
+    dplyr::mutate(zhat_21 = model$summary.random$ID$mean[c(1:n)]) %>% 
+    ggplot2::ggplot() +
+    ggplot2::geom_sf(ggplot2::aes(fill = .data$zhat_21))+
+    ggplot2::scale_fill_viridis_c(na.value = "white", direction = -1, limits = zbound) +
+    ggplot2::theme_classic()
+  
+  ggzhat22 <- dd_con %>% 
+    dplyr::mutate(zhat_22 = model$summary.random$ID$mean[c(n+(1:n))]) %>% 
+    ggplot2::ggplot() +
+    ggplot2::geom_sf(ggplot2::aes(fill = .data$zhat_22))+
+    ggplot2::scale_fill_viridis_c(na.value = "white", direction = -1, limits = zbound) +
+    ggplot2::theme_classic()
+  
+  ggzhat23 <- dd_con %>% 
+    dplyr::mutate(zhat_23 = model$summary.random$ID$mean[c((2*n)+(1:n))]) %>% 
+    ggplot2::ggplot() +
+    ggplot2::geom_sf(ggplot2::aes(fill = .data$zhat_23))+
+    ggplot2::scale_fill_viridis_c(na.value = "white", direction = -1, limits = zbound) +
+    ggplot2::theme_classic()
+  
+  gridExtra::grid.arrange(ggzhat21, ggzhat22, ggzhat23, nrow = 3, ncol = 1,
+                          top = main)
+  
+}
+
+
 
 
 ## Spatial analysis ------------------------------------------------------------
@@ -368,6 +402,9 @@ cav_nosp_inla <- inla(
 #' 
 
 if(!rlang::is_installed("INLAMSM")) devtools::install_github("becarioprecario/INLAMSM")
+
+#' Besides calling the package, the present R code is frequently 
+#' derived from INLAMSM source codes.
 
 library(INLA)
 library(INLAMSM)
@@ -615,11 +652,15 @@ inla.rgeneric.MBYM.dense <-
     Q <- function() {
       param <- interpret.theta()
       L.unscaled <- Matrix::Diagonal(nrow(W), apply(W, 1, sum)) -  W
-      # Constraint on the Laplacian matrix
+      #' Constraint on the Laplacian matrix
       A.mat <- t(pracma::nullspace(as.matrix(L.unscaled)))
-      # Scaled Laplacian matrix, the actual precision of the ICAR field
+      #' Scaled Laplacian matrix, the actual precision of the ICAR field
       L <- INLA::inla.scale.model(L.unscaled, constr = list(A = A.mat, e = rep(0, nrow(A.mat))))
       Sigma.u <- MASS::ginv(as.matrix(L))
+      #' Weighted average of ICAR and IID variables: variance is the sum of variances.
+      #' Precision here defined as inverse variance. Not
+      #' the best way to do it; still using sparse
+      #' parametrisation requires a latent effect of length 2*np
       Sigma <- param$alpha * Sigma.u + (1-param$alpha)*diag(1, nrow(W))
       Q <- kronecker(param$PREC, solve(Sigma))
       return(Q)
@@ -633,9 +674,13 @@ inla.rgeneric.MBYM.dense <-
     }
     log.prior <- function() {
       param <- interpret.theta()
+      #' Too lazy maybe: Uniform prior on the mixing parameter
       val <- -theta[1L] - 2 * log(1 + exp(-theta[1L]))
+      #' Whishart prior on precision (inverse scale)
       val <- val + log(MCMCpack::dwish(W = param$PREC, v = k,
                                        S = diag(rep(1, k)))) +
+        #' This for the change of variable
+        #' (code from INLAMSM)
         sum(theta[as.integer(2:(k +  1))]) +
         sum(log(2) + theta[-as.integer(1:(k + 1))] - 2 * log(1 + exp(theta[-as.integer(1:(k + 1))])))
       return(val)
@@ -670,6 +715,12 @@ cav_MBYM_inla <- inla(
   #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
   num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
   verbose = T)
+
+#' No, too high.
+inla.zmarginal(inla.tmarginal(
+  fun = function(X) 1/(1 + exp(-X)),
+  marginal = cav_MBYM_inla$marginals.hyperpar[[1]]))
+
 
 
 
@@ -755,6 +806,7 @@ cav_PMMCAR_inla <- inla(
 
 
 
+
 ## TBD: Spatiotemporal attempt -------------------------------------------------
 
 dd_list_st <- dd_list
@@ -824,6 +876,13 @@ WAICS <- tibble::tibble(
     cav_MLCAR_inla$waic$p.eff, cav_STbym_i1_INLA$waic$p.eff),3))
 
 WAICS
+
+
+
+
+zhat_plot(cav_MLCAR_inla, main = "Leroux model")
+
+
 ## Obsolete: covariates choice -------------------------------------------------
 
 
