@@ -962,11 +962,10 @@ cov_df <- as.data.frame(cov_mat) %>%
 names(cov_df)[-1] <- c("Mean", "Sd", "Q0.025", "Median", "Q0.975")
 
 print(xtable::xtable(cov_df, digits = 3), include.rowname = F)
+
+
 ```
 
-
-
-  
   
 Lastly, we have a look at the mixing parameter.
 
@@ -983,6 +982,41 @@ unlist(inla.zmarginal(xi_marg_lcar, silent = TRUE))
 
 As we see, the mixing parameter is not particularly high, but interpreting it properly is hampered by the difficulty in scaling the precision matrix, which is a drawback of non-intrinsic models. 
 
+```{r hyperpars mute, eval = FALSE, echo = FALSE}
+
+
+sigma_ls <- sapply(c(2,3,4), function (i){
+    inla.zmarginal(inla.tmarginal(fun = function(x) {
+    exp(-x)
+    }, marginal =  cav_MLCAR_inla$marginals.hyperpar[[i]]),
+    silent = T)
+})
+
+xi_ls <- inla.zmarginal(inla.tmarginal(
+  fun = function(X) 1/(1 + exp(-X)),
+  marginal = cav_MLCAR_inla$marginals.hyperpar[[1]]), silent = T)
+
+
+hyperpar_mat <- rbind(
+  unlist(xi_ls[c(1,3,5,7)]),
+  unlist(sigma_ls[c(1,3,5,7)]),
+  unlist(sigma_ls[7+c(1,3,5,7)]),
+  unlist(sigma_ls[14+c(1,3,5,7)]),
+  unlist(covars_ls[c(1,3,5,7)]),
+  unlist(covars_ls[7+c(1,3,5,7)]),
+  unlist(covars_ls[14+c(1,3,5,7)]))
+
+hyperpar_df <- as.data.frame(hyperpar_mat) %>% 
+  dplyr::mutate(Var = c("Phi",
+                        "Sigma_21", "Sigma_22", "Sigma_23",
+                        "rho_2122", "rho_2123", "rho_2223")) %>% 
+  dplyr::relocate(.data$Var, .before = 1)
+names(hyperpar_df)[-1] <- c("Mean", "Q0.025", "Median", "Q0.975")
+
+print(xtable::xtable(hyperpar_df, digits = 3), include.rowname = F)
+
+
+```
 
 ## Appendices
 
