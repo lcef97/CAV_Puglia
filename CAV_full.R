@@ -381,7 +381,13 @@ zhat_plot <- function(model, main = NULL){
 ## Spatial analysis ------------------------------------------------------------
 
 
-#' But before spatial analysis, let's do some NONspatial analysis:
+if(!rlang::is_installed("INLAMSM")) devtools::install_github("becarioprecario/INLAMSM")
+
+#' Besides calling the package, the present R code is frequently 
+#' derived from INLAMSM source codes.
+
+library(INLA)
+library(INLAMSM)#' But before spatial analysis, let's do some NONspatial analysis:
 
 cav_nosp_inla <- inla(
   N_ACC ~ 0 + Intercept +TEP_th + ELI + PGR + UIS + ELL + PDI + ER,
@@ -401,13 +407,6 @@ cav_nosp_inla <- inla(
 #' target variables.
 #' 
 
-if(!rlang::is_installed("INLAMSM")) devtools::install_github("becarioprecario/INLAMSM")
-
-#' Besides calling the package, the present R code is frequently 
-#' derived from INLAMSM source codes.
-
-library(INLA)
-library(INLAMSM)
 
 cav_IMCAR_inla <- inla(
   N_ACC ~ 0 + Intercept +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
@@ -526,9 +525,12 @@ inla.rgeneric.MLCAR.model <-
               2 * log(1 + exp(theta[-as.integer(1:(k + 1))])))
       return(val)
     }
-    initial <- function() {
-      return(c(0, rep(log(1), k), rep(0, (k * (k - 1)/2))))
-    }
+    initial <- function(){
+      if(is.null(init)){
+        return(c(0, rep(0, k), rep(0, (k * (k - 1)/2))))
+      } else return(init)
+    } 
+      
     quit <- function() {
       return(invisible())
     }
@@ -549,7 +551,17 @@ inla.MLCAR.model <- function(...) INLA::inla.rgeneric.define(inla.rgeneric.MLCAR
 
 cav_MLCAR_inla <- inla(
   N_ACC ~ 1 +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
-    f(ID, model = inla.MLCAR.model(k = 3, W = W_con)),
+    f(ID, model = inla.MLCAR.model(k = 3, W = W_con, init = NULL)),
+  offset = log(nn),
+  family = rep("poisson", 3), data =dd_list,
+  #control.fixed = list(prec = list(Intercept1 = 0, Intercept2 = 0, Intercept3 = 0)),
+  #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  verbose = T)
+
+cav_MLCAR_inla_init <- inla(
+  N_ACC ~ 1 +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.MLCAR.model(k = 3, W = W_con, init = c(-3, rep(0,6)))),
   offset = log(nn),
   family = rep("poisson", 3), data =dd_list,
   #control.fixed = list(prec = list(Intercept1 = 0, Intercept2 = 0, Intercept3 = 0)),
@@ -674,8 +686,11 @@ inla.rgeneric.MBYM.dense <-
     }
     log.prior <- function() {
       param <- interpret.theta()
-      #' Too lazy maybe: Uniform prior on the mixing parameter
-      val <- -theta[1L] - 2 * log(1 + exp(-theta[1L]))
+      #' PC prior implementation
+      dpc <- INLA:::inla.pc.bym.phi(graph = W, u = 0.5, alpha = 2/3)
+      val <- dpc(param$phi) - theta[1L] - 2 * log(1 + exp(-theta[1L]))
+      #' Uniform prior
+      #val <- -theta[1L] - 2 * log(1 + exp(-theta[1L]))
       #' Whishart prior on precision (inverse scale)
       val <- val + log(MCMCpack::dwish(W = param$PREC, v = k,
                                        S = diag(rep(1, k)))) +
@@ -686,7 +701,11 @@ inla.rgeneric.MBYM.dense <-
       return(val)
     }
     initial <- function() {
-      return(c(0, rep(log(1), k), rep(0, (k * (k - 1)/2))))
+      if(!is.null(init)){
+        return(init)
+      } else{
+        return(c(0, rep(0, k), rep(0, (k * (k - 1)/2))))
+      }
     }
     quit <- function() {
       return(invisible())
@@ -706,9 +725,12 @@ inla.rgeneric.MBYM.dense <-
 
 inla.MBYM.dense <- function(...) INLA::inla.rgeneric.define(inla.rgeneric.MBYM.dense, ...)
 
-cav_MBYM_inla <- inla(
+#' Warning: using a 'prudential' initial value for logit(phi)
+#' can make this already slow model even slower; still, we want to rule out overestimation.
+
+cav_MBYM_inla_phiInit <- inla(
   N_ACC ~ 1 +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
-    f(ID, model = inla.MBYM.dense(k = 3, W = W_con)),
+    f(ID, model = inla.MBYM.dense(k = 3, W = W_con, init = c(-3, rep(0, 3), c(0.1, 0, 0)))),
   offset = log(nn),
   family = rep("poisson", 3), data =dd_list,
   #control.fixed = list(prec = list(Intercept1 = 0, Intercept2 = 0, Intercept3 = 0)),
