@@ -630,6 +630,17 @@ Sigma
 
 ## Multivariate BYM ATTEMPT - Warning: slow ------------------------------------
 
+dpc.log <- INLA:::inla.pc.bym.phi(graph = inla.as.sparse(kronecker(diag(1,3), W_con)),
+                                  u = 0.5, alpha = 2/3)
+
+#' WAIC: 2921.905, summaries for phi:
+#' Mean            0.902401 
+#' Stdev           0.0659761 
+#' Quantile  0.025 0.724788 
+#' Quantile  0.25  0.875523 
+#' Quantile  0.5   0.920359 
+#' Quantile  0.75  0.948348 
+#' Quantile  0.975 0.976785
 
 inla.rgeneric.MBYM.dense <- 
   function (cmd = c("graph", "Q", "mu", "initial", "log.norm.const", 
@@ -684,13 +695,13 @@ inla.rgeneric.MBYM.dense <-
       val <- numeric(0)
       return(val)
     }
+    
     log.prior <- function() {
       param <- interpret.theta()
       #' PC prior implementation
-      dpc <- INLA:::inla.pc.bym.phi(graph = W, u = 0.5, alpha = 2/3)
-      val <- dpc(param$phi) - theta[1L] - 2 * log(1 + exp(-theta[1L]))
+      #val <- dpc.log(param$phi)- theta[1L] - 2 * log(1 + exp(-theta[1L]))
       #' Uniform prior
-      #val <- -theta[1L] - 2 * log(1 + exp(-theta[1L]))
+      val <- -theta[1L] - 2 * log(1 + exp(-theta[1L]))
       #' Whishart prior on precision (inverse scale)
       val <- val + log(MCMCpack::dwish(W = param$PREC, v = k,
                                        S = diag(rep(1, k)))) +
@@ -730,7 +741,7 @@ inla.MBYM.dense <- function(...) INLA::inla.rgeneric.define(inla.rgeneric.MBYM.d
 
 cav_MBYM_inla <- inla(
   N_ACC ~ 1 +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
-    f(ID, model = inla.MBYM.dense(k = 3, W = W_con)),
+    f(ID, model = inla.MBYM.dense(k = 3, W = W_con, dpc.log = dpc.log)),
   offset = log(nn),
   family = rep("poisson", 3), data =dd_list,
   #control.fixed = list(prec = list(Intercept1 = 0, Intercept2 = 0, Intercept3 = 0)),
