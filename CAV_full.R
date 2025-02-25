@@ -701,11 +701,11 @@ inla.rgeneric.MBYM.dense <-
       return(val)
     }
     initial <- function() {
-      if(!is.null(init)){
-        return(init)
-      } else{
+      #if(!is.null(init)){
+        #return(init)
+      #} else{
         return(c(0, rep(0, k), rep(0, (k * (k - 1)/2))))
-      }
+      #}
     }
     quit <- function() {
       return(invisible())
@@ -728,9 +728,9 @@ inla.MBYM.dense <- function(...) INLA::inla.rgeneric.define(inla.rgeneric.MBYM.d
 #' Warning: using a 'prudential' initial value for logit(phi)
 #' can make this already slow model even slower; still, we want to rule out overestimation.
 
-cav_MBYM_inla_phiInit <- inla(
+cav_MBYM_inla_phi <- inla(
   N_ACC ~ 1 +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
-    f(ID, model = inla.MBYM.dense(k = 3, W = W_con, init = c(-3, rep(0, 3), c(0.1, 0, 0)))),
+    f(ID, model = inla.MBYM.dense(k = 3, W = W_con)),
   offset = log(nn),
   family = rep("poisson", 3), data =dd_list,
   #control.fixed = list(prec = list(Intercept1 = 0, Intercept2 = 0, Intercept3 = 0)),
