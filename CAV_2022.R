@@ -368,7 +368,8 @@ inla.rgeneric.PCAR.model <- function (cmd = c("graph", "Q", "mu", "initial", "lo
   }
   Q <- function() {
     param <- interpret.theta()
-    Q <- param$PREC * (Matrix::Diagonal(nrow(W), apply(W, 1, sum)) - param$alpha * W)
+    Q <- param$PREC * 
+      (Matrix::Diagonal(nrow(W), apply(W, 1, sum)) - param$alpha * W)
     return(Q)
   }
   mu <- function() {
@@ -390,7 +391,7 @@ inla.rgeneric.PCAR.model <- function (cmd = c("graph", "Q", "mu", "initial", "lo
     return(val)
   }
   initial <- function() {
-    return(c(0, 4))
+      return(init)
   }
   quit <- function() {
     return(invisible())
@@ -401,6 +402,8 @@ inla.rgeneric.PCAR.model <- function (cmd = c("graph", "Q", "mu", "initial", "lo
   }
   else {
     if (is.null(theta)) {
+      cat("Init = ", init, "\n")
+      cat("Actual initial values", initial(), "\n")
       theta <- initial()
     }
   }
@@ -425,18 +428,17 @@ cav_icar_INLA <- inla(N_ACC ~ 1 +TEP_th_22 + ELI + PGR + UIS + ELL + PDI + ER +
                          family = "poisson", offset = log(nn), data =dd_con,
                          num.threads = 1, control.compute = 
                            list(internal.opt = F, cpo = T, waic = T), 
-                         inla.mode = "classic", control.inla = list(strategy = "laplace",
-                                                                    int.strategy ="grid"),
+                         #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy ="grid"),
                          control.predictor = list(compute = T),
                          verbose = T) # better
 
 # PCAR model
 cav_pcar_INLA <- inla(N_ACC ~ 1 +TEP_th_22 + ELI + PGR + UIS + ELL + PDI + ER +
-                        f(ID, model = PCAR.model(W = W_con, k = 1, lambda = 1.5)),
+                        f(ID, model = PCAR.model(W = W_con, k = 1, lambda = 1.5, init = c(0, 4))),
                          family = "poisson", offset = log(nn), data =dd_con,
                          num.threads = 1, control.compute = 
                            list(internal.opt = F, cpo = T, waic = T), 
-                         inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy  = "grid"),
+                         #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy  = "grid"),
                          control.predictor = list(compute = T),
                          verbose = T) 
 
@@ -447,7 +449,7 @@ cav_bym_INLA <- inla(N_ACC ~ 1 +TEP_th_22 + ELI + PGR + UIS + ELL + PDI + ER +
                       family = "poisson", offset = log(nn), data =dd_con,
                       num.threads = 1, control.compute = 
                         list(internal.opt = F, cpo = T, waic = T), 
-                      inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
+                      #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
                       control.predictor = list(compute = T),
                       verbose = T) # better
 
@@ -458,7 +460,7 @@ cav_leroux_INLA <- inla(N_ACC ~ 1 +TEP_th_22 + ELI + PGR + UIS + ELL + PDI + ER 
                      family = "poisson", offset = log(nn), data =dd_con,
                      num.threads = 1, control.compute = 
                        list(internal.opt = F, cpo = T, waic = T), 
-                     inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy ="grid"),
+                     #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy ="grid"),
                      control.predictor = list(compute = T),
                      verbose = T) # better
 
@@ -511,7 +513,7 @@ cav_bym_INLA_spatplus <- inla(N_ACC ~ 1 +TEP_th_22 + ELI + PGR + UIS + ELL + PDI
                      family = "poisson", offset = log(nn), data = dd_con_nosp,
                      num.threads = 1, control.compute = 
                        list(internal.opt = F, cpo = T, waic = T), 
-                     inla.mode = "classic", control.inla = list(strategy = "laplace", strategy = "grid"),
+                     #inla.mode = "classic", control.inla = list(strategy = "laplace", strategy = "grid"),
                      control.predictor = list(compute = T),
                      verbose = T)
 
