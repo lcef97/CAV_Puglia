@@ -1,4 +1,4 @@
-#' ---------  Analisi CAV Puglia 2022 -----------------------------------------#
+#' ---------  Analisi CAV Puglia 2021-23 --------------------------------------#
 ## Input -----------------------------------------------------------------------
 
 #' NEVER forget calling magrittr and sf. Never --------------------------------#
@@ -326,6 +326,8 @@ dd_list <- list (
                 dd_con$ER), nrow = 3*n,
               ncol = 3, byrow = FALSE),
   ID = c(1:n, (n + c(1:n)), (2*n + c(1:n))),
+  ID2 = c(1:n, (n + c(1:n)), (2*n + c(1:n)),
+          (3*n)+c(1:n, (n + c(1:n)), (2*n + c(1:n)))),
   nn = c(dd_con$nn21, dd_con$nn22, dd_con$nn23)) 
 
 #'  May be useful?
@@ -389,6 +391,10 @@ if(!rlang::is_installed("INLAMSM")) devtools::install_github("becarioprecario/IN
 library(INLA)
 library(INLAMSM)#' But before spatial analysis, let's do some NONspatial analysis:
 
+
+L_block <- kronecker(diag(1, 3), Lapl_con)
+A_constr <- t(pracma::nullspace(L_block))
+
 cav_nosp_inla <- inla(
   N_ACC ~ 0 + Intercept +TEP_th + ELI + PGR + UIS + ELL + PDI + ER,
   offset = log(nn),
@@ -411,7 +417,7 @@ cav_nosp_inla <- inla(
 cav_IMCAR_inla <- inla(
   N_ACC ~ 0 + Intercept +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
     f(ID, model = inla.IMCAR.model(k = 3, W = W_con), extraconstr = list(
-      A = kronecker(diag(1,3), matrix(1, nrow = 1, ncol = n)), e = c(0,0,0))),
+      A = A_constr, e = c(0,0,0))),
   offset = log(nn),
   family = rep("poisson", 3), data =dd_list,
   #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
@@ -443,6 +449,8 @@ cav_PMCAR_inla <- inla(
   #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
   num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
   verbose = T)
+
+
 
 #' Apparently seems nice.
 #' Apparently.
@@ -630,8 +638,24 @@ Sigma
 
 ## Multivariate BYM ATTEMPT - Warning: slow ------------------------------------
 
-dpc.log <- INLA:::inla.pc.bym.phi(graph = inla.as.sparse(kronecker(diag(1,3), W_con)),
-                                  u = 0.5, alpha = 2/3)
+
+
+#scaleQ <- INLA:::inla.scale.model.internal(
+#  L_block, constr = list(A = A_constr, e = rep(0, nrow(A_constr))))
+#' Eigenvalues of ICAR precision.
+#' caveat: I used the SCALED precision, don't know if is what
+#' inla.pc.bym.phi() needs. It should
+#L_eigen_scaled <- pmax(eigen( scaleQ$Q)$values, 0)
+
+#' PC prior on the mixing parameter
+#' 
+#dpc.log.0 <- INLA:::inla.pc.bym.phi(Q =  scaleQ$Q,
+#                                  u = 0.5, alpha = 2/3)
+
+#log.dpc.phi.bym <- INLA:::inla.pc.bym.phi(eigenvalues = L_eigen_scaled, 
+#                                  marginal.variances = scaleQ$var,
+#                                  rankdef = nrow(A_constr),
+#                                  u = 0.5, alpha = 2/3)
 
 #' WAIC: 2921.905, summaries for phi:
 #' Mean            0.902401 
@@ -644,7 +668,39 @@ dpc.log <- INLA:::inla.pc.bym.phi(graph = inla.as.sparse(kronecker(diag(1,3), W_
 
 inla.rgeneric.MBYM.dense <- 
   function (cmd = c("graph", "Q", "mu", "initial", "log.norm.const", 
-                    "log.prior", "quit"), theta = NULL) {
+                    "log.prior", "quit"), theta = NULL ) {
+    envir <- parent.env(environment())
+    if(!exists("cache.done", envir=envir)){
+      starttime.scale <- Sys.time()
+      #' Unscaled Laplacian matrix (marginal precision of u_1, u_2 ... u_k)
+      L_unscaled <- Matrix::Diagonal(nrow(W), rowSums(W)) -  W
+      L_unscaled_block <- kronecker(diag(1,k), L_unscaled)
+      A_constr <- t(pracma::nullspace(as.matrix(L_block)))
+      scaleQ <- INLA:::inla.scale.model.internal(
+        L_block, constr = list(A = A_constr, e = rep(0, nrow(A_constr))))
+      #' Block Laplacian, i.e. precision of U = I_k \otimes L
+      L_block <- scaleQ$Q
+      n <- nrow(W)
+      L <- L_block[c(1:n), c(1:n)]
+      Sigma.u <- MASS::ginv(as.matrix(L))
+      if(PC == TRUE){
+        #' Eigenvalues of the SCALED Laplacian, sufficient for trace and determinant entering the KLD
+        L_eigen_scaled <- eigen(scaleQ$Q)$values
+        #' PC prior on mixing parameter - definition should be fine.
+        log.dpc.phi.bym <- INLA:::inla.pc.bym.phi(eigenvalues = L_eigen_scaled, 
+                                                  marginal.variances = scaleQ$var,
+                                                  rankdef = nrow(A_constr),
+                                                  u = 0.5, alpha = 2/3)
+      }
+      endtime.scale <- Sys.time()
+      cat("Time needed for scaling Laplacian matrix: ",
+          round(difftime(endtime.scale, starttime.scale), 3), " seconds \n")
+      
+      assign("L", L, envir = envir)
+      assign("Sigma.u", Sigma.u, envir = envir)
+      assign("log.dpc.phi.bym", log.dpc.phi.bym, envir = envir)
+      assign("cache.done", TRUE, envir = envir)
+    }
     interpret.theta <- function() {
       alpha <-  1/(1 + exp(-theta[1L]))
       mprec <- sapply(theta[as.integer(2:(k + 1))], function(x) {
@@ -674,12 +730,6 @@ inla.rgeneric.MBYM.dense <-
     }
     Q <- function() {
       param <- interpret.theta()
-      L.unscaled <- Matrix::Diagonal(nrow(W), apply(W, 1, sum)) -  W
-      #' Constraint on the Laplacian matrix
-      A.mat <- t(pracma::nullspace(as.matrix(L.unscaled)))
-      #' Scaled Laplacian matrix, the actual precision of the ICAR field
-      L <- INLA::inla.scale.model(L.unscaled, constr = list(A = A.mat, e = rep(0, nrow(A.mat))))
-      Sigma.u <- MASS::ginv(as.matrix(L))
       #' Weighted average of ICAR and IID variables: variance is the sum of variances.
       #' Precision here defined as inverse variance. Not
       #' the best way to do it; still using sparse
@@ -695,13 +745,15 @@ inla.rgeneric.MBYM.dense <-
       val <- numeric(0)
       return(val)
     }
-    
     log.prior <- function() {
       param <- interpret.theta()
-      #' PC prior implementation
-      #val <- dpc.log(param$phi)- theta[1L] - 2 * log(1 + exp(-theta[1L]))
-      #' Uniform prior
-      val <- -theta[1L] - 2 * log(1 + exp(-theta[1L]))
+      if(PC == TRUE){
+        #' PC prior implementation
+        val <- log.dpc.phi.bym(param$phi)- theta[1L] - 2 * log(1 + exp(-theta[1L]))
+      } else {
+        #' Uniform prior
+        val <- -theta[1L] - 2 * log(1 + exp(-theta[1L]))
+      }
       #' Whishart prior on precision (inverse scale)
       val <- val + log(MCMCpack::dwish(W = param$PREC, v = k,
                                        S = diag(rep(1, k)))) +
@@ -712,11 +764,11 @@ inla.rgeneric.MBYM.dense <-
       return(val)
     }
     initial <- function() {
-      #if(!is.null(init)){
-        #return(init)
-      #} else{
+      if(!exists("init", envir = envir)){
         return(c(0, rep(0, k), rep(0, (k * (k - 1)/2))))
-      #}
+      } else{
+        return(init)
+      }
     }
     quit <- function() {
       return(invisible())
@@ -734,20 +786,208 @@ inla.rgeneric.MBYM.dense <-
     return(val)
   }
 
+#' TBD
+inla.rgeneric.MBYM.sparse <- 
+  function (cmd = c("graph", "Q", "mu", "initial", "log.norm.const", 
+                    "log.prior", "quit"), theta = NULL) {
+    envir <- parent.env(environment())
+    if(!exists("cache.done", envir=envir)){
+      starttime.scale <- Sys.time()
+      #' Unscaled Laplacian matrix (marginal precision of u_1, u_2 ... u_k)
+      L_unscaled <- Matrix::Diagonal(nrow(W), rowSums(W)) -  W
+      L_unscaled_block <- kronecker(diag(1,k), L_unscaled)
+      A_constr <- t(pracma::nullspace(as.matrix(L_block)))
+      scaleQ <- INLA:::inla.scale.model.internal(
+        L_block, constr = list(A = A_constr, e = rep(0, nrow(A_constr))))
+      #' Block Laplacian, i.e. precision of U = I_k \otimes L
+      L_block <- scaleQ$Q
+      n <- nrow(W)
+      L <- L_block[c(1:n), c(1:n)]
+      if(PC == TRUE){
+        #' Eigenvalues of the SCALED Laplacian, sufficient for trace and determinant entering the KLD
+        L_eigen_scaled <- eigen(scaleQ$Q)$values
+        #' PC prior on mixing parameter - definition should be fine.
+        log.dpc.phi.bym <- INLA:::inla.pc.bym.phi(eigenvalues = L_eigen_scaled, 
+                                                  marginal.variances = scaleQ$var,
+                                                  rankdef = nrow(A_constr),
+                                                  u = 0.5, alpha = 2/3)
+      }
+      endtime.scale <- Sys.time()
+      cat("Time needed for scaling Laplacian matrix: ",
+          round(difftime(endtime.scale, starttime.scale), 3), " seconds \n")
+      
+      assign("L", L, envir = envir)
+      assign("log.dpc.phi.bym", log.dpc.phi.bym, envir = envir)
+      assign("cache.done", TRUE, envir = envir)
+    }
+    interpret.theta <- function() {
+      phi <-  1/(1 + exp(-theta[1L]))
+      mprec <- sapply(theta[as.integer(2:(k + 1))], function(x) {
+        exp(x)
+      })
+      corre <- sapply(theta[as.integer(-(1:(k + 1)))], function(x) {
+        (2 * exp(x))/(1 + exp(x)) - 1
+      })
+      param <- c(phi, mprec, corre)
+      n <- (k - 1) * k/2
+      M <- diag(1, k)
+      M[lower.tri(M)] <- param[k + 2:(n + 1)]
+      M[upper.tri(M)] <- t(M)[upper.tri(M)]
+      st.dev <- 1/sqrt(param[2:(k + 1)])
+      st.dev.mat <- matrix(st.dev, ncol = 1) %*% matrix(st.dev, 
+                                                        nrow = 1)
+      M <- M * st.dev.mat
+      PREC <- solve(M)
+      return(list(phi = phi, param = param, VACOV = M, 
+                  PREC = PREC))
+    }
+    graph <- function() {
+      BPrec <- matrix(1, ncol = 2*k, nrow = 2*k)
+      G <- kronecker(BPrec, Matrix::Diagonal(nrow(W), 1) + 
+                       W)
+      return(G)
+    }
+    Q <- function() {
+      param <- interpret.theta()
+      Q11 <- 1/(1 - param$phi) * kronecker(param$PREC, Matrix::Diagonal(n = nrow(W), x  = 1))
+      Q12 <- Q21 <- -sqrt(param$phi)/(1 - param$phi) * kronecker(param$PREC, Matrix::Diagonal(n = nrow(W), x  = 1))
+      Q22 <- kronecker(param$PREC, 
+                       ((param$phi/(1-param$phi))* Matrix::Diagonal(n = nrow(W), x = 1) + L))
+      Q <- rbind(cbind(Q11, Q12), cbind(Q21, Q22))
+      return(Q)
+    }
+    mu <- function() {
+      return(numeric(0))
+    }
+    log.norm.const <- function() {
+      val <- numeric(0)
+      return(val)
+    }
+    
+    log.prior <- function() {
+      param <- interpret.theta()
+      if(PC == TRUE){
+        #' PC prior implementation
+        val <-  log.dpc.phi.bym(param$phi) - theta[1L] - 2 * log(1 + exp(-theta[1L]))
+      }else {
+        #' Uniform prior
+        val <- -theta[1L] - 2 * log(1 + exp(-theta[1L]))
+      }
+      #' Whishart prior on precision (inverse scale)
+      val <- val + log(MCMCpack::dwish(W = param$PREC, v = k,
+                                       S = diag(rep(1, k)))) +
+        #' This for the change of variable
+        #' (code from INLAMSM)
+        sum(theta[as.integer(2:(k +  1))]) +
+        sum(log(2) + theta[-as.integer(1:(k + 1))] - 2 * log(1 + exp(theta[-as.integer(1:(k + 1))])))
+      return(val)
+    }
+    initial <- function() {
+      if(!exists("init", envir = envir)){
+        return(c(0, rep(0, k), rep(0, (k * (k - 1)/2))))
+      } else{
+        return(init)
+      }
+    }
+    quit <- function() {
+      return(invisible())
+    }
+    if (as.integer(R.version$major) > 3) {
+      if (!length(theta)) 
+        theta <- initial()
+    }
+    else {
+      if (is.null(theta)) {
+        theta <- initial()
+      }
+    }
+    val <- do.call(match.arg(cmd), args = list())
+    return(val)
+  }
+
 inla.MBYM.dense <- function(...) INLA::inla.rgeneric.define(inla.rgeneric.MBYM.dense, ...)
+inla.MBYM.sparse <- function(...) INLA::inla.rgeneric.define(inla.rgeneric.MBYM.sparse, ...)
+
 
 #' Warning: using a 'prudential' initial value for logit(phi)
 #' can make this already slow model even slower; still, we want to rule out overestimation.
 
 cav_MBYM_inla <- inla(
-  N_ACC ~ 1 +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
-    f(ID, model = inla.MBYM.dense(k = 3, W = W_con, dpc.log = dpc.log)),
+  N_ACC ~ 0 + Intercept +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.MBYM.dense(k = 3, W = W_con, 
+                                  init = NULL,
+                                  PC = FALSE),
+      extraconstr = list(A = A_constr, e = rep(0, 3))
+      #values = dd_list$ID2
+      ) ,
   offset = log(nn),
   family = rep("poisson", 3), data =dd_list,
   #control.fixed = list(prec = list(Intercept1 = 0, Intercept2 = 0, Intercept3 = 0)),
   #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
   num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
   verbose = T)
+
+#' Weird results, needs to be checked. 
+#' Still, it's fast!
+cav_MBYM_inla_sparse <- inla(
+  N_ACC ~ 0 + Intercept +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.MBYM.sparse(k = 3, W = W_con, 
+                                   init = c(0, rep(0,3), rep(0,3)),
+                                   PC = FALSE),
+      extraconstr = list(A = kronecker(diag(1,2), A_constr), e = rep(0, 6)),
+      values = dd_list$ID2 ) ,
+  offset = log(nn),
+  family = rep("poisson", 3), data =dd_list,
+  #control.fixed = list(prec = list(Intercept1 = 0, Intercept2 = 0, Intercept3 = 0)),
+  #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  verbose = T)
+
+#'  Worse fitting
+cav_MBYM_inla_noconstr <- inla(
+  N_ACC ~ 1 +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.MBYM.dense(k = 3, W = W_con, PC = FALSE)) ,
+  offset = log(nn),
+  family = rep("poisson", 3), data =dd_list,
+  #control.fixed = list(prec = list(Intercept1 = 0, Intercept2 = 0, Intercept3 = 0)),
+  #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  verbose = T)
+
+#' More 'standard' initial values, but not in line
+#' with INLAMSM models
+cav_MBYM_inla_I1 <- inla(
+  N_ACC ~ 0 + Intercept +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.MBYM.dense(k = 3, W = W_con, 
+                                  init = c(-3, rep(4,3), rep(0,3)),
+                                  PC = FALSE),
+      extraconstr = list(A = A_constr, e = rep(0, 3))
+      #values = dd_list$ID2
+    ) ,
+  offset = log(nn),
+  family = rep("poisson", 3), data =dd_list,
+  #control.fixed = list(prec = list(Intercept1 = 0, Intercept2 = 0, Intercept3 = 0)),
+  #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  verbose = T)
+
+#' Ungodly crashing
+cav_MBYM_inla_I1_pc <- inla(
+  N_ACC ~ 0 + Intercept +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.MBYM.dense(k = 3, W = W_con, 
+                                  init = c(-3, rep(0,3), rep(0,3)),
+                                  PC = TRUE),
+      extraconstr = list(A = A_constr, e = rep(0, 3))
+      #values = dd_list$ID2
+    ) ,
+  offset = log(nn),
+  family = rep("poisson", 3), data =dd_list,
+  #control.fixed = list(prec = list(Intercept1 = 0, Intercept2 = 0, Intercept3 = 0)),
+  #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  verbose = T)
+
+
 
 #' No, too high.
 inla.zmarginal(inla.tmarginal(
@@ -835,7 +1075,8 @@ cav_PMMCAR_inla <- inla(
   num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
   verbose = T)
 
-
+inla.zmarginal(inla.tmarginal(fun = function(x) (1+exp(-x))^-1,
+                              cav_PMMCAR_inla$marginals.hyperpar[[1]]))
 
 
 
