@@ -396,6 +396,13 @@ betas.nosp.inla  <- cav_nosp_inla$summary.fixed %>%
 
 ## Spatial regression
 
+
+```{r INLA setup, echo = FALSE}
+L_block <- kronecker(diag(1, 3), Lapl_con)
+A_constr <- t(pracma::nullspace(L_block))
+
+```
+
 We plot the log-residuals $\varepsilon$ of the GLM regression models, defined as $\varepsilon := \ln y_i - \ln P_i - \ln \hat{\eta}_i$ being $\hat{\eta}_i$ the expected predictor.
 
 
@@ -558,7 +565,7 @@ Since the joint distribution of $z$ is improper, a sum-to-zero constraint is req
 cav_IMCAR_inla <- inla(
   N_ACC ~ 0 + Intercept +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
     f(ID, model = inla.IMCAR.model(k = 3, W = W_con), extraconstr = list(
-      A = kronecker(diag(1,3), matrix(1, nrow = 1, ncol = n)), e = c(0,0,0))),
+      A = A_constr, e = c(rep(0, nrow(A_constr))))),
   offset = log(nn),
   family = rep("poisson", 3), data =dd_list,
   #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
@@ -622,9 +629,9 @@ z_i \mid z_{-i} \sim N \left( \sum_{j=1}^n \frac{\xi w_{ij}}{1 - \xi + \xi d_i} 
 
 Where $\xi \in [0, 1]$ is the mixing parameter. A more interesting representation of the Leroux model is the joint prior
 $$
-z \mid \sigma^2, \xi \sim N(0, [ \Lambda \otimes (\xi R + (1-\xi)I)]^{-1})
+z \mid \Lambda, \xi \sim N(0, [ \Lambda \otimes (\xi L + (1-\xi)I)]^{-1})
 $$
-where $R := D-W$ is the graph Laplacian matrix, $W$ is the neighbourhood matrix and $D$ is the corresponding degree matrix. We can clearly see how the mixing parameter allocates variability between two precision components, i.e. the Laplacian matrix for the spatial part and the the identity matrix for the noise.
+where $L := D-W$ is the graph Laplacian matrix, $W$ is the neighbourhood matrix and $D$ is the corresponding degree matrix. We can clearly see how the mixing parameter allocates variability between two precision components, i.e. the Laplacian matrix for the spatial part and the the identity matrix for the noise.
 
 The drawback of this model is the scarce interpretability with respect to more sophisticated ones like the BYM, but the multivariate framework complicates the definition of the BYM model (and it does not seem to be possible to reparametrise it in such a way to have a sparse precision, hence computations are unfeasible) and hampers the use of PC priors, which would have indeed been a useful tool to prevent overfitting.
 
@@ -692,7 +699,7 @@ inla.rgeneric.MLCAR.model <-
       return(val)
     }
     initial <- function() {
-      return(c(0, rep(log(1), k), rep(0, (k * (k - 1)/2))))
+      return(c(0, rep(0, k), rep(0, (k * (k - 1)/2))))
     }
     quit <- function() {
       return(invisible())
@@ -721,6 +728,174 @@ cav_MLCAR_inla <- inla(
   #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
   num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
   verbose = T)
+
+```
+
+#### BYM model
+
+
+
+
+
+Another popular model to control for both spatial autocorrelation and random noise is the Besag, York and Mollié model. 
+We employ a simplified formulation, with a unique mixing parameter for all three years. Under this model the latent effect is defined as: 
+
+\begin{equation}
+z = \sqrt{\phi} u M + \sqrt{1-\phi} vM
+\label{eq:bym}
+\end{equation}
+
+
+
+Where: 
+  - $u \sim N(0, I_p \otimes L_\mathrm{scaled})$ is an independent multivariate ICAR process whose precision matrix is scaled in order that the geometric mean of marginal variances (i.e. the diagonal entries of $R^{+}$) is one
+  - $v \sim N(0, I_p \otimes I_n)$ is a Standard Normal variable
+  - $M$ is a positive definite matrix such that $M'M = \Lambda^{-1}$. It is not necessarily the Cholesky factor of the scale parameter; in fact, a convenient but not unique way to define it may be $M = D^{-\frac{1}{2}}E^{\top}$ where $E$ and $D$ are the eigenvector and eigenvalues matrices of $\Lambda$ [@Urdangarin]. 
+
+  - $\phi \in [0,1]$ is the mixing parameter.
+We assign a Uniform prior on $\phi$ (but the PC-prior would be a more rigorous choice) and the usual Wishart prior to $\Lambda$.
+
+
+
+The BYM model intruduces a mixing parameter as the LCAR does, but improves its interpretability by allowing to scale the ICAR and IID components. 
+
+We use a rather primitive BYM definition here. It could be improved in many directions: either defining a PC prior on the mixing parameter and employing a more elegant parametrisation allowing for sparse precision [@BYM2], or relaxing the naive hypothesis of a unique mixing parameter implementing an M-model.
+
+However, even this rudimentary formulation allows to interpret the mixing parameter more clearly.
+
+```{r BYM, echo = FALSE, warning = FALSE, message = FALSE, output = FALSE}
+inla.rgeneric.MBYM.dense <- 
+  function (cmd = c("graph", "Q", "mu", "initial", "log.norm.const", 
+                    "log.prior", "quit"), theta = NULL ) {
+    envir <- parent.env(environment())
+    if(!exists("cache.done", envir=envir)){
+      starttime.scale <- Sys.time()
+      #' Unscaled Laplacian matrix (marginal precision of u_1, u_2 ... u_k)
+      L_unscaled <- Matrix::Diagonal(nrow(W), rowSums(W)) -  W
+      L_unscaled_block <- kronecker(diag(1,k), L_unscaled)
+      A_constr <- t(pracma::nullspace(as.matrix(L_unscaled_block)))
+      scaleQ <- INLA:::inla.scale.model.internal(
+        L_unscaled_block, constr = list(A = A_constr, e = rep(0, nrow(A_constr))))
+      #' Block Laplacian, i.e. precision of U = I_k \otimes L
+      n <- nrow(W)
+      L <- scaleQ$Q[c(1:n), c(1:n)]
+      Sigma.u <- MASS::ginv(as.matrix(L))
+      if(PC == TRUE){
+        #' Eigenvalues of the SCALED Laplacian, sufficient for trace and determinant entering the KLD
+        L_eigen_scaled <- eigen(scaleQ$Q)$values
+        #' PC prior on mixing parameter - definition should be fine.
+        log.dpc.phi.bym <- INLA:::inla.pc.bym.phi(eigenvalues = L_eigen_scaled, 
+                                                  marginal.variances = scaleQ$var,
+                                                  rankdef = nrow(A_constr),
+                                                  u = 0.5, alpha = 2/3)
+        assign("log.dpc.phi.bym", log.dpc.phi.bym, envir = envir)
+        
+      }
+      endtime.scale <- Sys.time()
+      cat("Time needed for scaling Laplacian matrix: ",
+          round(difftime(endtime.scale, starttime.scale), 3), " seconds \n")
+      assign("L", L, envir = envir)
+      assign("Sigma.u", Sigma.u, envir = envir)
+      assign("cache.done", TRUE, envir = envir)
+    }
+    interpret.theta <- function() {
+      alpha <-  1/(1 + exp(-theta[1L]))
+      mprec <- sapply(theta[as.integer(2:(k + 1))], function(x) {
+        exp(x)
+      })
+      corre <- sapply(theta[as.integer(-(1:(k + 1)))], function(x) {
+        (2 * exp(x))/(1 + exp(x)) - 1
+      })
+      param <- c(alpha, mprec, corre)
+      n <- (k - 1) * k/2
+      M <- diag(1, k)
+      M[lower.tri(M)] <- param[k + 2:(n + 1)]
+      M[upper.tri(M)] <- t(M)[upper.tri(M)]
+      st.dev <- 1/sqrt(param[2:(k + 1)])
+      st.dev.mat <- matrix(st.dev, ncol = 1) %*% matrix(st.dev, 
+                                                        nrow = 1)
+      M <- M * st.dev.mat
+      PREC <- solve(M)
+      return(list(alpha = alpha, param = param, VACOV = M, 
+                  PREC = PREC))
+    }
+    graph <- function() {
+      PREC <- matrix(1, ncol = k, nrow = k)
+      G <- kronecker(PREC, Matrix::Diagonal(nrow(W), 1) + 
+                       W)
+      return(G)
+    }
+    Q <- function() {
+      param <- interpret.theta()
+      #' Weighted average of ICAR and IID variables: variance is the sum of variances.
+      #' Precision here defined as inverse variance. Not
+      #' the best way to do it; still using sparse
+      #' parametrisation requires a latent effect of length 2*np
+      Sigma <- param$alpha * Sigma.u + (1-param$alpha)*diag(1, nrow(W))
+      Q <- kronecker(param$PREC, solve(Sigma))
+      return(Q)
+    }
+    mu <- function() {
+      return(numeric(0))
+    }
+    log.norm.const <- function() {
+      val <- numeric(0)
+      return(val)
+    }
+    log.prior <- function() {
+      param <- interpret.theta()
+      if(PC == TRUE){
+        #' PC prior implementation
+        val <- log.dpc.phi.bym(param$phi)- theta[1L] - 2 * log(1 + exp(-theta[1L]))
+      } else {
+        #' Uniform prior
+        val <- -theta[1L] - 2 * log(1 + exp(-theta[1L]))
+      }
+      #' Whishart prior on precision (inverse scale)
+      val <- val + log(MCMCpack::dwish(W = param$PREC, v = k,
+                                       S = diag(rep(1, k)))) +
+        #' This for the change of variable
+        #' (code from INLAMSM)
+        sum(theta[as.integer(2:(k +  1))]) +
+        sum(log(2) + theta[-as.integer(1:(k + 1))] - 2 * log(1 + exp(theta[-as.integer(1:(k + 1))])))
+      return(val)
+    }
+    initial <- function() {
+      if(!exists("init", envir = envir)){
+        return(c(0, rep(0, k), rep(0, (k * (k - 1)/2))))
+      } else{
+        return(init)
+      }
+    }
+    quit <- function() {
+      return(invisible())
+    }
+    if (as.integer(R.version$major) > 3) {
+      if (!length(theta)) 
+        theta = initial()
+    }
+    else {
+      if (is.null(theta)) {
+        theta <- initial()
+      }
+    }
+    val <- do.call(match.arg(cmd), args = list())
+    return(val)
+  }
+
+
+inla.MBYM.dense <- function(...) INLA::inla.rgeneric.define(inla.rgeneric.MBYM.dense, ...)
+
+cav_MBYM_inla <- inla(
+  N_ACC ~ 0 + Intercept +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.MBYM.dense(k = 3, W = W_con, 
+                                  PC = FALSE),
+      extraconstr = list(A = A_constr, e = rep(0, 3))) ,
+  offset = log(nn),
+  family = rep("poisson", 3), data =dd_list,
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  verbose = T)
+
 
 ```
 
@@ -773,13 +948,13 @@ We briefly compare the three models in scope through the WAIC [@GelmanWAIC]:
 ```{r WAICs table, echo = F, results = "asis"}
 
 WAICS <- tibble::tibble(
-  Model = c("Null", "ICAR", "PCAR", "Leroux", "ST_I"),
+  Model = c("Null", "ICAR", "PCAR", "Leroux", "BYM", "ST_I"),
   WAIC = round(c(
     cav_nosp_inla$waic$waic,  cav_IMCAR_inla$waic$waic,  cav_PMCAR_inla$waic$waic, 
-    cav_MLCAR_inla$waic$waic, cav_STbym_i1_INLA$waic$waic),3),
+    cav_MLCAR_inla$waic$waic, cav_MBYM_inla$waic$waic, cav_STbym_i1_INLA$waic$waic),3),
   Eff_params = round(c(
     cav_nosp_inla$waic$p.eff,   cav_IMCAR_inla$waic$p.eff,  cav_PMCAR_inla$waic$p.eff,
-     cav_MLCAR_inla$waic$p.eff, cav_STbym_i1_INLA$waic$p.eff),3))
+     cav_MLCAR_inla$waic$p.eff, cav_MBYM_inla$waic$p.eff, cav_STbym_i1_INLA$waic$p.eff),3))
 
 print(xtable::xtable(WAICS),include.rowname = F)
 
@@ -791,15 +966,18 @@ As we can see, adding a spatial model is an improving element, not a waste of co
 
 ## Preliminary findings
 
-Here we show some posterior summaries for $\beta$ under the Leroux model.
+Here we show some posterior summaries for $\beta$ under the BYM model.
 
+<!--
 Since the latent effect has a proper distribution and does not require sum to zero constraints, using year-specific intercepts would cause confounding between intercepts and latent effects, leading to system crashing and thus failure to estimate the model. As a consequence, we used the same intercept for the three different years, allowing the latent effect to have *a posteriori* an additive year-specific shift.
+-->
 
-```{r betas leroux, echo = FALSE, results = "asis"}
-betas.mlcar.inla.noint  <- cav_MLCAR_inla$summary.fixed[-1,] %>% 
+```{r betas bym, echo = FALSE, results = "asis"}
+betas.MBYM.inla   <- cav_MBYM_inla$summary.fixed %>% 
   dplyr::select(.data$mean, .data$sd)  %>%
-  dplyr::mutate( year = rep(c(2021, 2022, 2023), 7)) %>% 
-  dplyr::mutate(Effect = rep(c("TEP", rownames(summary(cav_glm_21)$coefficients)[-c(1,2)]),each=3)) %>% 
+  dplyr::mutate( year = rep(c(2021, 2022, 2023), 8)) %>% 
+  dplyr::mutate(Effect = rep(c("Intercept", "TEP",
+                               rownames(summary(cav_glm_21)$coefficients)[-c(1,2)]),each=3)) %>% 
   dplyr::relocate(.data$Effect, .before = 1) %>%  
   dplyr::rename(Mean = .data$mean, Sd = .data$sd) %>% 
   tidyr::pivot_wider( 
@@ -807,17 +985,17 @@ betas.mlcar.inla.noint  <- cav_MLCAR_inla$summary.fixed[-1,] %>%
     names_from = .data$year,                
     values_from = c(.data$Mean, .data$Sd))
 
-betas.mlcar.inla <- dplyr::bind_rows(
-  data.frame(Effect = "Intercept", 
-             Mean_2021 = cav_MLCAR_inla$summary.fixed$mean[1],
-             Sd_2021 = cav_MLCAR_inla$summary.fixed$sd[1],
-             Mean_2022 = cav_MLCAR_inla$summary.fixed$mean[1],
-             Sd_2022 = cav_MLCAR_inla$summary.fixed$sd[1],
-             Mean_2023 = cav_MLCAR_inla$summary.fixed$mean[1],
-             Sd_2023 = cav_MLCAR_inla$summary.fixed$sd[1]),
-  betas.mlcar.inla.noint) 
+#betas.MBYM.inla <- dplyr::bind_rows(
+#  data.frame(Effect = "Intercept", 
+#             Mean_2021 = cav_MBYM_inla$summary.fixed$mean[1],
+#             Sd_2021 = cav_MBYM_inla$summary.fixed$sd[1],
+#             Mean_2022 = cav_MBYM_inla$summary.fixed$mean[1],
+#             Sd_2022 = cav_MBYM_inla$summary.fixed$sd[1],
+#             Mean_2023 = cav_MBYM_inla$summary.fixed$mean[1],
+#             Sd_2023 = cav_MBYM_inla$summary.fixed$sd[1]),
+ # betas.MBYM.inla.noint) 
 
-print(xtable::xtable(betas.mlcar.inla, num.digits = 3), include.rowname = FALSE)
+print(xtable::xtable(betas.MBYM.inla, num.digits = 3), include.rowname = FALSE)
 
 ```
 
@@ -840,19 +1018,19 @@ Estimations of $\beta$ differ slightly from the nonspatial model. For all variab
   
   
 We show the expected latent effects
-```{r zhat mlcar, echo = FALSE, message = FALSE, warning = FALSE, output = FALSE}
+```{r zhat mbym, echo = FALSE, message = FALSE, warning = FALSE, output = FALSE}
 
-zbound <- range(cav_MLCAR_inla$summary.random$ID$mean)
+zbound <- range(cav_MBYM_inla$summary.random$ID$mean)
 
 ggzhat21 <- dd_con %>% 
-  dplyr::mutate(zhat_21 = cav_MLCAR_inla$summary.random$ID$mean[c(1:n)]) %>% 
+  dplyr::mutate(zhat_21 = cav_MBYM_inla$summary.random$ID$mean[c(1:n)]) %>% 
   ggplot2::ggplot() +
   ggplot2::geom_sf(ggplot2::aes(fill = .data$zhat_21))+
   ggplot2::scale_fill_viridis_c(na.value = "white", direction = -1, limits = zbound) +
   ggplot2::theme_classic()
 
 ggzhat22 <- dd_con %>% 
-  dplyr::mutate(zhat_22 = cav_MLCAR_inla$summary.random$ID$mean[c(n+(1:n))]) %>% 
+  dplyr::mutate(zhat_22 = cav_MBYM_inla$summary.random$ID$mean[c(n+(1:n))]) %>% 
   ggplot2::ggplot() +
   ggplot2::geom_sf(ggplot2::aes(fill = .data$zhat_22))+
   ggplot2::scale_fill_viridis_c(na.value = "white", direction = -1, limits = zbound) +
@@ -860,7 +1038,7 @@ ggzhat22 <- dd_con %>%
 
 
 ggzhat23 <- dd_con %>% 
-  dplyr::mutate(zhat_23 = cav_MLCAR_inla$summary.random$ID$mean[c((2*n)+(1:n))]) %>% 
+  dplyr::mutate(zhat_23 = cav_MBYM_inla$summary.random$ID$mean[c((2*n)+(1:n))]) %>% 
   ggplot2::ggplot() +
   ggplot2::geom_sf(ggplot2::aes(fill = .data$zhat_23))+
   ggplot2::scale_fill_viridis_c(na.value = "white", direction = -1, limits = zbound) +
@@ -878,19 +1056,19 @@ As we can see, the behaviour of 2023 data is quite puzzling, since high values o
 
 We additionally show the fitted values of the counts of accesses, rounded to the closest integer.
 
-```{r yhat mlcar, echo = FALSE, message = FALSE, warning = FALSE, output = FALSE}
+```{r yhat mbym, echo = FALSE, message = FALSE, warning = FALSE, output = FALSE}
 
-ybound <- c(0, (max(cav_MLCAR_inla$summary.fitted.values$mean)+1))
+ybound <- c(0, (max(cav_MBYM_inla$summary.fitted.values$mean)+1))
 
 ggyhat21 <- dd_con %>% 
-  dplyr::mutate(yhat_21 = round(cav_MLCAR_inla$summary.fitted.values$mean[c(1:n)],0)) %>% 
+  dplyr::mutate(yhat_21 = round(cav_MBYM_inla$summary.fitted.values$mean[c(1:n)],0)) %>% 
   ggplot2::ggplot() +
   ggplot2::geom_sf(ggplot2::aes(fill = .data$yhat_21))+
   ggplot2::scale_fill_viridis_c(na.value = "white", direction = -1, limits = ybound) +
   ggplot2::theme_classic()
 
 ggyhat22 <- dd_con %>% 
-  dplyr::mutate(yhat_22 = round(cav_MLCAR_inla$summary.fitted.values$mean[c(n+(1:n))], 0)) %>% 
+  dplyr::mutate(yhat_22 = round(cav_MBYM_inla$summary.fitted.values$mean[c(n+(1:n))], 0)) %>% 
   ggplot2::ggplot() +
   ggplot2::geom_sf(ggplot2::aes(fill = .data$yhat_22))+
   ggplot2::scale_fill_viridis_c(na.value = "white", direction = -1, limits = ybound) +
@@ -898,7 +1076,7 @@ ggyhat22 <- dd_con %>%
 
 
 ggyhat23 <- dd_con %>% 
-  dplyr::mutate(yhat_23 = round(cav_MLCAR_inla$summary.fitted.values$mean[c((2*n)+(1:n))],0)) %>% 
+  dplyr::mutate(yhat_23 = round(cav_MBYM_inla$summary.fitted.values$mean[c((2*n)+(1:n))],0)) %>% 
   ggplot2::ggplot() +
   ggplot2::geom_sf(ggplot2::aes(fill = .data$yhat_23))+
   ggplot2::scale_fill_viridis_c(na.value = "white", direction = -1, limits = ybound) +
@@ -917,20 +1095,20 @@ gridExtra::grid.arrange(ggyhat21, ggyhat22, ggyhat23, nrow = 3, ncol = 1)
 
 
 
-  
+ <!-- 
 We show the posterior median of the marginal variances and correlations of $z$, i.e. $\Lambda^{-1}$:
-```{r Sigma LCAR, message = FALSE, warning = FALSE}
+```{r Sigma LCAR, echo = FALSE, eval = FALSE, message = FALSE, warning = FALSE}
 Sigma_diagonal <- sapply(c(2,3,4), function(i){
   inla.zmarginal(inla.tmarginal(fun = function(x) {
     exp(-x)
-    },  marginal =  cav_MLCAR_inla$marginals.hyperpar[[i]]),
+    },  marginal =  cav_MBYM_inla$marginals.hyperpar[[i]]),
     silent = T)$quant0.5
 })
 
 Sigma_offdiag <- sapply(c(5, 6, 7), function(i){
   inla.zmarginal(inla.tmarginal(fun = function(x) {
     (2 * exp(x))/(1 + exp(x)) - 1
-    }, marginal =  cav_MLCAR_inla$marginals.hyperpar[[i]]),
+    }, marginal =  cav_MBYM_inla$marginals.hyperpar[[i]]),
     silent = T)$quant0.5
 })
 
@@ -940,14 +1118,15 @@ Sigma[upper.tri(Sigma)] <- t(Sigma[lower.tri(Sigma)])
 print(Sigma)
 
 ```
-
-In terms of point estimates, the only high correlation appears that of 2021-2022; to have more insight on the dependence structure in $z$ we show some posterior summaries for the covariances:
+-->
+**TBD: FIX POSTERIORS OF HYPERPARAMETERS**
+In terms of point estimates, the only high correlation appears that of 2021-2022; to have more insight on the dependence structure in $z$ we show some posterior summaries for the correlations:
 ```{r covariances, message = FALSE, warning = FALSE, echo = FALSE, results = "asis"}
 
 covars_ls <- sapply(c(5, 6, 7), function(i){
   inla.zmarginal(inla.tmarginal(fun = function(x) {
     (2 * exp(x))/(1 + exp(x)) - 1
-    }, marginal =  cav_MLCAR_inla$marginals.hyperpar[[i]]),
+    }, marginal =  cav_PMCAR_inla$marginals.hyperpar[[i]]),
     silent = T)
 })
 
@@ -967,7 +1146,7 @@ print(xtable::xtable(cov_df, digits = 3), include.rowname = F)
 ```
 
   
-Lastly, we have a look at the mixing parameter.
+Lastly, we have a look at the mixing parameter under both the Leroux and BYM models.
 
 
 ```{r mixing leroux, echo = FALSE, fig.height = 3, fig.cap = "Posterior marginal of the LCAR mixing parameter"}
@@ -980,7 +1159,17 @@ plot(xi_marg_lcar, type = 'l', xlab = expression(xi), ylab = expression(pi (xi ~
 unlist(inla.zmarginal(xi_marg_lcar, silent = TRUE))
 ```
 
-As we see, the mixing parameter is not particularly high, but interpreting it properly is hampered by the difficulty in scaling the precision matrix, which is a drawback of non-intrinsic models. 
+As we see, the Leroux mixing parameter is not particularly high, but interpreting it properly is hampered by the difficulty in scaling the precision matrix, which is a drawback of non-intrinsic models. 
+
+```{r mixing bym, echo = FALSE, fig.height = 3, fig.cap = "Posterior marginal of the BYM mixing parameter"}
+phi_marg_bym <- inla.tmarginal(
+  fun = function(X) 1/(1 + exp(-X)),
+  marginal = cav_MBYM_inla$marginals.hyperpar[[1]])
+
+plot(phi_marg_bym, type = 'l', xlab = expression(xi), ylab = expression(pi (phi ~ "|" ~ y)  ))
+
+unlist(inla.zmarginal(phi_marg_bym, silent = TRUE))
+```
 
 ```{r hyperpars mute, eval = FALSE, echo = FALSE}
 
@@ -988,17 +1177,17 @@ As we see, the mixing parameter is not particularly high, but interpreting it pr
 sigma_ls <- sapply(c(2,3,4), function (i){
     inla.zmarginal(inla.tmarginal(fun = function(x) {
     exp(-x)
-    }, marginal =  cav_MLCAR_inla$marginals.hyperpar[[i]]),
+    }, marginal =  cav_MBYM_inla$marginals.hyperpar[[i]]),
     silent = T)
 })
 
-xi_ls <- inla.zmarginal(inla.tmarginal(
+phi_ls <- inla.zmarginal(inla.tmarginal(
   fun = function(X) 1/(1 + exp(-X)),
-  marginal = cav_MLCAR_inla$marginals.hyperpar[[1]]), silent = T)
+  marginal = cav_MBYM_inla$marginals.hyperpar[[1]]), silent = T)
 
 
 hyperpar_mat <- rbind(
-  unlist(xi_ls[c(1,3,5,7)]),
+  unlist(phi_ls[c(1,3,5,7)]),
   unlist(sigma_ls[c(1,3,5,7)]),
   unlist(sigma_ls[7+c(1,3,5,7)]),
   unlist(sigma_ls[14+c(1,3,5,7)]),
@@ -1116,33 +1305,51 @@ inla.MLCAR.model <- function(...) INLA::inla.rgeneric.define(inla.rgeneric.MLCAR
 
 
 
-#### Future developments: the BYM model
+#### R code for the BYM
+A possible improvement on the modelistic side would be to give the multivariate BYM model a parametrisation allowing for a sparse precision matrix[@BYM2]
 
-A possible improvement on the modelistic side would be implementing the BYM model [@BYM2]
-
-\begin{equation}
-z = \sqrt{\phi} u M + \sqrt{1-\phi} vM
-\label{eq:bym}
-\end{equation}
-
-Where $\phi$ is a mixing parameter (this rather crude simplification of employing a unique mixing parameter for all variables could be relaxed at a later stage), $\mathrm{vec}(u) \sim N(0, I_p \otimes L_{\mathrm{scaled}})$ is an ICAR latent field and $L_\mathrm{scaled}$ is the scaled Laplacian matrix, i.e. the Laplacian matrix multiplied by the graph typical variance in order to have the geometric mean of diagonal entries equal to $1$, and $v$ is an IID multivariate Standard Normal vector, such that $\mathrm{vec} (v) \sim N(0, I_p \otimes I_n)$. The matrix $M :/ M'M = \Lambda^{-1}$ is a generic full-rank matrix which does not necessarily need to be the Cholesky factor of the scale parameter; in fact, a convenient but not unique way to define it may be $M = D^{-\frac{1}{2}}E^{\top}$ where $E$ and $D$ are the eigenvector and eigenvalues matrices of $\Lambda$ [@Urdangarin]. 
-
-The BYM model intruduces a mixing parameter as the LCAR does, but improves its interpretability by allowing to scale the ICAR and IID components. 
-
-A problematic element of the BYM model is that the precision matrix of $z$ is sparse, being it defined as $\mathrm{prec}[z] = \left( \phi \Lambda \otimes L^{+} + (1-\phi) \Lambda \otimes I_n \right)^{-1}$.
 
 In the univariate framework, the model can be reparametrised as a joint model of the form $(z, u)$, such that  $\mathrm{Prec}[(\mathrm{vec}(z)^{\top}, \mathrm{vec}(u)^{\top})^{\top}]$ is indeed sparse [@BYM2]. In the multivariate framework, this idea can be easily applied to the joint field $(z, uM)$.
 
-The problem is that to do so we need to define a latent field of length $2 np$, i.e. twice the observational length. Only the first half of this latent effect actually enters the linear predictor, still implementing such a reparametrisation in INLA is challenging.
-
-Therefore, for the time being we rely on the classic, dense parametrisation, which is however very inefficient in computational terms.
+Therefore, for the time being we rely on the classic, dense parametrisation, which is however rather inefficient in computational terms.
 
 Here we only show the R code to fit this model. The uniform prior of $\phi$ is another rather crude choice and more sophisticated priors ought to be implemented as well.
 
-```{r mbym dense}
+```{r mbym dense, eval = F}
 inla.rgeneric.MBYM.dense <- 
   function (cmd = c("graph", "Q", "mu", "initial", "log.norm.const", 
-                    "log.prior", "quit"), theta = NULL) {
+                    "log.prior", "quit"), theta = NULL){
+    envir <- parent.env(environment())
+    if(!exists("cache.done", envir=envir)){
+      starttime.scale <- Sys.time()
+      #' Unscaled Laplacian matrix (marginal precision of u_1, u_2 ... u_k)
+      L_unscaled <- Matrix::Diagonal(nrow(W), rowSums(W)) -  W
+      L_unscaled_block <- kronecker(diag(1,k), L_unscaled)
+      A_constr <- t(pracma::nullspace(as.matrix(L_unscaled_block)))
+      scaleQ <- INLA:::inla.scale.model.internal(
+        L_unscaled_block, constr = list(A = A_constr, e = rep(0, nrow(A_constr))))
+      #' Block Laplacian, i.e. precision of U = I_k \otimes L
+      n <- nrow(W)
+      L <- scaleQ$Q[c(1:n), c(1:n)]
+      Sigma.u <- MASS::ginv(as.matrix(L))
+      if(PC == TRUE){
+        #' Eigenvalues of the SCALED Laplacian, sufficient for trace and determinant entering the KLD
+        L_eigen_scaled <- eigen(scaleQ$Q)$values
+        #' PC prior on mixing parameter - definition should be fine.
+        log.dpc.phi.bym <- INLA:::inla.pc.bym.phi(eigenvalues = L_eigen_scaled, 
+                                                  marginal.variances = scaleQ$var,
+                                                  rankdef = nrow(A_constr),
+                                                  u = 0.5, alpha = 2/3)
+        assign("log.dpc.phi.bym", log.dpc.phi.bym, envir = envir)
+        
+      }
+      endtime.scale <- Sys.time()
+      cat("Time needed for scaling Laplacian matrix: ",
+          round(difftime(endtime.scale, starttime.scale), 3), " seconds \n")
+      assign("L", L, envir = envir)
+      assign("Sigma.u", Sigma.u, envir = envir)
+      assign("cache.done", TRUE, envir = envir)
+    }
     interpret.theta <- function() {
       alpha <-  1/(1 + exp(-theta[1L]))
       mprec <- sapply(theta[as.integer(2:(k + 1))], function(x) {
@@ -1172,12 +1379,6 @@ inla.rgeneric.MBYM.dense <-
     }
     Q <- function() {
       param <- interpret.theta()
-      L.unscaled <- Matrix::Diagonal(nrow(W), apply(W, 1, sum)) -  W
-      #' Constraint on the Laplacian matrix
-      A.mat <- t(pracma::nullspace(as.matrix(L.unscaled)))
-      #' Scaled Laplacian matrix, the actual precision of the ICAR field
-      L <- INLA::inla.scale.model(L.unscaled, constr = list(A = A.mat, e = rep(0, nrow(A.mat))))
-      Sigma.u <- MASS::ginv(as.matrix(L))
       #' Weighted average of ICAR and IID variables: variance is the sum of variances.
       #' Precision here defined as inverse variance. Not
       #' the best way to do it; still using sparse
@@ -1195,8 +1396,13 @@ inla.rgeneric.MBYM.dense <-
     }
     log.prior <- function() {
       param <- interpret.theta()
-      #' Too lazy maybe: Uniform prior on the mixing parameter
-      val <- -theta[1L] - 2 * log(1 + exp(-theta[1L]))
+      if(PC == TRUE){
+        #' PC prior implementation
+        val <- log.dpc.phi.bym(param$phi)- theta[1L] - 2 * log(1 + exp(-theta[1L]))
+      } else {
+        #' Uniform prior
+        val <- -theta[1L] - 2 * log(1 + exp(-theta[1L]))
+      }
       #' Whishart prior on precision (inverse scale)
       val <- val + log(MCMCpack::dwish(W = param$PREC, v = k,
                                        S = diag(rep(1, k)))) +
@@ -1207,7 +1413,11 @@ inla.rgeneric.MBYM.dense <-
       return(val)
     }
     initial <- function() {
-      return(c(0, rep(log(1), k), rep(0, (k * (k - 1)/2))))
+      if(!exists("init", envir = envir)){
+        return(c(0, rep(0, k), rep(0, (k * (k - 1)/2))))
+      } else{
+        return(init)
+      }
     }
     quit <- function() {
       return(invisible())
@@ -1227,57 +1437,128 @@ inla.rgeneric.MBYM.dense <-
 
 
 ```
-```{r load mbym, echo = FALSE, warning = FALSE}
-load("input/BYM_dense_uniquePhi.RData")
+
+Here we provide a preliminary code for the sparse parameterisation, still it needs more analysis and validation.
+```{r mbym sparse, eval = F}
+inla.rgeneric.MBYM.sparse <- 
+  function (cmd = c("graph", "Q", "mu", "initial", "log.norm.const", 
+                    "log.prior", "quit"), theta = NULL) {
+    envir <- parent.env(environment())
+    if(!exists("cache.done", envir=envir)){
+      starttime.scale <- Sys.time()
+      #' Unscaled Laplacian matrix (marginal precision of u_1, u_2 ... u_k)
+      L_unscaled <- Matrix::Diagonal(nrow(W), rowSums(W)) -  W
+      L_unscaled_block <- kronecker(diag(1,k), L_unscaled)
+      A_constr <- t(pracma::nullspace(as.matrix(L_unscaled_block)))
+      scaleQ <- INLA:::inla.scale.model.internal(
+        L_unscaled_block, constr = list(A = A_constr, e = rep(0, nrow(A_constr))))
+      #' Block Laplacian, i.e. precision of U = I_k \otimes L
+      n <- nrow(W)
+      L <- scaleQ$Q[c(1:n), c(1:n)]
+      if(PC == TRUE){
+        #' Eigenvalues of the SCALED Laplacian, sufficient for trace and determinant entering the KLD
+        L_eigen_scaled <- eigen(scaleQ$Q)$values
+        #' PC prior on mixing parameter - definition should be fine.
+        log.dpc.phi.bym <- INLA:::inla.pc.bym.phi(eigenvalues = L_eigen_scaled, 
+                                                  marginal.variances = scaleQ$var,
+                                                  rankdef = nrow(A_constr),
+                                                  u = 0.5, alpha = 2/3)
+        assign("log.dpc.phi.bym", log.dpc.phi.bym, envir = envir)
+        
+      }
+      endtime.scale <- Sys.time()
+      cat("Time needed for scaling Laplacian matrix: ",
+          round(difftime(endtime.scale, starttime.scale), 3), " seconds \n")
+      assign("L", L, envir = envir)
+      assign("cache.done", TRUE, envir = envir)
+    }
+    interpret.theta <- function() {
+      phi <-  1/(1 + exp(-theta[1L]))
+      mprec <- sapply(theta[as.integer(2:(k + 1))], function(x) {
+        exp(x)
+      })
+      corre <- sapply(theta[as.integer(-(1:(k + 1)))], function(x) {
+        (2 * exp(x))/(1 + exp(x)) - 1
+      })
+      param <- c(phi, mprec, corre)
+      n <- (k - 1) * k/2
+      M <- diag(1, k)
+      M[lower.tri(M)] <- param[k + 2:(n + 1)]
+      M[upper.tri(M)] <- t(M)[upper.tri(M)]
+      st.dev <- 1/sqrt(param[2:(k + 1)])
+      st.dev.mat <- matrix(st.dev, ncol = 1) %*% matrix(st.dev, 
+                                                        nrow = 1)
+      M <- M * st.dev.mat
+      PREC <- solve(M)
+      return(list(phi = phi, param = param, VACOV = M, 
+                  PREC = PREC))
+    }
+    graph <- function() {
+      BPrec <- matrix(1, ncol = 2*k, nrow = 2*k)
+      G <- kronecker(BPrec, Matrix::Diagonal(nrow(W), 1) + 
+                       W)
+      return(G)
+    }
+    Q <- function() {
+      param <- interpret.theta()
+      Q11 <- 1/(1 - param$phi) * kronecker(param$PREC, Matrix::Diagonal(n = nrow(W), x  = 1))
+      Q12 <- Q21 <- -sqrt(param$phi)/(1 - param$phi) * kronecker(param$PREC, Matrix::Diagonal(n = nrow(W), x  = 1))
+      Q22 <- kronecker(param$PREC, 
+                       ((param$phi/(1-param$phi))* Matrix::Diagonal(n = nrow(W), x = 1) + L))
+      Q <- rbind(cbind(Q11, Q12), cbind(Q21, Q22))
+      return(Q)
+    }
+    mu <- function() {
+      return(numeric(0))
+    }
+    log.norm.const <- function() {
+      val <- numeric(0)
+      return(val)
+    }
+    
+    log.prior <- function() {
+      param <- interpret.theta()
+      if(PC == TRUE){
+        #' PC prior implementation
+        val <-  log.dpc.phi.bym(param$phi) - theta[1L] - 2 * log(1 + exp(-theta[1L]))
+      }else {
+        #' Uniform prior
+        val <- -theta[1L] - 2 * log(1 + exp(-theta[1L]))
+      }
+      #' Whishart prior on precision (inverse scale)
+      val <- val + log(MCMCpack::dwish(W = param$PREC, v = k,
+                                       S = diag(rep(1, k)))) +
+        #' This for the change of variable
+        #' (code from INLAMSM)
+        sum(theta[as.integer(2:(k +  1))]) +
+        sum(log(2) + theta[-as.integer(1:(k + 1))] - 2 * log(1 + exp(theta[-as.integer(1:(k + 1))])))
+      return(val)
+    }
+    initial <- function() {
+      if(!exists("init", envir = envir)){
+        return(c(0, rep(0, k), rep(0, (k * (k - 1)/2))))
+      } else{
+        return(init)
+      }
+    }
+    quit <- function() {
+      return(invisible())
+    }
+    if (as.integer(R.version$major) > 3) {
+      if (!length(theta)) 
+        theta <- initial()
+    }
+    else {
+      if (is.null(theta)) {
+        theta <- initial()
+      }
+    }
+    val <- do.call(match.arg(cmd), args = list())
+    return(val)
+  }
+
 ```
 
-The fitting of the BYM model, though we used the simplest formulation,is slightly better than the LCAR:
-
-```{r new WAICS, results = "asis", echo = FALSE, warning = FALSE, message = FALSE}
-WAICS_0 <- WAICS
-WAICS <- data.frame(
-  Model = c(WAICS_0$Model, "BYM"),
-  WAIC = c(WAICS_0$WAIC, cav_MBYM_inla$waic$waic),
-  Eff_params= c(WAICS_0$Eff_params, cav_MBYM_inla$waic$p.eff))
-print(xtable::xtable(WAICS, digits = 3), include.rownames = F)
-```
-
-The estimated mixing parameter, however, is unexpectedly high:
-
-```{r mixing BYM, echo = FALSE}
-phi_marg_bym <- inla.tmarginal(
-  fun = function(X) 1/(1 + exp(-X)),
-  marginal = cav_MBYM_inla$marginals.hyperpar[[1]])
-
-plot(phi_marg_bym, type = 'l', xlab = expression(phi), ylab = expression(pi (phi ~ "|" ~ y)  ))
-cat("Posterior summaries of BYM mixing parameter: \n")
-print(unlist(inla.zmarginal(phi_marg_bym, silent = TRUE)))
-```
-
-```{r Sigma BYM, message = FALSE, warning = FALSE, echo = FALSE}
-Sigma_diagonal_bym <- sapply(c(2,3,4), function(i){
-  inla.zmarginal(inla.tmarginal(fun = function(x) {
-    exp(-x)
-    },  marginal =  cav_MBYM_inla$marginals.hyperpar[[i]]),
-    silent = T)$quant0.5
-})
-
-Sigma_offdiag_bym <- sapply(c(5, 6, 7), function(i){
-  inla.zmarginal(inla.tmarginal(fun = function(x) {
-    (2 * exp(x))/(1 + exp(x)) - 1
-    }, marginal =  cav_MBYM_inla$marginals.hyperpar[[i]]),
-    silent = T)$quant0.5
-})
-
-Sigma_bym <- Matrix::Diagonal(x = Sigma_diagonal_bym)
-Sigma_bym[lower.tri(Sigma_bym)] <- Sigma_offdiag_bym
-Sigma_bym[upper.tri(Sigma_bym)] <- t(Sigma[lower.tri(Sigma_bym)])
-cat("Median of the BYM scale matrix: \n")
-print(Sigma_bym)
-
-```
-
-The scale parameter instead is quite close to the LCAR result instead.
 
 #### Addressing the potential issue of spatial confounding
 
@@ -1377,14 +1658,13 @@ Then we fit the Leroux model to the deconfounded data
 ```{r MLCAR nosp, echo = FALSE, message = FALSE, output = FALSE}
 
 
-
-cav_MLCAR_inla_spatplus <- inla(
-  N_ACC ~ 1 + TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
-    f(ID, model = inla.MLCAR.model(k = 3, W = W_con)),
+cav_MBYM_inla_spatplus <- inla(
+  N_ACC ~ 0 + Intercept +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.MBYM.dense(k = 3, W = W_con, 
+                                  PC = FALSE),
+      extraconstr = list(A = A_constr, e = rep(0, 3))) ,
   offset = log(nn),
   family = rep("poisson", 3), data =dd_list_nosp,
-  #control.fixed = list(prec = list(Intercept1 = 0, Intercept2 = 0, Intercept3 = 0)),
-  #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
   num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
   verbose = T)
 
@@ -1392,10 +1672,10 @@ cav_MLCAR_inla_spatplus <- inla(
 
 Resulting estimates for covariate effects are summarised:
 ```{r betas leroux spatplus, echo = FALSE, results = "asis"}
-betas.mlcar.inla.noint1  <- cav_MLCAR_inla_spatplus$summary.fixed[-1,] %>% 
+betas.mbym.inla.1  <- cav_MBYM_inla_spatplus$summary.fixed %>% #[-1,] 
   dplyr::select(.data$mean, .data$sd)  %>%
-  dplyr::mutate( year = rep(c(2021, 2022, 2023), 7)) %>% 
-  dplyr::mutate(Effect = rep(c("TEP", rownames(summary(cav_glm_21)$coefficients)[-c(1,2)]),each=3)) %>% 
+  dplyr::mutate( year = rep(c(2021, 2022, 2023), 8)) %>% 
+  dplyr::mutate(Effect = rep(c("Intercept", "TEP", rownames(summary(cav_glm_21)$coefficients)[-c(1,2)]),each=3)) %>% 
   dplyr::relocate(.data$Effect, .before = 1) %>%  
   dplyr::rename(Mean = .data$mean, Sd = .data$sd) %>% 
   tidyr::pivot_wider( 
@@ -1403,21 +1683,21 @@ betas.mlcar.inla.noint1  <- cav_MLCAR_inla_spatplus$summary.fixed[-1,] %>%
     names_from = .data$year,                
     values_from = c(.data$Mean, .data$Sd))
 
-betas.mlcar.inla1 <- dplyr::bind_rows(
-  data.frame(Effect = "Intercept", 
-             Mean_2021 = cav_MLCAR_inla_spatplus$summary.fixed$mean[1],
-             Sd_2021 = cav_MLCAR_inla_spatplus$summary.fixed$sd[1],
-             Mean_2022 = cav_MLCAR_inla_spatplus$summary.fixed$mean[1],
-             Sd_2022 = cav_MLCAR_inla_spatplus$summary.fixed$sd[1],
-             Mean_2023 = cav_MLCAR_inla_spatplus$summary.fixed$mean[1],
-             Sd_2023 = cav_MLCAR_inla_spatplus$summary.fixed$sd[1]),
-  betas.mlcar.inla.noint1) 
+#betas.mlcar.inla1 <- dplyr::bind_rows(
+#  data.frame(Effect = "Intercept", 
+#             Mean_2021 = cav_MLCAR_inla_spatplus$summary.fixed$mean[1],
+#             Sd_2021 = cav_MLCAR_inla_spatplus$summary.fixed$sd[1],
+#             Mean_2022 = cav_MLCAR_inla_spatplus$summary.fixed$mean[1],
+#             Sd_2022 = cav_MLCAR_inla_spatplus$summary.fixed$sd[1],
+#             Mean_2023 = cav_MLCAR_inla_spatplus$summary.fixed$mean[1],
+#             Sd_2023 = cav_MLCAR_inla_spatplus$summary.fixed$sd[1]),
+#  betas.mlcar.inla.noint1) 
 
-print(xtable::xtable(betas.mlcar.inla1, num.digits = 3), include.rowname = FALSE)
+print(xtable::xtable(betas.mbym.inla.1, num.digits = 3), include.rowname = FALSE)
 
 ```
 
-The most notable change is the shrinkage in the effect of employment rate in 2021 and 2023. This being said, the interpretation of the posteriors of $\beta$ is overall consistent with the base MLCAR model. 
+The most notable change is perhaps the shrinkage in the effect of employment rate in 2021 and 2023. This being said, the interpretation of the posteriors of $\beta$ is overall consistent with the base MLCAR model. 
 
 
 

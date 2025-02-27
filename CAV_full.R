@@ -639,7 +639,6 @@ Sigma
 ## Multivariate BYM ATTEMPT - Warning: slow ------------------------------------
 
 
-
 #scaleQ <- INLA:::inla.scale.model.internal(
 #  L_block, constr = list(A = A_constr, e = rep(0, nrow(A_constr))))
 #' Eigenvalues of ICAR precision.
@@ -675,13 +674,12 @@ inla.rgeneric.MBYM.dense <-
       #' Unscaled Laplacian matrix (marginal precision of u_1, u_2 ... u_k)
       L_unscaled <- Matrix::Diagonal(nrow(W), rowSums(W)) -  W
       L_unscaled_block <- kronecker(diag(1,k), L_unscaled)
-      A_constr <- t(pracma::nullspace(as.matrix(L_block)))
+      A_constr <- t(pracma::nullspace(as.matrix(L_unscaled_block)))
       scaleQ <- INLA:::inla.scale.model.internal(
-        L_block, constr = list(A = A_constr, e = rep(0, nrow(A_constr))))
+        L_unscaled_block, constr = list(A = A_constr, e = rep(0, nrow(A_constr))))
       #' Block Laplacian, i.e. precision of U = I_k \otimes L
-      L_block <- scaleQ$Q
       n <- nrow(W)
-      L <- L_block[c(1:n), c(1:n)]
+      L <- scaleQ$Q[c(1:n), c(1:n)]
       Sigma.u <- MASS::ginv(as.matrix(L))
       if(PC == TRUE){
         #' Eigenvalues of the SCALED Laplacian, sufficient for trace and determinant entering the KLD
@@ -691,14 +689,14 @@ inla.rgeneric.MBYM.dense <-
                                                   marginal.variances = scaleQ$var,
                                                   rankdef = nrow(A_constr),
                                                   u = 0.5, alpha = 2/3)
+        assign("log.dpc.phi.bym", log.dpc.phi.bym, envir = envir)
+        
       }
       endtime.scale <- Sys.time()
       cat("Time needed for scaling Laplacian matrix: ",
           round(difftime(endtime.scale, starttime.scale), 3), " seconds \n")
-      
       assign("L", L, envir = envir)
       assign("Sigma.u", Sigma.u, envir = envir)
-      assign("log.dpc.phi.bym", log.dpc.phi.bym, envir = envir)
       assign("cache.done", TRUE, envir = envir)
     }
     interpret.theta <- function() {
@@ -796,13 +794,12 @@ inla.rgeneric.MBYM.sparse <-
       #' Unscaled Laplacian matrix (marginal precision of u_1, u_2 ... u_k)
       L_unscaled <- Matrix::Diagonal(nrow(W), rowSums(W)) -  W
       L_unscaled_block <- kronecker(diag(1,k), L_unscaled)
-      A_constr <- t(pracma::nullspace(as.matrix(L_block)))
+      A_constr <- t(pracma::nullspace(as.matrix(L_unscaled_block)))
       scaleQ <- INLA:::inla.scale.model.internal(
-        L_block, constr = list(A = A_constr, e = rep(0, nrow(A_constr))))
+        L_unscaled_block, constr = list(A = A_constr, e = rep(0, nrow(A_constr))))
       #' Block Laplacian, i.e. precision of U = I_k \otimes L
-      L_block <- scaleQ$Q
       n <- nrow(W)
-      L <- L_block[c(1:n), c(1:n)]
+      L <- scaleQ$Q[c(1:n), c(1:n)]
       if(PC == TRUE){
         #' Eigenvalues of the SCALED Laplacian, sufficient for trace and determinant entering the KLD
         L_eigen_scaled <- eigen(scaleQ$Q)$values
@@ -811,13 +808,13 @@ inla.rgeneric.MBYM.sparse <-
                                                   marginal.variances = scaleQ$var,
                                                   rankdef = nrow(A_constr),
                                                   u = 0.5, alpha = 2/3)
+        assign("log.dpc.phi.bym", log.dpc.phi.bym, envir = envir)
+        
       }
       endtime.scale <- Sys.time()
       cat("Time needed for scaling Laplacian matrix: ",
           round(difftime(endtime.scale, starttime.scale), 3), " seconds \n")
-      
       assign("L", L, envir = envir)
-      assign("log.dpc.phi.bym", log.dpc.phi.bym, envir = envir)
       assign("cache.done", TRUE, envir = envir)
     }
     interpret.theta <- function() {
@@ -915,11 +912,8 @@ inla.MBYM.sparse <- function(...) INLA::inla.rgeneric.define(inla.rgeneric.MBYM.
 cav_MBYM_inla <- inla(
   N_ACC ~ 0 + Intercept +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
     f(ID, model = inla.MBYM.dense(k = 3, W = W_con, 
-                                  init = NULL,
                                   PC = FALSE),
-      extraconstr = list(A = A_constr, e = rep(0, 3))
-      #values = dd_list$ID2
-      ) ,
+      extraconstr = list(A = A_constr, e = rep(0, 3))) ,
   offset = log(nn),
   family = rep("poisson", 3), data =dd_list,
   #control.fixed = list(prec = list(Intercept1 = 0, Intercept2 = 0, Intercept3 = 0)),
