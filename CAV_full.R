@@ -380,6 +380,68 @@ zhat_plot <- function(model, main = NULL){
 
 
 
+## Experimental: univariate pogit regression -----------------------
+
+
+#' Dummy: 2021 data.
+#' Model setup strictly follows Wøllo (2022).
+#' R code available at: https://github.com/saraew/Prosjektoppgave;
+#' this is a mere copying exercise on the methodological side.
+
+
+library(inlabru)
+neglogexpit <- function(v, beta0, beta1){
+  pred = beta0 + beta1 * v
+  return(-log(1+exp(-pred)))
+}
+bru_options_set(bru_verbose = TRUE, bru_max_iter = 30, control.inla = list(tolerance = 1e-10))
+
+cmp <- ~ 
+  ER(ER) + ELL(ELL) + 
+  Intercept(1) + 
+  myoffset(log(nn21), model = "offset") + 
+  beta0(main = 1, model = "linear",
+        mean.linear = -2.2,
+        prec.linear = 2e+2) +
+  beta1(main = 1, model = "linear",
+        mean.linear = -0.1,
+        prec.linear = 1e-2)+ 
+  spatial(ID, model = "besag", graph = Lapl_con, constr = T, scale.model = T,
+          hyper = list(prec = list(prior = "pc.prec", param = c(1.5, 0.01)))) 
+
+
+formula <- N_ACC_21   ~ 
+  Intercept + myoffset + 
+  ER + ELL + 
+  spatial +  neglogexpit(v = TEP_th_22, beta0, beta1)
+
+lik <- like("poisson",
+           formula = formula,
+           data= dd_con)
+
+
+
+fit <- bru(components = cmp,  
+                  lik,
+                  options = list(verbose = F,
+                                 num.threads = "1:1",
+                                 control.compute = list(internal.opt = FALSE),
+                                 verbose = TRUE))
+
+
+# dummy for commparison:
+icar21 <- inla(N_ACC_21 ~ 1 + ER + TEP_th_22 + ELL +
+                 f(ID, model = "besag", graph = W_con, scale.model = T),
+               family = "poisson", data =dd_con,
+               offset = log(nn21),
+               num.threads = 1, control.compute = 
+                 list(internal.opt = F, cpo = T, waic = T), 
+               verbose = T) # better
+
+
+
+
+
 ## Spatial analysis ------------------------------------------------------------
 
 

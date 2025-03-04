@@ -1659,8 +1659,8 @@ dd_list_nosp <- list (
 
 ```
 
-Then we fit the Leroux model to the deconfounded data
-```{r MLCAR nosp, echo = FALSE, message = FALSE, output = FALSE}
+Then we fit the BYM model to the deconfounded data
+```{r MBYM nosp, echo = FALSE, message = FALSE, output = FALSE}
 
 
 cav_MBYM_inla_spatplus <- inla(
