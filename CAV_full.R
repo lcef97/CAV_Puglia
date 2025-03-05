@@ -390,34 +390,37 @@ zhat_plot <- function(model, main = NULL){
 
 
 library(inlabru)
-neglogexpit <- function(v, beta0, beta1){
-  pred = beta0 + beta1 * v
+neglogexpit <- function(v1, v2, beta0, beta1, beta2){
+  pred = beta0 + beta1 * v1 + beta2 * v2
   return(-log(1+exp(-pred)))
 }
 bru_options_set(bru_verbose = TRUE, bru_max_iter = 30, control.inla = list(tolerance = 1e-10))
 
 cmp <- ~ 
-  ER(ER) + ELL(ELL) + 
+  ER(ER) + 
   Intercept(1) + 
   myoffset(log(nn21), model = "offset") + 
   beta0(main = 1, model = "linear",
-        mean.linear = -2.2,
+        mean.linear = -1.8,
         prec.linear = 2e+2) +
   beta1(main = 1, model = "linear",
-        mean.linear = -0.1,
+        mean.linear = -0.15,
         prec.linear = 1e-2)+ 
-  spatial(ID, model = "besag", graph = Lapl_con, constr = T, scale.model = T,
+  beta2(main = 1, model = "linear",
+        mean.linear = -0.15,
+        prec.linear = 1e-2)+ 
+  spatial(ID, model = "bym2", graph = Lapl_con, constr = T, scale.model = T,
           hyper = list(prec = list(prior = "pc.prec", param = c(1.5, 0.01)))) 
 
 
 formula <- N_ACC_21   ~ 
   Intercept + myoffset + 
-  ER + ELL + 
-  spatial +  neglogexpit(v = TEP_th_22, beta0, beta1)
+  ER +
+  spatial +  neglogexpit(v1 = TEP_th_22, v2 = ELL, beta0, beta1, beta2)
 
 lik <- like("poisson",
            formula = formula,
-           data= dd_con)
+           data = dd_con)
 
 
 
@@ -430,14 +433,71 @@ fit <- bru(components = cmp,
 
 
 # dummy for commparison:
-icar21 <- inla(N_ACC_21 ~ 1 + ER + TEP_th_22 + ELL +
-                 f(ID, model = "besag", graph = W_con, scale.model = T),
+bym21 <- inla(N_ACC_21 ~ 1 + ER + TEP_th_22 + ELL +
+                 f(ID, model = "bym2", graph = W_con, 
+                   hyper = list(prec = list(prior = "pc.prec", param = c(1.5, 0.01)))),
                family = "poisson", data =dd_con,
                offset = log(nn21),
                num.threads = 1, control.compute = 
                  list(internal.opt = F, cpo = T, waic = T), 
                verbose = T) # better
 
+
+
+
+
+## Experimental: multivariate nonspatial pogit regression ----------------------
+
+library(inlabru)
+neglogexpit <- function(v, beta0, beta1){
+  pred = beta0 + beta1 * v
+  return(-log(1+exp(-pred)))
+}
+bru_options_set(bru_verbose = TRUE, bru_max_iter = 30, control.inla = list(tolerance = 1e-10))
+
+Mcmp <- ~ 
+  TEP(TEP_th) + ELI(ELI) + PGR(PGR) + UIS(UIS) + ELL(ELL) + PDI(PDI) + ER(ER) +
+  Intercept(Intercept) + 
+  myoffset(log(nn), model = "offset") #+ 
+  #beta0(main = 1, model = "linear",
+  #      mean.linear = -2.2,
+  #      prec.linear = 2e+2) +
+  #beta1(main = 1, model = "linear",
+  #      mean.linear = -0.1,
+  #      prec.linear = 1e-2)+ 
+  #spatial(ID, model = "besag", graph = Lapl_con, constr = T, scale.model = T,
+  #        hyper = list(prec = list(prior = "pc.prec", param = c(1.5, 0.01)))) 
+
+
+Mformula <- N_ACC   ~ 
+  -1 + Intercept + myoffset + 
+  TEP + ELI + PGR + UIS + ELL + PDI + ER #+spatial +  neglogexpit(v = TEP_th_22, beta0, beta1)
+
+
+# Does not work
+# Find a way to fix it. 
+likM <- like("poisson",
+            formula = Mformula,
+            data = dd_list)
+
+
+
+Mfit <- bru(components = Mcmp,  
+           rep(likM, 3),
+           options = list(verbose = F,
+                          num.threads = "1:1",
+                          control.compute = list(internal.opt = FALSE),
+                          verbose = TRUE))
+
+
+
+
+cav_nosp_inla <- inla(
+  N_ACC ~ 0 + Intercept +TEP_th + ELI + PGR + UIS + ELL + PDI + ER,
+  offset = log(nn),
+  family = rep("poisson", 3), data =dd_list,
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  verbose = T)
 
 
 

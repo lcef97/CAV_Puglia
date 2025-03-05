@@ -93,7 +93,7 @@ dd_con <- dd_con %>%
   dplyr::mutate(ELI = as.vector(scale(.data$ELI))) 
 
 # sd of travel time: almost 16 minutes
-#attr(scale(dists_th_22$TEP_th_22), "scaled:scale")
+# attr(scale(dists_th_22$TEP_th_22), "scaled:scale")
 
 # neighbours list
 nb_con <- spdep::poly2nb(dd_con)
@@ -250,7 +250,7 @@ y_i \mid \eta_i \sim \mathrm{Poisson}(e^{\eta_i + P_i}) \quad \text{where} \quad
 \label{eq:glm}
 \end{equation}
 
-Where $X$ are the covariate defined earlier, $\beta$ are covariate effects, and $P_i$ is the female population aged $\geq 15$ in municipality $i$.
+Where $X$ are the covariate defined earlier, $\beta$ are covariate effects, and $P_i$ is the logarithm of female population aged $\geq 15$ in municipality $i$.
 
 To gain more insight on the role of all explanatory variables we show the posterior summaries of the full regression model
 
@@ -648,6 +648,9 @@ WAICS
 ```
 As we can see, models taking into account random noise have a better performance. 
 
+
+
+
 ## Model results
 
 Here, posterior estimates of $\beta$ under the BYM model are shown. We compare the results assuming both the Poisson and the ZIP likelihood:
@@ -788,6 +791,95 @@ dd_con %>%
 ```
 
 
+## Spatial regression accounting for underreporting
+
+So far, under-reporting has not been explicitly modelled. Rather, explanatory variables maintained a twofold interpretation as affecting either VAW occurrence, VAW reporting, or both.
+
+In absence of either validation data, or information on complete-reporting contexts, we can only guess how to partition the effect of explanatory variables between VAW occurrence and reporting. 
+
+As an exploratory tool, we rely on a Poisson-logistic model (Pogit, [@Pogit], [@PogitZIP]). In brief, we have
+$$
+y_i \sim \mathrm{Poisson(\lambda_i \pi_i)}
+$$
+Where $\lambda_i \in \mathbb{R}^{+}$ is the rate parameter controlling the occurrence of true counts, and $\pi_i \in [0,1]$ controls for reporting frequency. 
+Due to the different domains of $\pi_i$ and $\lambda_i$, this parametrisation implies departure from linearity in the predictor $\eta_i:= \ln \lambda_i + \ln \pi_i - \ln P_i$.
+
+For clarity, in the following we will denote $\alpha$ as the $k+1$ covariate effects entering $\lambda_i$ and $\beta$ the $m+1$ covariate effects entering $\pi_i$. We would thus have 
+$$
+\lambda_i = e^{\displaystyle{\alpha_0 + \alpha_1 X_{i1} + ... + \alpha_p X_{ik}}}
+$$
+And
+$$
+\pi_i = \left(1 + e^{- \displaystyle{(\beta_0 + \beta_1 X_{k+1} + ... + \beta_m X_{i, k+m})}} \right)^{-1}
+$$
+Hence the linear predictor is not linear anymore. 
+
+As a preliminary modelling and computation attempt we employ the `inlabru` R package [@lindgren2024inlabru], following the operational (and coding) framework of [@Wollo].
+
+The `inlabru` R package allows for wrapping of `inla()` function calls within a more generalised environment, which is extended to nonlinear regression models. 
+
+The core idea is to approximate the linear predictor with a linear function of the parameters by a first-order Taylor approximation. 
+
+R codes are based on the ones shared by [@Wollo] at \url{https://github.com/saraew/Prosjektoppgave}.
+
+We assign the `TEP_th_22` and `ELL` covariates to the underreporting DGP and `ER` to VAW occurrring DGP.
+We assign informative prior to the intercept $\beta_0$. The idea is that, when all other effects are zero, $\pi_i \approx 1/10$. 
+
+However, interpreting $\beta_0$ is limited due to the mutual non-identifiability issue with $\alpha_0$. Hence, we must be happy with maintaining prior knowledge on $E[\beta_0]$.
+```{r inlabru, output = FALSE, message = FALSE}
+
+library(inlabru)
+neglogexpit <- function(v1, v2, beta0, beta1, beta2){
+  pred = beta0 + beta1 * v1 + beta2 * v2
+  return(-log(1+exp(-pred)))
+}
+bru_options_set(bru_verbose = TRUE, bru_max_iter = 30, control.inla = list(tolerance = 1e-10))
+
+cmp <- ~ 
+  ER(ER) + 
+  Intercept(1) + 
+  myoffset(log(nn), model = "offset") + 
+  beta0(main = 1, model = "linear",
+        mean.linear = -2.2,
+        prec.linear = 1e+2) +
+  beta1(main = 1, model = "linear",
+        mean.linear = 0,
+        prec.linear = 1e-3)+ 
+  beta2(main = 1, model = "linear",
+        mean.linear = 0,
+        prec.linear = 1e-3)+ 
+  bym(ID, model = "bym2", graph = Lapl_con, constr = T, scale.model = T,
+          hyper = list(prec = list(prior = "pc.prec", param = c(1.5, 0.01)))) 
+
+
+formula <- N_ACC   ~ 
+  Intercept + myoffset + 
+  ER +
+  bym +  neglogexpit(v1 = TEP_th_22, v2 = ELL, beta0, beta1, beta2)
+
+lik <- like("poisson",
+           formula = formula,
+           data = dd_con)
+
+cav_bym_INLABRU <- bru(
+  components = cmp, 
+  lik,
+  options = list(verbose = F,
+                 num.threads = "1:1",
+                 control.compute = list(
+                   waic = T, cpo = T, dic = T, internal.opt = F)))
+
+```
+
+
+Model results are alike those of the straight Poisson regression.
+
+```{r inlabru summaries}
+summary(cav_bym_INLABRU)
+```
+
+
+, since due to the respective domains of the two factors of the rate parameter we have $\lambda_i:= e^{\delta_i + P_i}$, with $\delta_i := \beta_0 + \beta_1 X_1 + ... + \beta_p X_p + z_i$  and $\pi_i := \mathrm{expit}(\gamma_i)$ with $\gamma_i := \beta_{p+1} + \beta_
 
 
 
