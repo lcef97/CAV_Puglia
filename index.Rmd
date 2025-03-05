@@ -797,7 +797,7 @@ So far, under-reporting has not been explicitly modelled. Rather, explanatory va
 
 In absence of either validation data, or information on complete-reporting contexts, we can only guess how to partition the effect of explanatory variables between VAW occurrence and reporting. 
 
-As an exploratory tool, we rely on a Poisson-logistic model (Pogit, [@Pogit], [@PogitZIP]). In brief, we have
+As an exploratory tool, we rely on a Poisson-logistic model (Pogit, see [@Pogit], [@PogitZIP]). In brief, we have
 $$
 y_i \sim \mathrm{Poisson(\lambda_i \pi_i)}
 $$
@@ -820,7 +820,7 @@ The `inlabru` R package allows for wrapping of `inla()` function calls within a 
 
 The core idea is to approximate the linear predictor with a linear function of the parameters by a first-order Taylor approximation. 
 
-R codes are based on the ones shared by [@Wollo] at \url{https://github.com/saraew/Prosjektoppgave}.
+R codes are based on the ones shared by [@Wollo] [on this GitHub repo](https://github.com/saraew/Prosjektoppgave).
 
 We assign the `TEP_th_22` and `ELL` covariates to the underreporting DGP and `ER` to VAW occurrring DGP.
 We assign informative prior to the intercept $\beta_0$. The idea is that, when all other effects are zero, $\pi_i \approx 1/10$. 
@@ -878,8 +878,6 @@ Model results are alike those of the straight Poisson regression.
 summary(cav_bym_INLABRU)
 ```
 
-
-, since due to the respective domains of the two factors of the rate parameter we have $\lambda_i:= e^{\delta_i + P_i}$, with $\delta_i := \beta_0 + \beta_1 X_1 + ... + \beta_p X_p + z_i$  and $\pi_i := \mathrm{expit}(\gamma_i)$ with $\gamma_i := \beta_{p+1} + \beta_
 
 
 

@@ -552,6 +552,84 @@ summary(cav_bym_zip_INLA)
 #' the CPOs improves greatly.
 
 
+## Spatial pogit regression: INLABRU -------------------------------------------
+
+#' Coding strictly follows the work of Wøllo (2022)
+#' See: https://github.com/saraew/Prosjektoppgave
+#' 
+
+library(inlabru)
+neglogexpit <- function(v1, v2, beta0, beta1, beta2){
+  pred = beta0 + beta1 * v1 + beta2 * v2
+  return(-log(1+exp(-pred)))
+}
+bru_options_set(bru_verbose = TRUE, bru_max_iter = 30, control.inla = list(tolerance = 1e-10))
+
+
+cmp_spatial <- function(spatial_expr) {
+  spatial_expr <- substitute(spatial_expr)
+    f1 <- bquote(
+    ~ ER(ER) + 
+      Intercept(1) + 
+      myoffset(log(nn), model = "offset") + 
+      beta0(main = 1, model = "linear",
+            mean.linear = -2.2,
+            prec.linear = 1e+2) +
+      beta1(main = 1, model = "linear",
+            mean.linear = 0,
+            prec.linear = 1e-3) + 
+      beta2(main = 1, model = "linear",
+            mean.linear = 0,
+            prec.linear = 1e-3))
+  
+  combined_expr <- as.call(c(quote(`+`), f1[[2]], spatial_expr))
+  final_formula <- as.formula(bquote(~ .(combined_expr)))
+  return(final_formula)
+}
+
+cmp_icar <- cmp_spatial(spatial(ID, model = "besag", graph = W_con, scale.model = TRUE, 
+                                hyper = list(prec = list(prior = "pc.prec", param = c(1.5, 0.01)))))
+
+cmp_pcar <- cmp_spatial(spatial(ID, model = PCAR.model(W = W_con, k = 1, lambda = 1.5, init = c(0, 4))))
+
+cmp_lcar <- cmp_spatial(spatial(ID, model = "besagproper", graph = W_con, 
+                               hyper = list(prec = list(prior = "pc.prec", param = c(1.5, 0.01)))))
+
+cmp_bym <- cmp_spatial(spatial(ID, model="bym2", graph = W_con, scale.model = TRUE, 
+                               hyper = list(prec = list(prior = "pc.prec", param = c(1.5, 0.01)))))
+
+
+
+cav_bru_basic <- function(model_cmp, verbose = FALSE){
+  formula <- N_ACC   ~ 
+    Intercept + myoffset +  ER +
+    spatial +  neglogexpit(v1 = TEP_th_22, v2 = ELL, beta0, beta1, beta2)
+  
+  res <- inlabru::bru(
+    components = model_cmp,
+    lik = like("poisson", formula = formula,data = dd_con),
+    options = list(verbose = verbose, num.threads = 1,
+                   control.compute = list(
+                     waic = T, cpo = T, dic = T, internal.opt = F)))
+  return(res)
+}
+
+
+cav_icar_inlabru <- cav_bru_basic(cmp_icar)
+
+cav_lcar_inlabru <- cav_bru_basic(cmp_lcar)
+
+#' This is going to be obnoxious 
+#' verbose = T is mandatory not to make INLA crash :) 
+cav_pcar_inlabru <- cav_bru_basic(cmp_pcar, verbose = T)
+
+cav_bym_inlabru <- cav_bru_basic(cmp_bym)
+
+bru_models <- list(cav_icar_inlabru, cav_lcar_inlabru, cav_pcar_inlabru, cav_bym_inlabru)
+do.call(dplyr::bind_rows, 
+        lapply(bru_models, function(x) data.frame(cbind(x$waic$waic, x$waic$p.eff))))
+
+
 ## Spatial regression: MCMC using CARBayes -------------------------------------
 
 

@@ -2016,7 +2016,7 @@ corresponding degree matrix.</p>
 <p>We briefly compare these four through the WAIC <span class="citation">(Gelman, Hwang, and Vehtari 2014)</span>:</p>
 <div data-pagedtable="false">
 <script data-pagedtable-source type="application/json">
-{"columns":[{"label":["Model"],"name":[1],"type":["chr"],"align":["left"]},{"label":["WAIC_Poisson"],"name":[2],"type":["dbl"],"align":["right"]},{"label":["WAIC_ZIP"],"name":[3],"type":["dbl"],"align":["right"]},{"label":["Eff_params_Poisson"],"name":[4],"type":["dbl"],"align":["right"]},{"label":["Eff_params_ZIP"],"name":[5],"type":["dbl"],"align":["right"]}],"data":[{"1":"Null","2":"1098.397","3":"1047.493","4":"20.355","5":"18.091"},{"1":"ICAR","2":"951.387","3":"962.571","4":"74.725","5":"66.380"},{"1":"PCAR","2":"947.449","3":"953.208","4":"76.765","5":"64.976"},{"1":"BYM","2":"942.879","3":"952.994","4":"75.336","5":"65.131"},{"1":"Leroux","2":"945.463","3":"951.509","4":"75.595","5":"63.958"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
+{"columns":[{"label":["Model"],"name":[1],"type":["chr"],"align":["left"]},{"label":["WAIC_Poisson"],"name":[2],"type":["dbl"],"align":["right"]},{"label":["WAIC_ZIP"],"name":[3],"type":["dbl"],"align":["right"]},{"label":["Eff_params_Poisson"],"name":[4],"type":["dbl"],"align":["right"]},{"label":["Eff_params_ZIP"],"name":[5],"type":["dbl"],"align":["right"]}],"data":[{"1":"Null","2":"1098.397","3":"1047.493","4":"20.355","5":"18.091"},{"1":"ICAR","2":"951.387","3":"962.571","4":"74.725","5":"66.380"},{"1":"PCAR","2":"947.449","3":"953.208","4":"76.765","5":"64.976"},{"1":"BYM","2":"942.879","3":"952.995","4":"75.336","5":"65.130"},{"1":"Leroux","2":"945.463","3":"951.509","4":"75.595","5":"63.958"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
   </script>
 </div>
 <p>As we can see, models taking into account random noise have a better
@@ -2071,7 +2071,7 @@ reported.</p></li>
 ## generated.</code></pre>
 <div data-pagedtable="false">
 <script data-pagedtable-source type="application/json">
-{"columns":[{"label":["Variable"],"name":[1],"type":["chr"],"align":["left"]},{"label":["mean"],"name":[2],"type":["dbl"],"align":["right"]},{"label":["X0.025quant"],"name":[3],"type":["dbl"],"align":["right"]},{"label":["X0.5quant"],"name":[4],"type":["dbl"],"align":["right"]},{"label":["X0.975quant"],"name":[5],"type":["dbl"],"align":["right"]}],"data":[{"1":"Z_VAR_Pois","2":"0.4015627","3":"0.19233770","4":"0.3804999","5":"0.7318764"},{"1":"Mixing_Pois","2":"0.5622842","3":"0.15603038","4":"0.5767490","5":"0.9027210"},{"1":"Z_VAR_ZIP","2":"2.2127241","3":"1.10386939","4":"1.7266622","5":"6.3022999"},{"1":"Zero_Prob","2":"0.0465307","3":"0.01001952","4":"0.0399863","5":"0.1197553"},{"1":"Mixing_ZIP","2":"0.3732839","3":"0.01267082","4":"0.3171261","5":"0.9237414"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
+{"columns":[{"label":["Variable"],"name":[1],"type":["chr"],"align":["left"]},{"label":["mean"],"name":[2],"type":["dbl"],"align":["right"]},{"label":["X0.025quant"],"name":[3],"type":["dbl"],"align":["right"]},{"label":["X0.5quant"],"name":[4],"type":["dbl"],"align":["right"]},{"label":["X0.975quant"],"name":[5],"type":["dbl"],"align":["right"]}],"data":[{"1":"Z_VAR_Pois","2":"0.40156415","3":"0.19233142","4":"0.38049860","5":"0.7319008"},{"1":"Mixing_Pois","2":"0.56228200","3":"0.15601148","4":"0.57674726","5":"0.9027359"},{"1":"Z_VAR_ZIP","2":"2.21281621","3":"1.10384977","4":"1.72666717","5":"6.3030589"},{"1":"Zero_Prob","2":"0.04652755","3":"0.01002144","4":"0.03998744","5":"0.1197197"},{"1":"Mixing_ZIP","2":"0.37329799","3":"0.01268178","4":"0.31717197","5":"0.9236882"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
   </script>
 </div>
 <p>Even though the value of the zero-inflation parameter is low, we can
@@ -2093,11 +2093,11 @@ regularity conditions to approximate the CPO more often than in the
 non-inflated model. Still, CPO must be re-computed manually before
 employing it as an evaluation metrics:</p>
 <pre class="r"><code>sum(cav_bym_INLA$cpo$failure)</code></pre>
-<pre><code>## [1] 103.3392</code></pre>
+<pre><code>## [1] 103.341</code></pre>
 <pre class="r"><code>sum(cav_bym_INLA$cpo$failure &gt; 0)</code></pre>
 <pre><code>## [1] 223</code></pre>
 <pre class="r"><code>sum(cav_bym_INLA_ZIP$cpo$failure)</code></pre>
-<pre><code>## [1] 16.35566</code></pre>
+<pre><code>## [1] 16.35397</code></pre>
 <pre class="r"><code>sum(cav_bym_INLA_ZIP$cpo$failure &gt; 0)</code></pre>
 <pre><code>## [1] 111</code></pre>
 <pre class="r"><code>sum(cav_leroux_INLA$cpo$failure)</code></pre>
@@ -2122,8 +2122,9 @@ complete-reporting contexts, we can only guess how to partition the
 effect of explanatory variables between VAW occurrence and
 reporting.</p>
 <p>As an exploratory tool, we rely on a Poisson-logistic model (Pogit,
-<span class="citation">(Stoner, Economou, and Silva 2019)</span>, <span class="citation">(Arima, Calculli, and Pollice 2025)</span>). In brief,
-we have <span class="math display">\[
+see <span class="citation">(Stoner, Economou, and Silva 2019)</span>,
+<span class="citation">(Arima, Calculli, and Pollice 2025)</span>). In
+brief, we have <span class="math display">\[
 y_i \sim \mathrm{Poisson(\lambda_i \pi_i)}
 \]</span> Where <span class="math inline">\(\lambda_i \in
 \mathbb{R}^{+}\)</span> is the rate parameter controlling the occurrence
@@ -2147,7 +2148,8 @@ environment, which is extended to nonlinear regression models.</p>
 <p>The core idea is to approximate the linear predictor with a linear
 function of the parameters by a first-order Taylor approximation.</p>
 <p>R codes are based on the ones shared by <span class="citation">(Wøllo
-2022)</span> at .</p>
+2022)</span> <a href="https://github.com/saraew/Prosjektoppgave">on this
+GitHub repo</a>.</p>
 <p>We assign the <code>TEP_th_22</code> and <code>ELL</code> covariates
 to the underreporting DGP and <code>ER</code> to VAW occurrring DGP. We
 assign informative prior to the intercept <span class="math inline">\(\beta_0\)</span>. The idea is that, when all other
@@ -2220,7 +2222,7 @@ cav_bym_INLABRU &lt;- bru(
 ##             v2 = ELL, beta0, beta1, beta2)
 ##     Used components: effects[ER, Intercept, myoffset, beta0, beta1, beta2, bym], latent[]
 ## Time used:
-##     Pre = 28.9, Running = 1.06, Post = 0.573, Total = 30.6 
+##     Pre = 28.6, Running = 1.19, Post = 0.45, Total = 30.2 
 ## Fixed effects:
 ##             mean    sd 0.025quant 0.5quant 0.975quant   mode kld
 ## ER        -0.198 0.096     -0.388   -0.197     -0.011 -0.197   0
@@ -2249,11 +2251,6 @@ cav_bym_INLABRU &lt;- bru(
 ## CPO, PIT is computed 
 ## Posterior summaries for the linear predictor and the fitted values are computed
 ## (Posterior marginals needs also &#39;control.compute=list(return.marginals.predictor=TRUE)&#39;)</code></pre>
-<p>, since due to the respective domains of the two factors of the rate
-parameter we have <span class="math inline">\(\lambda_i:= e^{\delta_i +
-P_i}\)</span>, with <span class="math inline">\(\delta_i := \beta_0 +
-\beta_1 X_1 + ... + \beta_p X_p + z_i\)</span> and <span class="math inline">\(\pi_i := \mathrm{expit}(\gamma_i)\)</span> with
-$<em>i := </em>{p+1} + _</p>
 </div>
 <div id="weakness-elements-and-possible-developments" class="section level2">
 <h2>Weakness elements and possible developments</h2>
