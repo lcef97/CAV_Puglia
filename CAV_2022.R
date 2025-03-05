@@ -626,9 +626,14 @@ cav_pcar_inlabru <- cav_bru_basic(cmp_pcar, verbose = T)
 cav_bym_inlabru <- cav_bru_basic(cmp_bym)
 
 bru_models <- list(cav_icar_inlabru, cav_lcar_inlabru, cav_pcar_inlabru, cav_bym_inlabru)
-do.call(dplyr::bind_rows, 
-        lapply(bru_models, function(x) data.frame(cbind(x$waic$waic, x$waic$p.eff))))
+WAICS_inlabru <- do.call(dplyr::bind_rows, 
+                         lapply(bru_models, function(x) data.frame(cbind(x$waic$waic, x$waic$p.eff)))) %>% 
+  dplyr::mutate(Model = c("ICAR", "LCAR", "PCAR", "BYM")) %>% 
+  dplyr::relocate(.data$Model, .before = 1)
+names(WAICS_inlabru)[c(2,3)] <- c("WAIC", "P_eff")
+rownames(WAICS_inlabru) <- NULL
 
+names(WAIC_inlabru)
 
 ## Spatial regression: MCMC using CARBayes -------------------------------------
 
