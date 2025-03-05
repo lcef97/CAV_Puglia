@@ -2071,7 +2071,7 @@ reported.</p></li>
 ## generated.</code></pre>
 <div data-pagedtable="false">
 <script data-pagedtable-source type="application/json">
-{"columns":[{"label":["Variable"],"name":[1],"type":["chr"],"align":["left"]},{"label":["mean"],"name":[2],"type":["dbl"],"align":["right"]},{"label":["X0.025quant"],"name":[3],"type":["dbl"],"align":["right"]},{"label":["X0.5quant"],"name":[4],"type":["dbl"],"align":["right"]},{"label":["X0.975quant"],"name":[5],"type":["dbl"],"align":["right"]}],"data":[{"1":"Z_VAR_Pois","2":"0.4015677","3":"0.19232453","4":"0.3805012","5":"0.7319212"},{"1":"Mixing_Pois","2":"0.5622810","3":"0.15598929","4":"0.5767496","5":"0.9027436"},{"1":"Z_VAR_ZIP","2":"2.2129098","3":"1.10383840","4":"1.7266560","5":"6.3039328"},{"1":"Zero_Prob","2":"0.0465307","3":"0.01001952","4":"0.0399863","5":"0.1197553"},{"1":"Mixing_ZIP","2":"0.3732839","3":"0.01267082","4":"0.3171261","5":"0.9237414"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
+{"columns":[{"label":["Variable"],"name":[1],"type":["chr"],"align":["left"]},{"label":["mean"],"name":[2],"type":["dbl"],"align":["right"]},{"label":["X0.025quant"],"name":[3],"type":["dbl"],"align":["right"]},{"label":["X0.5quant"],"name":[4],"type":["dbl"],"align":["right"]},{"label":["X0.975quant"],"name":[5],"type":["dbl"],"align":["right"]}],"data":[{"1":"Z_VAR_Pois","2":"0.4015627","3":"0.19233770","4":"0.3804999","5":"0.7318764"},{"1":"Mixing_Pois","2":"0.5622842","3":"0.15603038","4":"0.5767490","5":"0.9027210"},{"1":"Z_VAR_ZIP","2":"2.2127241","3":"1.10386939","4":"1.7266622","5":"6.3022999"},{"1":"Zero_Prob","2":"0.0465307","3":"0.01001952","4":"0.0399863","5":"0.1197553"},{"1":"Mixing_ZIP","2":"0.3732839","3":"0.01267082","4":"0.3171261","5":"0.9237414"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
   </script>
 </div>
 <p>Even though the value of the zero-inflation parameter is low, we can
@@ -2093,7 +2093,7 @@ regularity conditions to approximate the CPO more often than in the
 non-inflated model. Still, CPO must be re-computed manually before
 employing it as an evaluation metrics:</p>
 <pre class="r"><code>sum(cav_bym_INLA$cpo$failure)</code></pre>
-<pre><code>## [1] 103.3472</code></pre>
+<pre><code>## [1] 103.3392</code></pre>
 <pre class="r"><code>sum(cav_bym_INLA$cpo$failure &gt; 0)</code></pre>
 <pre><code>## [1] 223</code></pre>
 <pre class="r"><code>sum(cav_bym_INLA_ZIP$cpo$failure)</code></pre>
@@ -2132,8 +2132,8 @@ controls for reporting frequency. Due to the different domains of <span class="m
 departure from linearity in the predictor <span class="math inline">\(\eta_i:= \ln \lambda_i + \ln \pi_i - \ln
 P_i\)</span>.</p>
 <p>For clarity, in the following we will denote <span class="math inline">\(\alpha\)</span> as the <span class="math inline">\(k+1\)</span> covariate effects entering <span class="math inline">\(\lambda_i\)</span> and <span class="math inline">\(\beta\)</span> the <span class="math inline">\(m+1\)</span> covariate effects entering <span class="math inline">\(\pi_i\)</span>. We would thus have <span class="math display">\[
-\lambda_i = e^\displaystyle{\alpha_0 + \alpha_1 X_{i1} + ... + \alpha_p
-X_{ik}}
+\lambda_i = e^{\displaystyle{\alpha_0 + \alpha_1 X_{i1} + ... + \alpha_p
+X_{ik}}}
 \]</span> And <span class="math display">\[
 \pi_i = \left(1 + e^{- \displaystyle{(\beta_0 + \beta_1 X_{k+1} + ... +
 \beta_m X_{i, k+m})}} \right)^{-1}
@@ -2220,7 +2220,7 @@ cav_bym_INLABRU &lt;- bru(
 ##             v2 = ELL, beta0, beta1, beta2)
 ##     Used components: effects[ER, Intercept, myoffset, beta0, beta1, beta2, bym], latent[]
 ## Time used:
-##     Pre = 14, Running = 0.927, Post = 0.258, Total = 15.2 
+##     Pre = 28.9, Running = 1.06, Post = 0.573, Total = 30.6 
 ## Fixed effects:
 ##             mean    sd 0.025quant 0.5quant 0.975quant   mode kld
 ## ER        -0.198 0.096     -0.388   -0.197     -0.011 -0.197   0
