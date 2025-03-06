@@ -1990,13 +1990,12 @@ z_i = \sigma \left(\sqrt{\phi} u_i + \sqrt{1-\phi} v_i \right)
 <p>where <span class="math inline">\(u\)</span> is an ICAR field, <span class="math inline">\(v\)</span> is an IID standard Gaussian white noise
 i.e. <span class="math inline">\(v \sim N(0, I)\)</span>, and <span class="math inline">\(\phi\)</span> is a mixing parameter <span class="math inline">\(\in [0, 1]\)</span>.</p>
 </div>
-<div id="leroux-model" class="section level4">
-<h4>Leroux model</h4>
+<div id="lcar-model" class="section level4">
+<h4>LCAR model</h4>
 <p>As an alternative to take into account both structured and
 unstructured latent effects, we also test the Leroux autoregressive
-model <span class="citation">(Leroux, Lei, and Breslow 2000)</span>. In
-this case, the local prior for <span class="math inline">\(z_i\)</span>
-is</p>
+model <span class="citation">(Leroux, Lei, and Breslow 2000)</span>,
+which we will refer to as LCAR. In this case, the local prior for <span class="math inline">\(z_i\)</span> is</p>
 <p><span class="math display">\[\begin{equation}
 z_i \mid z_{-i} \sim N \left( \sum_{j=1}^n \frac{\xi w_{ij}}{1 - \xi +
 \xi d_i}   z_j \,, \frac{\sigma^2}{1 - \xi + \xi d_i}\right)
@@ -2016,7 +2015,7 @@ corresponding degree matrix.</p>
 <p>We briefly compare these four through the WAIC <span class="citation">(Gelman, Hwang, and Vehtari 2014)</span>:</p>
 <div data-pagedtable="false">
 <script data-pagedtable-source type="application/json">
-{"columns":[{"label":["Model"],"name":[1],"type":["chr"],"align":["left"]},{"label":["WAIC_Poisson"],"name":[2],"type":["dbl"],"align":["right"]},{"label":["WAIC_ZIP"],"name":[3],"type":["dbl"],"align":["right"]},{"label":["Eff_params_Poisson"],"name":[4],"type":["dbl"],"align":["right"]},{"label":["Eff_params_ZIP"],"name":[5],"type":["dbl"],"align":["right"]}],"data":[{"1":"Null","2":"1098.397","3":"1047.493","4":"20.355","5":"18.091"},{"1":"ICAR","2":"951.387","3":"962.571","4":"74.725","5":"66.380"},{"1":"PCAR","2":"947.449","3":"953.208","4":"76.765","5":"64.976"},{"1":"BYM","2":"942.879","3":"952.995","4":"75.336","5":"65.130"},{"1":"Leroux","2":"945.463","3":"951.509","4":"75.595","5":"63.958"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
+{"columns":[{"label":["Model"],"name":[1],"type":["chr"],"align":["left"]},{"label":["WAIC_Poisson"],"name":[2],"type":["dbl"],"align":["right"]},{"label":["WAIC_ZIP"],"name":[3],"type":["dbl"],"align":["right"]},{"label":["Eff_params_Poisson"],"name":[4],"type":["dbl"],"align":["right"]},{"label":["Eff_params_ZIP"],"name":[5],"type":["dbl"],"align":["right"]}],"data":[{"1":"Null","2":"1098.397","3":"1047.493","4":"20.355","5":"18.091"},{"1":"ICAR","2":"951.387","3":"962.571","4":"74.725","5":"66.380"},{"1":"PCAR","2":"947.449","3":"953.208","4":"76.765","5":"64.976"},{"1":"BYM","2":"942.879","3":"952.994","4":"75.336","5":"65.131"},{"1":"Leroux","2":"945.463","3":"951.509","4":"75.595","5":"63.958"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
   </script>
 </div>
 <p>As we can see, models taking into account random noise have a better
@@ -2071,7 +2070,7 @@ reported.</p></li>
 ## generated.</code></pre>
 <div data-pagedtable="false">
 <script data-pagedtable-source type="application/json">
-{"columns":[{"label":["Variable"],"name":[1],"type":["chr"],"align":["left"]},{"label":["mean"],"name":[2],"type":["dbl"],"align":["right"]},{"label":["X0.025quant"],"name":[3],"type":["dbl"],"align":["right"]},{"label":["X0.5quant"],"name":[4],"type":["dbl"],"align":["right"]},{"label":["X0.975quant"],"name":[5],"type":["dbl"],"align":["right"]}],"data":[{"1":"Z_VAR_Pois","2":"0.40156415","3":"0.19233142","4":"0.38049860","5":"0.7319008"},{"1":"Mixing_Pois","2":"0.56228200","3":"0.15601148","4":"0.57674726","5":"0.9027359"},{"1":"Z_VAR_ZIP","2":"2.21281621","3":"1.10384977","4":"1.72666717","5":"6.3030589"},{"1":"Zero_Prob","2":"0.04652755","3":"0.01002144","4":"0.03998744","5":"0.1197197"},{"1":"Mixing_ZIP","2":"0.37329799","3":"0.01268178","4":"0.31717197","5":"0.9236882"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
+{"columns":[{"label":["Variable"],"name":[1],"type":["chr"],"align":["left"]},{"label":["mean"],"name":[2],"type":["dbl"],"align":["right"]},{"label":["X0.025quant"],"name":[3],"type":["dbl"],"align":["right"]},{"label":["X0.5quant"],"name":[4],"type":["dbl"],"align":["right"]},{"label":["X0.975quant"],"name":[5],"type":["dbl"],"align":["right"]}],"data":[{"1":"Z_VAR_Pois","2":"0.4015627","3":"0.19233770","4":"0.3804999","5":"0.7318764"},{"1":"Mixing_Pois","2":"0.5622842","3":"0.15603038","4":"0.5767490","5":"0.9027210"},{"1":"Z_VAR_ZIP","2":"2.2127241","3":"1.10386939","4":"1.7266622","5":"6.3022999"},{"1":"Zero_Prob","2":"0.0465307","3":"0.01001952","4":"0.0399863","5":"0.1197553"},{"1":"Mixing_ZIP","2":"0.3732839","3":"0.01267082","4":"0.3171261","5":"0.9237414"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
   </script>
 </div>
 <p>Even though the value of the zero-inflation parameter is low, we can
@@ -2093,11 +2092,11 @@ regularity conditions to approximate the CPO more often than in the
 non-inflated model. Still, CPO must be re-computed manually before
 employing it as an evaluation metrics:</p>
 <pre class="r"><code>sum(cav_bym_INLA$cpo$failure)</code></pre>
-<pre><code>## [1] 103.341</code></pre>
+<pre><code>## [1] 103.3392</code></pre>
 <pre class="r"><code>sum(cav_bym_INLA$cpo$failure &gt; 0)</code></pre>
 <pre><code>## [1] 223</code></pre>
 <pre class="r"><code>sum(cav_bym_INLA_ZIP$cpo$failure)</code></pre>
-<pre><code>## [1] 16.35397</code></pre>
+<pre><code>## [1] 16.35566</code></pre>
 <pre class="r"><code>sum(cav_bym_INLA_ZIP$cpo$failure &gt; 0)</code></pre>
 <pre><code>## [1] 111</code></pre>
 <pre class="r"><code>sum(cav_leroux_INLA$cpo$failure)</code></pre>
@@ -2158,99 +2157,87 @@ effects are zero, <span class="math inline">\(\pi_i \approx
 <p>However, interpreting <span class="math inline">\(\beta_0\)</span> is
 limited due to the mutual non-identifiability issue with <span class="math inline">\(\alpha_0\)</span>. Hence, we must be happy with
 maintaining prior knowledge on <span class="math inline">\(E[\beta_0]\)</span>.</p>
-<pre class="r"><code>library(inlabru)</code></pre>
-<pre><code>## Warning: il pacchetto &#39;inlabru&#39; è stato creato con R versione 4.4.2</code></pre>
-<pre><code>## Warning: il pacchetto &#39;fmesher&#39; è stato creato con R versione 4.4.3</code></pre>
-<pre class="r"><code>neglogexpit &lt;- function(v1, v2, beta0, beta1, beta2){
+<pre class="r"><code>library(inlabru)
+
+neglogexpit &lt;- function(v1, v2, beta0, beta1, beta2){
   pred = beta0 + beta1 * v1 + beta2 * v2
   return(-log(1+exp(-pred)))
 }
-bru_options_set(bru_verbose = TRUE, bru_max_iter = 30, control.inla = list(tolerance = 1e-10))
 
-cmp &lt;- ~ 
-  ER(ER) + 
-  Intercept(1) + 
-  myoffset(log(nn), model = &quot;offset&quot;) + 
-  beta0(main = 1, model = &quot;linear&quot;,
-        mean.linear = -2.2,
-        prec.linear = 1e+2) +
-  beta1(main = 1, model = &quot;linear&quot;,
-        mean.linear = 0,
-        prec.linear = 1e-3)+ 
-  beta2(main = 1, model = &quot;linear&quot;,
-        mean.linear = 0,
-        prec.linear = 1e-3)+ 
-  bym(ID, model = &quot;bym2&quot;, graph = Lapl_con, constr = T, scale.model = T,
-          hyper = list(prec = list(prior = &quot;pc.prec&quot;, param = c(1.5, 0.01)))) 
+bru_options_set(bru_max_iter = 30,
+                control.inla = list(tolerance = 1e-10))
 
+cmp_spatial &lt;- function(spatial_expr) {
+  f2 &lt;- substitute(spatial_expr)
+  f1 &lt;- bquote(
+    ~ Intercept(1) + ER(ER) +  
+      myoffset(log(nn), model = &quot;offset&quot;) + 
+      beta0(main = 1, model = &quot;linear&quot;,
+            mean.linear = -2.2,
+            prec.linear = 1e+2) +
+      beta1(main = 1, model = &quot;linear&quot;,
+            mean.linear = 0,
+            prec.linear = 1e-3) + 
+      beta2(main = 1, model = &quot;linear&quot;,
+            mean.linear = 0,
+            prec.linear = 1e-3))
+  
+  ff &lt;- as.call(c(quote(`+`), f1[[2]], f2))
+  final_formula &lt;- as.formula(bquote(~ .(ff)))
+  return(final_formula)
+}</code></pre>
+<p>This rather generic function allows to implement different models for
+<span class="math inline">\(z\)</span> at the cost of a couple of lines
+of code. Nevertheless, for the sake of brevity, we only fit the BYM
+model, which can be seen to perform slightly better than ICAR, PCAR and
+LCAR. The latter models can be simply fit by defining the analogues of
+<code>cmp_bym</code> through the <code>cmp_spatial()</code> wrapper.</p>
+<pre class="r"><code>cmp_bym &lt;- cmp_spatial(
+  spatial(ID, model=&quot;bym2&quot;, graph = W_con, 
+          scale.model = TRUE, 
+          hyper = list(prec = list(prior = &quot;pc.prec&quot;, 
+                                   param = c(1.5, 0.01)))))
 
-formula &lt;- N_ACC   ~ 
-  Intercept + myoffset + 
-  ER +
-  bym +  neglogexpit(v1 = TEP_th_22, v2 = ELL, beta0, beta1, beta2)
+cav_bru_basic &lt;- function(model_cmp, verbose = FALSE) {
+  terms &lt;- c(&quot;Intercept&quot;, &quot;myoffset&quot;, &quot;ER&quot;, 
+             &quot;neglogexpit(v1 = TEP_th_22, v2 = ELL, beta0, beta1, beta2)&quot;)
+  
+  if (any(grepl(&quot;spatial&quot;, as.character(model_cmp)))) terms &lt;- c(terms, &quot;spatial&quot;)
+  
+  formula &lt;- as.formula(paste(&quot;N_ACC ~&quot;, paste(terms, collapse = &quot; + &quot;)))
+  
+  res &lt;- inlabru::bru(
+    components = model_cmp,
+    lik = like(&quot;poisson&quot;, formula = formula,data = dd_con),
+    options = list(verbose = verbose, num.threads = 1,
+                   control.compute = list(
+                     waic = T, cpo = T, dic = T, internal.opt = F)))
+  
+  return(res)
+}
 
-lik &lt;- like(&quot;poisson&quot;,
-           formula = formula,
-           data = dd_con)
-
-cav_bym_INLABRU &lt;- bru(
-  components = cmp, 
-  lik,
-  options = list(verbose = F,
-                 num.threads = &quot;1:1&quot;,
-                 control.compute = list(
-                   waic = T, cpo = T, dic = T, internal.opt = F)))</code></pre>
+cav_bym_INLABRU &lt;- cav_bru_basic(cmp_bym)</code></pre>
 <p>Model results are alike those of the straight Poisson regression.</p>
-<pre class="r"><code>summary(cav_bym_INLABRU)</code></pre>
-<pre><code>## inlabru version: 2.12.0
-## INLA version: 24.10.13
-## Components:
-## ER: main = linear(ER), group = exchangeable(1L), replicate = iid(1L), NULL
-## Intercept: main = linear(1), group = exchangeable(1L), replicate = iid(1L), NULL
-## myoffset: main = const(log(nn)), group = exchangeable(1L), replicate = iid(1L), NULL
-## beta0: main = linear(1), group = exchangeable(1L), replicate = iid(1L), NULL
-## beta1: main = linear(1), group = exchangeable(1L), replicate = iid(1L), NULL
-## beta2: main = linear(1), group = exchangeable(1L), replicate = iid(1L), NULL
-## bym: main = bym2(ID), group = exchangeable(1L), replicate = iid(1L), NULL
-## Likelihoods:
-##   Family: &#39;poisson&#39;
-##     Tag: &#39;&#39;
-##     Data class: &#39;sf&#39;, &#39;tbl_df&#39;, &#39;tbl&#39;, &#39;data.frame&#39;
-##     Response class: &#39;numeric&#39;
-##     Predictor: 
-##         N_ACC ~ Intercept + myoffset + ER + bym + neglogexpit(v1 = TEP_th_22, 
-##             v2 = ELL, beta0, beta1, beta2)
-##     Used components: effects[ER, Intercept, myoffset, beta0, beta1, beta2, bym], latent[]
-## Time used:
-##     Pre = 28.6, Running = 1.19, Post = 0.45, Total = 30.2 
-## Fixed effects:
-##             mean    sd 0.025quant 0.5quant 0.975quant   mode kld
-## ER        -0.198 0.096     -0.388   -0.197     -0.011 -0.197   0
-## Intercept -5.312 0.109     -5.527   -5.312     -5.098 -5.312   0
-## beta0     -2.201 0.100     -2.397   -2.201     -2.005 -2.201   0
-## beta1     -0.431 0.086     -0.601   -0.430     -0.262 -0.430   0
-## beta2     -0.293 0.091     -0.472   -0.292     -0.115 -0.292   0
-## 
-## Random effects:
-##   Name     Model
-##     bym BYM2 model
-## 
-## Model hyperparameters:
-##                    mean    sd 0.025quant 0.5quant 0.975quant  mode
-## Precision for bym 2.601 0.893      1.283    2.457      4.754 2.193
-## Phi for bym       0.612 0.194      0.207    0.633      0.919 0.721
-## 
-## Deviance Information Criterion (DIC) ...............: 938.32
-## Deviance Information Criterion (DIC, saturated) ....: 371.51
-## Effective number of parameters .....................: 92.73
-## 
-## Watanabe-Akaike information criterion (WAIC) ...: 941.46
-## Effective number of parameters .................: 74.25
-## 
-## Marginal log-Likelihood:  -454.25 
-## CPO, PIT is computed 
-## Posterior summaries for the linear predictor and the fitted values are computed
-## (Posterior marginals needs also &#39;control.compute=list(return.marginals.predictor=TRUE)&#39;)</code></pre>
+<div data-pagedtable="false">
+<script data-pagedtable-source type="application/json">
+{"columns":[{"label":["Variable"],"name":[1],"type":["chr"],"align":["left"]},{"label":["Mean"],"name":[2],"type":["dbl"],"align":["right"]},{"label":["SD"],"name":[3],"type":["dbl"],"align":["right"]},{"label":["q0.025"],"name":[4],"type":["dbl"],"align":["right"]},{"label":["Median"],"name":[5],"type":["dbl"],"align":["right"]},{"label":["q0.975_ZIP"],"name":[6],"type":["dbl"],"align":["right"]}],"data":[{"1":"ER","2":"-5.312","3":"0.109","4":"-5.527","5":"-5.312","6":"-5.098"},{"1":"alpha_0","2":"-0.198","3":"0.096","4":"-0.388","5":"-0.197","6":"-0.011"},{"1":"beta_0","2":"-2.201","3":"0.100","4":"-2.397","5":"-2.201","6":"-2.005"},{"1":"TEP_th","2":"-0.431","3":"0.086","4":"-0.601","5":"-0.430","6":"-0.262"},{"1":"ELL","2":"-0.293","3":"0.091","4":"-0.472","5":"-0.292","6":"-0.115"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
+  </script>
+</div>
+<p>No noticeable change seems to affect hyperparameters either:</p>
+<pre class="r"><code>cav_bym_INLABRU_marginals.var &lt;- unlist(inla.zmarginal(inla.tmarginal(
+  fun = function(x) 1/x, marginal =cav_bym_INLABRU$marginals.hyperpar[[1]]), silent = T))
+
+hyperpars_bru&lt;- data.frame(rbind(cav_bym_INLABRU_marginals.var[c(1,3,5,7)],
+                   cav_bym_INLABRU$summary.hyperpar[2,c(1,3,4,5)])) %&gt;% 
+  dplyr::mutate(Variable =c(&quot;Variance&quot;, &quot;Mixing&quot;)) %&gt;% 
+                  dplyr::relocate(.data$Variable, .before = 1) 
+rownames(hyperpars_bru) &lt;- NULL
+hyperpars_bru</code></pre>
+<div data-pagedtable="false">
+<script data-pagedtable-source type="application/json">
+{"columns":[{"label":["Variable"],"name":[1],"type":["chr"],"align":["left"]},{"label":["mean"],"name":[2],"type":["dbl"],"align":["right"]},{"label":["X0.025quant"],"name":[3],"type":["dbl"],"align":["right"]},{"label":["X0.5quant"],"name":[4],"type":["dbl"],"align":["right"]},{"label":["X0.975quant"],"name":[5],"type":["dbl"],"align":["right"]}],"data":[{"1":"Variance","2":"0.4291255","3":"0.2112793","4":"0.4067645","5":"0.7746798"},{"1":"Mixing","2":"0.6123010","3":"0.2074957","4":"0.6328808","5":"0.9193922"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
+  </script>
+</div>
 </div>
 <div id="weakness-elements-and-possible-developments" class="section level2">
 <h2>Weakness elements and possible developments</h2>
@@ -2286,7 +2273,10 @@ is more dense in areas in which violence occurs, for some reason we
 don’t know, at a higher frequence.</p>
 <p>To this aim, an issue worthy of being explored is underreporting
 modelling; a reasonable methodology would be <em>pogit</em> regression
-<span class="citation">(Stoner, Economou, and Silva 2019)</span>, <span class="citation">(Arima, Calculli, and Pollice 2025)</span></p>
+<span class="citation">(Stoner, Economou, and Silva 2019)</span>, <span class="citation">(Arima, Calculli, and Pollice 2025)</span>. Until now,
+we have been avoiding the issue of non-linearity by approximating the
+linear predictor. Comparison with MCMC-run models would be beneficial to
+assess how righteous this approximation is.</p>
 </div>
 <div id="appendix-the-waic" class="section level2">
 <h2>Appendix: the WAIC</h2>
