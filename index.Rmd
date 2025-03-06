@@ -827,6 +827,9 @@ We assign informative prior to the intercept $\beta_0$. The idea is that, when a
 
 However, interpreting $\beta_0$ is limited due to the mutual non-identifiability issue with $\alpha_0$. Hence, we must be happy with maintaining prior knowledge on $E[\beta_0]$.
 
+
+
+
 ```{r inlabru part 1, output = FALSE, message = FALSE, warning = FALSE}
 
 library(inlabru)
@@ -842,17 +845,19 @@ bru_options_set(bru_max_iter = 30,
 cmp_spatial <- function(spatial_expr) {
   f2 <- substitute(spatial_expr)
   f1 <- bquote(
-    ~ Intercept(1) + ER(ER) +  
-      myoffset(log(nn), model = "offset") + 
-      beta0(main = 1, model = "linear",
+    ~ alpha_0(1) +  
+      beta_0(main = 1, model = "linear",
             mean.linear = -2.2,
             prec.linear = 1e+2) +
-      beta1(main = 1, model = "linear",
-            mean.linear = 0,
-            prec.linear = 1e-3) + 
-      beta2(main = 1, model = "linear",
-            mean.linear = 0,
-            prec.linear = 1e-3))
+      myoffset(log(nn), model = "offset") +
+      alpha_ELI(ELI) + alpha_PGR(PGR) + alpha_UIS(UIS) + 
+      alpha_PDI(PDI) + alpha_ER(ER) +
+      beta_TEP(main = 1, model = "linear",
+          mean.linear = 0,
+          prec.linear = 1e-3) + 
+      beta_ELL(main = 1, model = "linear",
+          mean.linear = 0,
+          prec.linear = 1e-3))
   
   ff <- as.call(c(quote(`+`), f1[[2]], f2))
   final_formula <- as.formula(bquote(~ .(ff)))
@@ -871,8 +876,10 @@ cmp_bym <- cmp_spatial(
                                    param = c(1.5, 0.01)))))
 
 cav_bru_basic <- function(model_cmp, verbose = FALSE) {
-  terms <- c("Intercept", "myoffset", "ER", 
-             "neglogexpit(v1 = TEP_th_22, v2 = ELL, beta0, beta1, beta2)")
+  terms <- c("alpha_0", "myoffset", "alpha_ELI", "alpha_PGR", "alpha_UIS",
+             "alpha_PDI", "alpha_ER",
+             paste0("neglogexpit(v1 = TEP_th_22, v2 = ELL,",
+             "beta0 = beta_0, beta1 = beta_TEP, beta2 = beta_ELL)"))
   
   if (any(grepl("spatial", as.character(model_cmp)))) terms <- c(terms, "spatial")
   
@@ -891,11 +898,41 @@ cav_bru_basic <- function(model_cmp, verbose = FALSE) {
 cav_bym_INLABRU <- cav_bru_basic(cmp_bym)
 ```
 
+
+```{r plot beta pogit, echo = FALSE}
+
+betalimX <-range(do.call(c, lapply(cav_bym_INLABRU$marginals.fixed[-c(1,2)], FUN = function(x) x[,1])))
+betalimY <-range(do.call(c, lapply(cav_bym_INLABRU$marginals.fixed[-c(1,2)], FUN = function(x) x[,2])))
+
+betamarg <- as.data.frame(do.call(cbind, cav_bym_INLABRU$marginals.fixed[-c(1,2)]))
+names(betamarg) <- paste0(rep(names(cav_bym_INLABRU$marginals.fixed[-c(1,2)]),each=2), c("__X", "__Y"))
+
+
+betamarg_long <- tidyr::pivot_longer( betamarg, cols = c(1:14),
+  names_to = c("Effect", ".value"),# Split names into "parameter" and value column names
+  names_sep = "__")
+
+ggplot2::ggplot(betamarg_long, ggplot2::aes(x = .data$X, y = .data$Y, color = .data$Effect)) +
+  ggplot2::geom_line(size = 0.7) +
+  ggplot2::geom_vline(xintercept = 0)+
+  ggplot2::coord_cartesian(xlim = betalimX, ylim = betalimY) +
+  ggplot2::labs(
+    title = "Posterior Marginals of covariates effects",
+    x = expression(alpha ~ "," ~ beta),
+    y = expression(pi(alpha ~ "|" ~ y) ~","~pi(alpha ~ "|" ~ y)),
+    color = "Effect") +
+  ggplot2::theme_classic()
+
+
+```
+
+
+
 Model results are alike those of the straight Poisson regression.
 
 ```{r inlabru summary fixed, echo = FALSE}
 betas_bru <- cbind(
-  tibble::tibble(Variable = c("ER", "alpha_0", "beta_0", "TEP_th", "ELL")),
+  tibble::tibble(Variable = rownames(cav_bym_INLABRU$summary.fixed)),
   round(tibble::tibble(
   Mean = cav_bym_INLABRU$summary.fixed$mean,
   SD = cav_bym_INLABRU$summary.fixed$sd,
