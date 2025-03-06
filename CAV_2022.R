@@ -556,7 +556,6 @@ summary(cav_bym_zip_INLA)
 
 #' Coding strictly follows the work of Wøllo (2022)
 #' See: https://github.com/saraew/Prosjektoppgave
-#' 
 
 library(inlabru)
 neglogexpit <- function(v1, v2, beta0, beta1, beta2){
@@ -587,10 +586,30 @@ cmp_spatial <- function(spatial_expr) {
   return(final_formula)
 }
 
+cav_bru_basic <- function(model_cmp, verbose = FALSE) {
+  terms <- c("Intercept", "myoffset", "ER", 
+             "neglogexpit(v1 = TEP_th_22, v2 = ELL, beta0, beta1, beta2)")
+  
+  if (any(grepl("spatial", as.character(model_cmp)))) terms <- c(terms, "spatial")
+  
+  formula <- as.formula(paste("N_ACC ~", paste(terms, collapse = " + ")))
+  
+  res <- inlabru::bru(
+    components = model_cmp,
+    lik = like("poisson", formula = formula,data = dd_con),
+    options = list(verbose = verbose, num.threads = 1,
+                   control.compute = list(
+                     waic = T, cpo = T, dic = T, internal.opt = F)))
+  
+  return(res)
+}
+
+
 cmp_icar <- cmp_spatial(spatial(ID, model = "besag", graph = W_con, scale.model = TRUE, 
                                 hyper = list(prec = list(prior = "pc.prec", param = c(1.5, 0.01)))))
 
-cmp_pcar <- cmp_spatial(spatial(ID, model = PCAR.model(W = W_con, k = 1, lambda = 1.5, init = c(0, 4))))
+cmp_pcar <- cmp_spatial(spatial(ID, model = PCAR.model(W = W_con, k = 1,
+                                                       lambda = 1.5, init = c(0, 4))))
 
 cmp_lcar <- cmp_spatial(spatial(ID, model = "besagproper", graph = W_con, 
                                hyper = list(prec = list(prior = "pc.prec", param = c(1.5, 0.01)))))
@@ -600,40 +619,35 @@ cmp_bym <- cmp_spatial(spatial(ID, model="bym2", graph = W_con, scale.model = TR
 
 
 
-cav_bru_basic <- function(model_cmp, verbose = FALSE){
-  formula <- N_ACC   ~ 
-    Intercept + myoffset +  ER +
-    spatial +  neglogexpit(v1 = TEP_th_22, v2 = ELL, beta0, beta1, beta2)
-  
-  res <- inlabru::bru(
-    components = model_cmp,
-    lik = like("poisson", formula = formula,data = dd_con),
-    options = list(verbose = verbose, num.threads = 1,
-                   control.compute = list(
-                     waic = T, cpo = T, dic = T, internal.opt = F)))
-  return(res)
-}
 
+#' Null model
+cav_nosp_inlabru <- cav_bru_basic(cmp_spatial(NULL))
 
+#' icar --> simplest, yet not satisfying
 cav_icar_inlabru <- cav_bru_basic(cmp_icar)
 
+#' lcar --> better
 cav_lcar_inlabru <- cav_bru_basic(cmp_lcar)
 
-#' This is going to be obnoxious 
-#' verbose = T is mandatory not to make INLA crash :) 
+#' pcar --> This is going to be obnoxious since verbose = T is mandatory not to make INLA crash :) 
 cav_pcar_inlabru <- cav_bru_basic(cmp_pcar, verbose = T)
 
+#' bym --> as for plain Poisson models: the best one.
 cav_bym_inlabru <- cav_bru_basic(cmp_bym)
 
-bru_models <- list(cav_icar_inlabru, cav_lcar_inlabru, cav_pcar_inlabru, cav_bym_inlabru)
+
+#' Overall comparison:
+bru_models <- list(cav_nosp_inlabru, cav_icar_inlabru, 
+                   cav_lcar_inlabru, cav_pcar_inlabru, 
+                   cav_bym_inlabru)
+
 WAICS_inlabru <- do.call(dplyr::bind_rows, 
                          lapply(bru_models, function(x) data.frame(cbind(x$waic$waic, x$waic$p.eff)))) %>% 
-  dplyr::mutate(Model = c("ICAR", "LCAR", "PCAR", "BYM")) %>% 
+  dplyr::mutate(Model = c("Null", "ICAR", "LCAR", "PCAR", "BYM")) %>% 
   dplyr::relocate(.data$Model, .before = 1)
 names(WAICS_inlabru)[c(2,3)] <- c("WAIC", "P_eff")
 rownames(WAICS_inlabru) <- NULL
 
-names(WAIC_inlabru)
 
 ## Spatial regression: MCMC using CARBayes -------------------------------------
 
