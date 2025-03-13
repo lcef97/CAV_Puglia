@@ -799,10 +799,10 @@ In absence of either validation data, or information on complete-reporting conte
 
 As an exploratory tool, we rely on a Poisson-logistic model (Pogit, see [@Pogit], [@PogitZIP]). In brief, we have
 $$
-y_i \sim \mathrm{Poisson(\lambda_i \pi_i)}
+y_i \sim \mathrm{Poisson(e^{P_i} \lambda_i \pi_i)}
 $$
-Where $\lambda_i \in \mathbb{R}^{+}$ is the rate parameter controlling the occurrence of true counts, and $\pi_i \in [0,1]$ controls for reporting frequency. 
-Due to the different domains of $\pi_i$ and $\lambda_i$, this parametrisation implies departure from linearity in the predictor $\eta_i:= \ln \lambda_i + \ln \pi_i - \ln P_i$.
+Where $\lambda_i \in \mathbb{R}^{+}$ is the parameter controlling the occurrence of true counts, and $\pi_i \in [0,1]$ controls for reporting frequency. $P_i$ is the log-offset.
+Due to the different domains of $\pi_i$ and $\lambda_i$, this parametrisation implies departure from linearity in the predictor.
 
 For clarity, in the following we will denote $\alpha$ as the $k+1$ covariate effects entering $\lambda_i$ and $\beta$ the $m+1$ covariate effects entering $\pi_i$. We would thus have 
 $$
@@ -834,7 +834,7 @@ However, interpreting $\beta_0$ is limited due to the mutual non-identifiability
 
 library(inlabru)
 
-neglogexpit <- function(v1, v2, beta0, beta1, beta2){
+logexpit <- function(v1, v2, beta0, beta1, beta2){
   pred = beta0 + beta1 * v1 + beta2 * v2
   return(-log(1+exp(-pred)))
 }
@@ -878,7 +878,7 @@ cmp_bym <- cmp_spatial(
 cav_bru_basic <- function(model_cmp, verbose = FALSE) {
   terms <- c("alpha_0", "myoffset", "alpha_ELI", "alpha_PGR", "alpha_UIS",
              "alpha_PDI", "alpha_ER",
-             paste0("neglogexpit(v1 = TEP_th_22, v2 = ELL,",
+             paste0("logexpit(v1 = TEP_th_22, v2 = ELL,",
              "beta0 = beta_0, beta1 = beta_TEP, beta2 = beta_ELL)"))
   
   if (any(grepl("spatial", as.character(model_cmp)))) terms <- c(terms, "spatial")

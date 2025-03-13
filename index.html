@@ -2015,7 +2015,7 @@ corresponding degree matrix.</p>
 <p>We briefly compare these four through the WAIC <span class="citation">(Gelman, Hwang, and Vehtari 2014)</span>:</p>
 <div data-pagedtable="false">
 <script data-pagedtable-source type="application/json">
-{"columns":[{"label":["Model"],"name":[1],"type":["chr"],"align":["left"]},{"label":["WAIC_Poisson"],"name":[2],"type":["dbl"],"align":["right"]},{"label":["WAIC_ZIP"],"name":[3],"type":["dbl"],"align":["right"]},{"label":["Eff_params_Poisson"],"name":[4],"type":["dbl"],"align":["right"]},{"label":["Eff_params_ZIP"],"name":[5],"type":["dbl"],"align":["right"]}],"data":[{"1":"Null","2":"1098.397","3":"1047.493","4":"20.355","5":"18.091"},{"1":"ICAR","2":"951.387","3":"962.571","4":"74.725","5":"66.380"},{"1":"PCAR","2":"947.449","3":"953.208","4":"76.765","5":"64.976"},{"1":"BYM","2":"942.879","3":"952.995","4":"75.336","5":"65.130"},{"1":"Leroux","2":"945.463","3":"951.509","4":"75.595","5":"63.958"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
+{"columns":[{"label":["Model"],"name":[1],"type":["chr"],"align":["left"]},{"label":["WAIC_Poisson"],"name":[2],"type":["dbl"],"align":["right"]},{"label":["WAIC_ZIP"],"name":[3],"type":["dbl"],"align":["right"]},{"label":["Eff_params_Poisson"],"name":[4],"type":["dbl"],"align":["right"]},{"label":["Eff_params_ZIP"],"name":[5],"type":["dbl"],"align":["right"]}],"data":[{"1":"Null","2":"1098.397","3":"1047.493","4":"20.355","5":"18.091"},{"1":"ICAR","2":"951.387","3":"962.571","4":"74.725","5":"66.380"},{"1":"PCAR","2":"947.449","3":"953.208","4":"76.765","5":"64.976"},{"1":"BYM","2":"942.879","3":"952.994","4":"75.336","5":"65.131"},{"1":"Leroux","2":"945.463","3":"951.509","4":"75.595","5":"63.958"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
   </script>
 </div>
 <p>As we can see, models taking into account random noise have a better
@@ -2070,7 +2070,7 @@ reported.</p></li>
 ## generated.</code></pre>
 <div data-pagedtable="false">
 <script data-pagedtable-source type="application/json">
-{"columns":[{"label":["Variable"],"name":[1],"type":["chr"],"align":["left"]},{"label":["mean"],"name":[2],"type":["dbl"],"align":["right"]},{"label":["X0.025quant"],"name":[3],"type":["dbl"],"align":["right"]},{"label":["X0.5quant"],"name":[4],"type":["dbl"],"align":["right"]},{"label":["X0.975quant"],"name":[5],"type":["dbl"],"align":["right"]}],"data":[{"1":"Z_VAR_Pois","2":"0.40156442","3":"0.19233163","4":"0.38049904","5":"0.7319002"},{"1":"Mixing_Pois","2":"0.56228278","3":"0.15601250","4":"0.57674847","5":"0.9027344"},{"1":"Z_VAR_ZIP","2":"2.21280807","3":"1.10385158","4":"1.72666313","5":"6.3030159"},{"1":"Zero_Prob","2":"0.04652755","3":"0.01002144","4":"0.03998744","5":"0.1197197"},{"1":"Mixing_ZIP","2":"0.37329799","3":"0.01268178","4":"0.31717197","5":"0.9236882"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
+{"columns":[{"label":["Variable"],"name":[1],"type":["chr"],"align":["left"]},{"label":["mean"],"name":[2],"type":["dbl"],"align":["right"]},{"label":["X0.025quant"],"name":[3],"type":["dbl"],"align":["right"]},{"label":["X0.5quant"],"name":[4],"type":["dbl"],"align":["right"]},{"label":["X0.975quant"],"name":[5],"type":["dbl"],"align":["right"]}],"data":[{"1":"Z_VAR_Pois","2":"0.4015642","3":"0.19233142","4":"0.3804986","5":"0.7319008"},{"1":"Mixing_Pois","2":"0.5622820","3":"0.15601148","4":"0.5767473","5":"0.9027359"},{"1":"Z_VAR_ZIP","2":"2.2128162","3":"1.10384977","4":"1.7266672","5":"6.3030589"},{"1":"Zero_Prob","2":"0.0465307","3":"0.01001952","4":"0.0399863","5":"0.1197553"},{"1":"Mixing_ZIP","2":"0.3732839","3":"0.01267082","4":"0.3171261","5":"0.9237414"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
   </script>
 </div>
 <p>Even though the value of the zero-inflation parameter is low, we can
@@ -2096,7 +2096,7 @@ employing it as an evaluation metrics:</p>
 <pre class="r"><code>sum(cav_bym_INLA$cpo$failure &gt; 0)</code></pre>
 <pre><code>## [1] 223</code></pre>
 <pre class="r"><code>sum(cav_bym_INLA_ZIP$cpo$failure)</code></pre>
-<pre><code>## [1] 16.35397</code></pre>
+<pre><code>## [1] 16.35566</code></pre>
 <pre class="r"><code>sum(cav_bym_INLA_ZIP$cpo$failure &gt; 0)</code></pre>
 <pre><code>## [1] 111</code></pre>
 <pre class="r"><code>sum(cav_leroux_INLA$cpo$failure)</code></pre>
@@ -2129,8 +2129,7 @@ y_i \sim \mathrm{Poisson(\lambda_i \pi_i)}
 \mathbb{R}^{+}\)</span> is the rate parameter controlling the occurrence
 of true counts, and <span class="math inline">\(\pi_i \in [0,1]\)</span>
 controls for reporting frequency. Due to the different domains of <span class="math inline">\(\pi_i\)</span> and <span class="math inline">\(\lambda_i\)</span>, this parametrisation implies
-departure from linearity in the predictor <span class="math inline">\(\eta_i:= \ln \lambda_i + \ln \pi_i - \ln
-P_i\)</span>.</p>
+departure from linearity in the predictor.</p>
 <p>For clarity, in the following we will denote <span class="math inline">\(\alpha\)</span> as the <span class="math inline">\(k+1\)</span> covariate effects entering <span class="math inline">\(\lambda_i\)</span> and <span class="math inline">\(\beta\)</span> the <span class="math inline">\(m+1\)</span> covariate effects entering <span class="math inline">\(\pi_i\)</span>. We would thus have <span class="math display">\[
 \lambda_i = e^{\displaystyle{\alpha_0 + \alpha_1 X_{i1} + ... + \alpha_p
 X_{ik}}}
@@ -2159,7 +2158,7 @@ limited due to the mutual non-identifiability issue with <span class="math inlin
 maintaining prior knowledge on <span class="math inline">\(E[\beta_0]\)</span>.</p>
 <pre class="r"><code>library(inlabru)
 
-neglogexpit &lt;- function(v1, v2, beta0, beta1, beta2){
+logexpit &lt;- function(v1, v2, beta0, beta1, beta2){
   pred = beta0 + beta1 * v1 + beta2 * v2
   return(-log(1+exp(-pred)))
 }
@@ -2203,7 +2202,7 @@ LCAR. The latter models can be simply fit by defining the analogues of
 cav_bru_basic &lt;- function(model_cmp, verbose = FALSE) {
   terms &lt;- c(&quot;alpha_0&quot;, &quot;myoffset&quot;, &quot;alpha_ELI&quot;, &quot;alpha_PGR&quot;, &quot;alpha_UIS&quot;,
              &quot;alpha_PDI&quot;, &quot;alpha_ER&quot;,
-             paste0(&quot;neglogexpit(v1 = TEP_th_22, v2 = ELL,&quot;,
+             paste0(&quot;logexpit(v1 = TEP_th_22, v2 = ELL,&quot;,
              &quot;beta0 = beta_0, beta1 = beta_TEP, beta2 = beta_ELL)&quot;))
   
   if (any(grepl(&quot;spatial&quot;, as.character(model_cmp)))) terms &lt;- c(terms, &quot;spatial&quot;)
@@ -2240,7 +2239,7 @@ rownames(hyperpars_bru) &lt;- NULL
 hyperpars_bru</code></pre>
 <div data-pagedtable="false">
 <script data-pagedtable-source type="application/json">
-{"columns":[{"label":["Variable"],"name":[1],"type":["chr"],"align":["left"]},{"label":["mean"],"name":[2],"type":["dbl"],"align":["right"]},{"label":["X0.025quant"],"name":[3],"type":["dbl"],"align":["right"]},{"label":["X0.5quant"],"name":[4],"type":["dbl"],"align":["right"]},{"label":["X0.975quant"],"name":[5],"type":["dbl"],"align":["right"]}],"data":[{"1":"Variance","2":"0.3935803","3":"0.1880097","4":"0.3730416","5":"0.7173628"},{"1":"Mixing","2":"0.5461072","3":"0.1423046","4":"0.5578548","5":"0.8972632"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
+{"columns":[{"label":["Variable"],"name":[1],"type":["chr"],"align":["left"]},{"label":["mean"],"name":[2],"type":["dbl"],"align":["right"]},{"label":["X0.025quant"],"name":[3],"type":["dbl"],"align":["right"]},{"label":["X0.5quant"],"name":[4],"type":["dbl"],"align":["right"]},{"label":["X0.975quant"],"name":[5],"type":["dbl"],"align":["right"]}],"data":[{"1":"Variance","2":"0.3935799","3":"0.1880099","4":"0.3730410","5":"0.7173628"},{"1":"Mixing","2":"0.5461069","3":"0.1423045","4":"0.5578541","5":"0.8972643"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
   </script>
 </div>
 </div>
