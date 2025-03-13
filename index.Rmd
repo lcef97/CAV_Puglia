@@ -301,7 +301,7 @@ barplot(table(dd_con$N_ACC))
 We may wonder if the data generating process incorporates a zero-generating component. We can model this augmented process through zero-inflated Poisson likelihood:
 $$
 p(y_i | \eta_i) = \pi_0 \mathbb{I}{ \lbrace y_i=0 \rbrace } + (1-\pi_0) 
-\frac{e^{-e^{\eta_i + P_i} - (\eta_i + P_i) y_i}}{y_i!}
+\frac{ e^{-E_i e^{\eta_i } +(\ln E_i + \eta_i)  y_i}}{y_i!}
 $$
 Where $\pi_0 := \mathrm{Prob} \lbrace y_i = 0 \rbrace$ for all $i$. For the time being, we do not seek for explanatory variables for $\pi_0$.  
 When explicitly accounting for the zero-generating process, we find the association of $y$ with some explanatory variables to be reduced:
@@ -1060,7 +1060,7 @@ hyperpars_bru
 Finally, we plot the estimated latent BYM effect:
 ```{r zhat bym inlabru, echo = FALSE, fig.cap = "Expected BYM field under the pogit model"}
 dd_con %>% 
-  dplyr::mutate(zhat = cav_bym_inlabru$summary.random$ID$mean[c(1:nrow(dd_con))]) %>% 
+  dplyr::mutate(zhat = cav_bym_inlabru$summary.random$spatial$mean[c(1:nrow(dd_con))]) %>% 
   ggplot2::ggplot() +
   ggplot2::geom_sf(ggplot2::aes(fill = .data$zhat))+
   ggplot2::labs("Expected BYM spatial effect") +
