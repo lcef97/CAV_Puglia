@@ -106,7 +106,7 @@ dd$F_ACC <- dd$N_ACC/dd$nn
 
 
 
-## Mapping municipalities from support centers ---------------------------------
+## Mapping municipalities to support centers ---------------------------------
 
 
 
@@ -558,37 +558,42 @@ summary(cav_bym_zip_INLA)
 #' See: https://github.com/saraew/Prosjektoppgave
 
 library(inlabru)
-neglogexpit <- function(v1, v2, beta0, beta1, beta2){
+logexpit <- function(v1, v2, beta0, beta1, beta2){
   pred = beta0 + beta1 * v1 + beta2 * v2
   return(-log(1+exp(-pred)))
 }
-bru_options_set(bru_verbose = TRUE, bru_max_iter = 30, control.inla = list(tolerance = 1e-10))
 
+bru_options_set(bru_max_iter = 30, bru_verbose = TRUE,
+                control.inla = list(tolerance = 1e-10))
 
 cmp_spatial <- function(spatial_expr) {
-  spatial_expr <- substitute(spatial_expr)
-    f1 <- bquote(
-    ~ ER(ER) + 
-      Intercept(1) + 
-      myoffset(log(nn), model = "offset") + 
-      beta0(main = 1, model = "linear",
-            mean.linear = -2.2,
-            prec.linear = 1e+2) +
-      beta1(main = 1, model = "linear",
-            mean.linear = 0,
-            prec.linear = 1e-3) + 
-      beta2(main = 1, model = "linear",
-            mean.linear = 0,
-            prec.linear = 1e-3))
+  f2 <- substitute(spatial_expr)
+  f1 <- bquote(
+    ~ alpha_0(1) +  
+      beta_0(main = 1, model = "linear",
+             mean.linear = -2.2,
+             prec.linear = 1e+2) +
+      myoffset(log(nn), model = "offset") +
+      alpha_ELI(ELI) + alpha_PGR(PGR) + alpha_UIS(UIS) + 
+      alpha_PDI(PDI) + alpha_ER(ER) +
+      beta_TEP(main = 1, model = "linear",
+               mean.linear = 0,
+               prec.linear = 1e-3) + 
+      beta_ELL(main = 1, model = "linear",
+               mean.linear = 0,
+               prec.linear = 1e-3))
   
-  combined_expr <- as.call(c(quote(`+`), f1[[2]], spatial_expr))
-  final_formula <- as.formula(bquote(~ .(combined_expr)))
+  ff <- as.call(c(quote(`+`), f1[[2]], f2))
+  final_formula <- as.formula(bquote(~ .(ff)))
   return(final_formula)
 }
 
+
 cav_bru_basic <- function(model_cmp, verbose = FALSE) {
-  terms <- c("Intercept", "myoffset", "ER", 
-             "neglogexpit(v1 = TEP_th_22, v2 = ELL, beta0, beta1, beta2)")
+  terms <- c("alpha_0", "myoffset", "alpha_ELI", "alpha_PGR", "alpha_UIS",
+             "alpha_PDI", "alpha_ER",
+             paste0("logexpit(v1 = TEP_th_22, v2 = ELL,",
+                    "beta0 = beta_0, beta1 = beta_TEP, beta2 = beta_ELL)"))
   
   if (any(grepl("spatial", as.character(model_cmp)))) terms <- c(terms, "spatial")
   
@@ -647,6 +652,21 @@ WAICS_inlabru <- do.call(dplyr::bind_rows,
   dplyr::relocate(.data$Model, .before = 1)
 names(WAICS_inlabru)[c(2,3)] <- c("WAIC", "P_eff")
 rownames(WAICS_inlabru) <- NULL
+
+#' This should be the result for those who don't wanna
+#' wait all models to run:
+#'   Model      WAIC    P_eff
+#' 1  Null 1098.0333 20.33822
+#' 2  ICAR  951.7224 75.43719
+#' 3  LCAR  947.4287 75.34904
+#' 4  PCAR  947.8590 76.96200
+#' 5   BYM  943.1022 75.43401
+#'
+
+
+#' Preliminary finding: interpreting the pogit model,
+#' at least insofar as it is approximated with INLABRU,
+#' is substantially analogous to interpreting the Poisson model.
 
 
 ## Spatial regression: MCMC using CARBayes -------------------------------------

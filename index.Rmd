@@ -655,9 +655,8 @@ As we can see, models taking into account random noise have a better performance
 
 
 
-## Model results
-
-Here, posterior estimates of $\alpha$ under the BYM model are shown. 
+ 
+Posterior estimates of $\alpha$ under the BYM model are shown. 
 
 ```{r bym summary fixed, echo = F}
 alphas <- cbind(
@@ -706,19 +705,7 @@ ggplot2::ggplot(alphamarg_long, ggplot2::aes(x = .data$X, y = .data$Y, color = .
 
 Estimations of $\alpha$ differ from the nonspatial model. For all variables, credibility intervals are wider due to increased uncertainty. 
 
-  - `TEP_th_22` The effect of the distance from the closest support center remains similar in mean and the interpretation is not altered.
-
-  - `ELI`: The effect of the incidence of low-productivity economic units is shrunk in mean while its variability increases
-
-  - `PGR`: The association with population growth rate is still positive and significantly $\neq 0$
-  
-  - `UIS`: The association with the density of productive units appears not significant, due to increased variability
-  
-  - `ELL`: The association with the incidence of low education levels, instead, is doubled in mean. We interpret this result as a strong *potential* impact of education on the chance that gender violence is reported
-  
-  - `PDI`: The effect of structural dependency index is utterly negligible
-  
-  - `ER`: The effect associated with employment rate is more than doubled in mean with respect to the nonspatial model. How to interpret this finding? Employment rate is clearly an indicator of economic development, hence the easiest interpretation is that - as it was with `ELI` under the nonspatial model - in more developed areas there is a higher chance that gender violence is reported.
+Comments are postponed to the next session.
   
 Lastly, we take a look at model hyperparameters:
 ```{r bym hyperpar, echo = F}
@@ -803,7 +790,7 @@ dd_con %>%
 
 So far, under-reporting has not been explicitly modelled. Rather, explanatory variables maintained a twofold interpretation as affecting either VAW occurrence, VAW reporting, or both. 
 
-Let us consider a regression model in which, for instance, the incidence of low education is for some reason not taken into account and compare it with the full model.
+Let us consider a regression model in which, for instance, either the incidence of low education or the employment rate are not taken into account for some reason, and compare them with the full model.
 ```{r bym dummy, echo = FALSE, message = FALSE}
 cav_bym_INLA_noELL <- inla(
   N_ACC ~ 1 +TEP_th_22 + ELI + PGR + UIS  + PDI + ER+ f(ID, model = "bym2", graph = W_con,
@@ -996,9 +983,44 @@ WAICS_bru
 
 ```
 
+#### Pogit model preliminary findings 
+
+Model results are generally close to those of the linear Poisson regression (see previous section).
+We compare covariates effects between the BYM and nonspatial model.  
+
+  - `TEP_th_22` The effect of the distance from the closest support center remains similar in mean to the nonspatial model and the interpretation should not be altered.
+
+  - `ELI`: Under the spatial model, the effect of the incidence of low-productivity economic units is shrunk in mean while its variability increases
+
+  - `PGR`: The association with population growth rate is still positive and significantly $\neq 0$
+  
+  - `UIS`: Under the spatial model, the association with the density of productive units appears not significant, due to increased variability
+  
+  - `ELL`: Under the spatial model the association with the incidence of low education levels, instead, is doubled in mean. We interpret this result as a strong *potential* impact of education on the chance that gender violence is reported
+  
+  - `PDI`: The effect of structural dependency index is utterly negligible.
+  
+  - `ER`: Under the spatial model, the effect associated with employment rate is more than doubled in mean with respect to the nonspatial model. How to interpret this finding? Employment rate is clearly an indicator of economic development, hence the easiest interpretation is that - as it was with `ELI` under the nonspatial model - in more developed areas there is a higher chance that gender violence is reported.
+
+```{r inlabru summary fixed, echo = FALSE}
+alphas_bru <- cbind(
+  tibble::tibble(Variable = rownames(cav_bym_inlabru$summary.fixed)),
+  round(tibble::tibble(
+  Mean_BYM = cav_bym_inlabru$summary.fixed$mean,
+  Mean_nosp = cav_nosp_inlabru$summary.fixed$mean,
+  SD_BYM = cav_bym_inlabru$summary.fixed$sd,
+  SD_nosp = cav_nosp_inlabru$summary.fixed$sd,
+  q0.025_BYM = cav_bym_inlabru$summary.fixed$`0.025quant`,
+  q0.025_nosp = cav_nosp_inlabru$summary.fixed$`0.025quant`,
+  #Median = cav_bym_inlabru$summary.fixed$`0.5quant`,
+  q0.975_BYM = cav_bym_inlabru$summary.fixed$`0.975quant`,
+  q0.975_nosp = cav_nosp_inlabru$summary.fixed$`0.975quant`), 3))
 
 
-```{r plot beta pogit, echo = FALSE}
+alphas_bru
+```
+We also plot the posterior marginal densities of covariate effects under the BYM model.
+```{r plot beta pogit, echo = FALSE, fig.cap = "Estimated covariate effects with the pogit model with BYM latent effect"}
 
 betalimX <-range(do.call(c, lapply(cav_bym_inlabru$marginals.fixed[-c(1,2)], FUN = function(x) x[,1])))
 betalimY <-range(do.call(c, lapply(cav_bym_inlabru$marginals.fixed[-c(1,2)], FUN = function(x) x[,2])))
@@ -1026,24 +1048,7 @@ ggplot2::ggplot(betamarg_long, ggplot2::aes(x = .data$X, y = .data$Y, color = .d
 ```
 
 
-
-Model results are alike those of the straight Poisson regression.
-
-```{r inlabru summary fixed, echo = FALSE}
-betas_bru <- cbind(
-  tibble::tibble(Variable = rownames(cav_bym_inlabru$summary.fixed)),
-  round(tibble::tibble(
-  Mean = cav_bym_inlabru$summary.fixed$mean,
-  SD = cav_bym_inlabru$summary.fixed$sd,
-  q0.025 = cav_bym_inlabru$summary.fixed$`0.025quant`,
-  Median = cav_bym_inlabru$summary.fixed$`0.5quant`,
-  q0.975 = cav_bym_inlabru$summary.fixed$`0.975quant`), 3))
-
-
-betas_bru
-```
-
-No noticeable change seems to affect hyperparameters either:
+In the following, posterior summaries of BYM hyperparameters are shown.  
 ```{r inlabru summary hyperpars}
 cav_bym_inlabru_marginals.var <- unlist(inla.zmarginal(inla.tmarginal(
   fun = function(x) 1/x, marginal =cav_bym_inlabru$marginals.hyperpar[[1]]), silent = T))
