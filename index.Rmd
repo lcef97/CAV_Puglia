@@ -290,8 +290,7 @@ attr(scale(dists_th_22$TEP_th_22), "scaled:scale")
 
 
 Hence e.g. each $14'6''$ of distance of the a given municipality from the closest support center are associated with a decrease of $0.399$ units in the log-frequency at which women from that municipality access to support centers.
-
-<!--
+ 
 
 Additionally, the number of zero counts is high:
 ```{r zero counts, eval = FALSE}
@@ -319,7 +318,7 @@ However, the MLE estimator for $\pi_0$ is low:
 summary(cav_zip)$coefficients$zero
 ```
 
--->
+
 ## Spatial regression
 
 We plot the log-residuals $\varepsilon$ of the GLM regression model, defined as $\varepsilon := \ln y_i - \ln \hat{y}_i$ being $\hat{y}_i$ the fitted value.
@@ -408,12 +407,12 @@ cav_nosp_INLA <- inla(
   inla.mode = "classic", control.inla = list(strategy = "laplace"),
   verbose = F)
 
-#cav_nosp_INLA_ZIP <- inla(
-#  N_ACC ~ 1 +TEP_th_22 + ELI + PGR + UIS + ELL + PDI + ER,
-#  family = "zeroinflatedpoisson1", offset = log(nn), data =dd_con,
-#  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T), 
-#  inla.mode = "classic", control.inla = list(strategy = "laplace"),
-#  verbose = F)
+cav_nosp_INLA_ZIP <- inla(
+  N_ACC ~ 1 +TEP_th_22 + ELI + PGR + UIS + ELL + PDI + ER,
+  family = "zeroinflatedpoisson1", offset = log(nn), data =dd_con,
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T), 
+  inla.mode = "classic", control.inla = list(strategy = "laplace"),
+  verbose = F)
 
 ```
 
@@ -429,13 +428,13 @@ cav_icar_INLA <- inla(
   inla.mode = "classic", control.inla = list(strategy = "laplace"),
   verbose = F) 
 
-#cav_icar_INLA_ZIP <- inla(
-#  N_ACC ~ 1 +TEP_th_22 + ELI + PGR + UIS + ELL + PDI + ER+ f(ID, model = "besag", graph = W_con,
-#                         scale.model = T, prior = "pc.prec", param = c(1.5, 0.01)),
-#  family = "zeroinflatedpoisson1", offset = log(nn), data =dd_con,
-#  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T), 
-#  inla.mode = "classic", control.inla = list(strategy = "laplace"),
-#  verbose = F) 
+cav_icar_INLA_ZIP <- inla(
+  N_ACC ~ 1 +TEP_th_22 + ELI + PGR + UIS + ELL + PDI + ER+ f(ID, model = "besag", graph = W_con,
+                         scale.model = T, prior = "pc.prec", param = c(1.5, 0.01)),
+  family = "zeroinflatedpoisson1", offset = log(nn), data =dd_con,
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T), 
+  inla.mode = "classic", control.inla = list(strategy = "laplace"),
+  verbose = F) 
 ```
 
 
@@ -529,14 +528,14 @@ cav_pcar_INLA<- inla(N_ACC ~ 1 +TEP_th_22 + ELI + PGR + UIS + ELL + PDI + ER +
                          control.predictor = list(compute = T),
                          verbose = T) 
 
-#cav_pcar_INLA_ZIP <- inla(N_ACC ~ 1 +TEP_th_22 + ELI + PGR + UIS + ELL + PDI + ER + 
-#                           f(ID, model = PCAR.model(W = W_con, k = 1, lambda = 1.5)),
-#                         family = "zeroinflatedpoisson1", offset = log(nn), data =dd_con,
-#                         num.threads = 1, control.compute = 
-#                           list(internal.opt = F, cpo = T, waic = T), 
-#                         #inla.mode = "classic", control.inla = list(strategy = "laplace"),
-#                         control.predictor = list(compute = T),
-#                         verbose = T) 
+cav_pcar_INLA_ZIP <- inla(N_ACC ~ 1 +TEP_th_22 + ELI + PGR + UIS + ELL + PDI + ER + 
+                           f(ID, model = PCAR.model(W = W_con, k = 1, lambda = 1.5)),
+                         family = "zeroinflatedpoisson1", offset = log(nn), data =dd_con,
+                         num.threads = 1, control.compute = 
+                           list(internal.opt = F, cpo = T, waic = T), 
+                         #inla.mode = "classic", control.inla = list(strategy = "laplace"),
+                         control.predictor = list(compute = T),
+                         verbose = T) 
 ```
 
 We show the posterior summary for the autocorrelation coefficient. 
@@ -576,13 +575,13 @@ cav_bym_INLA <- inla(
   #inla.mode = "classic", control.inla = list(strategy = "laplace"),
   verbose = F)
 
-#cav_bym_INLA_ZIP <- inla(
-#  N_ACC ~ 1 +TEP_th_22 + ELI + PGR + UIS + ELL + PDI + ER+ f(ID, model = "bym2", graph = W_con,
-#                         scale.model = T, prior = "pc.prec", param = c(1.5, 0.01)),
-#  family = "zeroinflatedpoisson1", offset = log(nn), data =dd_con,
-#  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T), 
+cav_bym_INLA_ZIP <- inla(
+  N_ACC ~ 1 +TEP_th_22 + ELI + PGR + UIS + ELL + PDI + ER+ f(ID, model = "bym2", graph = W_con,
+                         scale.model = T, prior = "pc.prec", param = c(1.5, 0.01)),
+  family = "zeroinflatedpoisson1", offset = log(nn), data =dd_con,
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T), 
   #inla.mode = "classic", control.inla = list(strategy = "laplace"),
-#  verbose = F)
+  verbose = F)
 ```
 
 #### LCAR model
@@ -612,15 +611,15 @@ cav_leroux_INLA <-   inla(N_ACC ~ 1 +TEP_th_22 + ELI + PGR + UIS + ELL + PDI + E
                      control.predictor = list(compute = T),
                      verbose = F) 
 
-#cav_leroux_INLA_ZIP <- inla(N_ACC ~ 1 +TEP_th_22 + ELI + PGR + UIS + ELL + PDI + ER +
-#                          f(ID, model = "besagproper2", graph = W_con, 
-#                            hyper = list(prec = list(prior = "pc.prec", param = c(1.5, 0.01)))),
-#                     family = "zeroinflatedpoisson1", offset = log(nn), data =dd_con,
-#                     num.threads = 1, control.compute = 
-#                       list(internal.opt = F, cpo = T, waic = T), 
-#                     #inla.mode = "classic", control.inla = list(strategy = "laplace"),
-#                     control.predictor = list(compute = T),
-#                     verbose = F) 
+cav_leroux_INLA_ZIP <- inla(N_ACC ~ 1 +TEP_th_22 + ELI + PGR + UIS + ELL + PDI + ER +
+                          f(ID, model = "besagproper2", graph = W_con, 
+                            hyper = list(prec = list(prior = "pc.prec", param = c(1.5, 0.01)))),
+                     family = "zeroinflatedpoisson1", offset = log(nn), data =dd_con,
+                     num.threads = 1, control.compute = 
+                       list(internal.opt = F, cpo = T, waic = T), 
+                     #inla.mode = "classic", control.inla = list(strategy = "laplace"),
+                     control.predictor = list(compute = T),
+                     verbose = F) 
 
 ```
 
@@ -637,15 +636,15 @@ WAICS <- tibble::tibble(
   WAIC_Poisson = round(c(
     cav_nosp_INLA$waic$waic,  cav_icar_INLA$waic$waic,  cav_pcar_INLA$waic$waic, 
     cav_bym_INLA$waic$waic,  cav_leroux_INLA$waic$waic),3),
-  #WAIC_ZIP = round(c(
-   # cav_nosp_INLA_ZIP$waic$waic, cav_icar_INLA_ZIP$waic$waic, cav_pcar_INLA_ZIP$waic$waic,
-    #cav_bym_INLA_ZIP$waic$waic, cav_leroux_INLA_ZIP$waic$waic),3),  
+  WAIC_ZIP = round(c(
+    cav_nosp_INLA_ZIP$waic$waic, cav_icar_INLA_ZIP$waic$waic, cav_pcar_INLA_ZIP$waic$waic,
+    cav_bym_INLA_ZIP$waic$waic, cav_leroux_INLA_ZIP$waic$waic),3),  
   Eff_params_Poisson = round(c(
     cav_nosp_INLA$waic$p.eff,   cav_icar_INLA$waic$p.eff,  cav_pcar_INLA$waic$p.eff,
-    cav_bym_INLA$waic$p.eff, cav_leroux_INLA$waic$p.eff),3)#,
-  #Eff_params_ZIP = round(c(
-   # cav_nosp_INLA_ZIP$waic$p.eff,  cav_icar_INLA_ZIP$waic$p.eff,  cav_pcar_INLA_ZIP$waic$p.eff,
-    #cav_bym_INLA_ZIP$waic$p.eff,  cav_leroux_INLA_ZIP$waic$p.eff),3) 
+    cav_bym_INLA$waic$p.eff, cav_leroux_INLA$waic$p.eff),3),
+  Eff_params_ZIP = round(c(
+    cav_nosp_INLA_ZIP$waic$p.eff,  cav_icar_INLA_ZIP$waic$p.eff,  cav_pcar_INLA_ZIP$waic$p.eff,
+    cav_bym_INLA_ZIP$waic$p.eff,  cav_leroux_INLA_ZIP$waic$p.eff),3) 
   )
 
 WAICS
@@ -665,13 +664,13 @@ alphas <- cbind(
   tibble::tibble(Variable = rownames(cav_bym_INLA$summary.fixed)),
   round(tibble::tibble(
   Mean  = cav_bym_INLA$summary.fixed$mean,
-  #Mean_ZIP = cav_bym_INLA_ZIP$summary.fixed$mean,
+  Mean_ZIP = cav_bym_INLA_ZIP$summary.fixed$mean,
   SD  = cav_bym_INLA$summary.fixed$sd,
-  #SD_ZIP = cav_bym_INLA_ZIP$summary.fixed$sd,
+  SD_ZIP = cav_bym_INLA_ZIP$summary.fixed$sd,
   q0.025  = cav_bym_INLA$summary.fixed$`0.025quant`,
-  #q0.025_ZIP = cav_bym_INLA_ZIP$summary.fixed$`0.025quant`,
-  q0.975  = cav_bym_INLA$summary.fixed$`0.975quant`) , 3))#,
-  #q0.975_ZIP = cav_bym_INLA_ZIP$summary.fixed$`0.975quant`), 3))
+  q0.025_ZIP = cav_bym_INLA_ZIP$summary.fixed$`0.025quant`,
+  q0.975  = cav_bym_INLA$summary.fixed$`0.975quant` ,
+  q0.975_ZIP = cav_bym_INLA_ZIP$summary.fixed$`0.975quant`), 3))
 
 
 alphas
@@ -752,15 +751,15 @@ For completeness, we show the hyperparameters posterior summary also for the Ler
 cav_leroux_INLA_marginals.var <- unlist(inla.zmarginal(inla.tmarginal(
   fun = function(x) 1/x,marginal =cav_leroux_INLA$marginals.hyperpar[[1]]), silent = T))
 
-#cav_leroux_INLA_ZIP_marginals.var <- unlist(inla.zmarginal(inla.tmarginal(
-#  fun = function(x) 1/x,marginal =cav_leroux_INLA$marginals.hyperpar[[2]]), silent = T))
+cav_leroux_INLA_ZIP_marginals.var <- unlist(inla.zmarginal(inla.tmarginal(
+  fun = function(x) 1/x,marginal =cav_leroux_INLA$marginals.hyperpar[[2]]), silent = T))
 
 hyperpars_leroux <- data.frame(rbind(cav_leroux_INLA_marginals.var[c(1,3,5,7)],
-                   cav_leroux_INLA$summary.hyperpar[2,c(1,3,4,5)]#,
-                  #cav_leroux_INLA_ZIP_marginals.var[c(1,3,5,7)],
-                   #cav_leroux_INLA_ZIP$summary.hyperpar[c(1,3),c(1,3,4,5)]
+                   cav_leroux_INLA$summary.hyperpar[2,c(1,3,4,5)],
+                  cav_leroux_INLA_ZIP_marginals.var[c(1,3,5,7)],
+                   cav_leroux_INLA_ZIP$summary.hyperpar[c(1,3),c(1,3,4,5)]
                   )) %>% 
-  dplyr::mutate(Variable =c("Z_VAR", "Mixing")) %>% #, "Z_VAR_ZIP", "Zero_Prob",  "Mixing_ZIP"
+  dplyr::mutate(Variable =c("Z_VAR", "Mixing", "Z_VAR_ZIP", "Zero_Prob",  "Mixing_ZIP")) %>% 
                   dplyr::relocate(.data$Variable, .before = 1) 
 
 rownames(hyperpars_leroux) <- NULL
@@ -769,7 +768,7 @@ hyperpars_leroux
 ```
 
 
-<!--
+
 It is, however, worthy noticing how INLA manages to meet the regularity conditions to approximate the CPO more often than in the non-inflated model. Still, CPO must be re-computed manually before employing it as an evaluation metrics:
 ```{r cpo failures, eval = FALSE}
 
@@ -787,7 +786,7 @@ sum(cav_leroux_INLA$cpo$failure > 0)
 sum(cav_leroux_INLA_ZIP$cpo$failure)
 sum(cav_leroux_INLA_ZIP$cpo$failure > 0)
 ```
--->
+
 Lastly, we plot the estimated latent BYM effect under the Poisson model
 ```{r zhat bym, echo = FALSE}
 dd_con %>% 
@@ -999,13 +998,6 @@ WAICS_bru
 
 
 
-
-
-
-
-
-
-
 ```{r plot beta pogit, echo = FALSE}
 
 betalimX <-range(do.call(c, lapply(cav_bym_inlabru$marginals.fixed[-c(1,2)], FUN = function(x) x[,1])))
@@ -1045,7 +1037,7 @@ betas_bru <- cbind(
   SD = cav_bym_inlabru$summary.fixed$sd,
   q0.025 = cav_bym_inlabru$summary.fixed$`0.025quant`,
   Median = cav_bym_inlabru$summary.fixed$`0.5quant`,
-  q0.975_ZIP = cav_bym_inlabru$summary.fixed$`0.975quant`), 3))
+  q0.975 = cav_bym_inlabru$summary.fixed$`0.975quant`), 3))
 
 
 betas_bru
@@ -1065,6 +1057,16 @@ hyperpars_bru
 
 ```
 
+Finally, we plot the estimated latent BYM effect:
+```{r zhat bym inlabru, echo = FALSE, fig.cap = "Expected BYM field under the pogit model"}
+dd_con %>% 
+  dplyr::mutate(zhat = cav_bym_inlabru$summary.random$ID$mean[c(1:nrow(dd_con))]) %>% 
+  ggplot2::ggplot() +
+  ggplot2::geom_sf(ggplot2::aes(fill = .data$zhat))+
+  ggplot2::labs("Expected BYM spatial effect") +
+  ggplot2::scale_fill_viridis_c(na.value = "white", direction = -1) +
+  ggplot2::theme_classic()
+```
 
 
 
@@ -1082,7 +1084,7 @@ Moreover, spatial models are estimated using the INLA. While this is a broadly e
 
 To do so, we should e.g. rerun the same models using MCMC methods, e.g. using  `R` libraries such as `CARBayes`, and replicating the same prior structure used.
 
-Perhaps, the biggest INLA-related weakness element is the impossibility to apply LOOCV by means of the CPO. This problematic is streeed out by the high rate of failure (221/256) in meeting the regularity conditions to compute CPOs, flagged by nonzero values in `inla$cpo$failure`. This issue could be partially mitigated by zero-inflated Poisson regression.
+Perhaps, the biggest INLA-related weakness element is the impossibility to apply LOOCV by means of the CPO. This problematic is stressed out by the high rate of failure in meeting the regularity conditions to compute CPOs, flagged by nonzero values in `inla$cpo$failure`. This issue could be partially mitigated by zero-inflated Poisson regression.
 
 Lastly, data at our disposal are only informative about the reported violence. Higher occurrence of violence reports from a given territory may thus depend on two factors: either the higher occurrence of violence in that territory, or the ease in reporting violence for the residents, and we can only assume *a priori* which variables impact on either of these two processes. 
 
