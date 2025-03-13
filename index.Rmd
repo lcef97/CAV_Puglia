@@ -14,6 +14,10 @@ knitr::opts_chunk$set(echo = TRUE)
 library(magrittr)
 library(sf)
 if(!rlang::is_installed("pscl")) install.packages("pscl")
+library(INLA)
+library(inlabru)
+bru_options_set(bru_max_iter = 30,control.inla = list(tolerance = 1e-10))
+
 ```
 
 ```{r input, echo = FALSE, message = FALSE, warning = FALSE, output = FALSE}
@@ -245,12 +249,12 @@ covs.in[c(1:which.min(BIC.min))]
 We regress the counts of accesses $y$ to support centers on the aforementioned explanatory variables. To estimate regression coefficients, all covariates are scaled to zero mean an unit variance. 
 
 \begin{equation}
-y_i \mid \eta_i \sim \mathrm{Poisson}(e^{\eta_i + P_i}) \quad \text{where} \quad
-\eta_i = X_i^{\top} \beta
+y_i \mid \eta_i \sim \mathrm{Poisson}(E_i \, e^{\eta_i}) \quad \text{where} \quad
+\eta_i = X_i^{\top} \alpha
 \label{eq:glm}
 \end{equation}
 
-Where $X$ are the covariate defined earlier, $\beta$ are covariate effects, and $P_i$ is the logarithm of female population aged $\geq 15$ in municipality $i$.
+Where $X$ are the covariate defined earlier, $\alpha$ are covariate effects, and $E_i$ is the female population aged $> 14$ in municipality $i$.
 
 To gain more insight on the role of all explanatory variables we show the posterior summaries of the full regression model
 
@@ -287,10 +291,10 @@ attr(scale(dists_th_22$TEP_th_22), "scaled:scale")
 
 Hence e.g. each $14'6''$ of distance of the a given municipality from the closest support center are associated with a decrease of $0.399$ units in the log-frequency at which women from that municipality access to support centers.
 
-
+<!--
 
 Additionally, the number of zero counts is high:
-```{r zero counts}
+```{r zero counts, eval = FALSE}
 sum(dd_con$N_ACC == 0)
 barplot(table(dd_con$N_ACC))
 ```
@@ -315,16 +319,16 @@ However, the MLE estimator for $\pi_0$ is low:
 summary(cav_zip)$coefficients$zero
 ```
 
-
+-->
 ## Spatial regression
 
-We plot the log-residuals $\varepsilon$ of the GLM regression model, defined as $\varepsilon := \ln y_i - \ln P_i - \ln \hat{y}_i$ being $\hat{y}_i$ the fitted value.
+We plot the log-residuals $\varepsilon$ of the GLM regression model, defined as $\varepsilon := \ln y_i - \ln \hat{y}_i$ being $\hat{y}_i$ the fitted value.
 
 
 ```{r glm residuals, echo = FALSE, fig.height = 3, fig.cap = "Log-residuals of glm regression using theorical distance as explanatory variable"}
 
 
-resids_glm_th <- log(dd_con$N_ACC) - log(cav_glm$fitted.values) - log(dd_con$nn)
+resids_glm_th <- log(dd_con$N_ACC) - log(cav_glm$fitted.values) 
 
 dd_con %>% 
   dplyr::mutate(log_resids = resids_glm_th) %>% 
@@ -368,7 +372,7 @@ Based on the autocorrelation evidence, though it has only been assessed for a su
 
 
 \begin{equation}
-\eta_i = X_i^{\top} \beta + z_i 
+\eta_i = X_i^{\top} \alpha + z_i 
 \label{eq:mspat}
 \end{equation}
 
@@ -404,12 +408,12 @@ cav_nosp_INLA <- inla(
   inla.mode = "classic", control.inla = list(strategy = "laplace"),
   verbose = F)
 
-cav_nosp_INLA_ZIP <- inla(
-  N_ACC ~ 1 +TEP_th_22 + ELI + PGR + UIS + ELL + PDI + ER,
-  family = "zeroinflatedpoisson1", offset = log(nn), data =dd_con,
-  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T), 
-  inla.mode = "classic", control.inla = list(strategy = "laplace"),
-  verbose = F)
+#cav_nosp_INLA_ZIP <- inla(
+#  N_ACC ~ 1 +TEP_th_22 + ELI + PGR + UIS + ELL + PDI + ER,
+#  family = "zeroinflatedpoisson1", offset = log(nn), data =dd_con,
+#  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T), 
+#  inla.mode = "classic", control.inla = list(strategy = "laplace"),
+#  verbose = F)
 
 ```
 
@@ -425,13 +429,13 @@ cav_icar_INLA <- inla(
   inla.mode = "classic", control.inla = list(strategy = "laplace"),
   verbose = F) 
 
-cav_icar_INLA_ZIP <- inla(
-  N_ACC ~ 1 +TEP_th_22 + ELI + PGR + UIS + ELL + PDI + ER+ f(ID, model = "besag", graph = W_con,
-                         scale.model = T, prior = "pc.prec", param = c(1.5, 0.01)),
-  family = "zeroinflatedpoisson1", offset = log(nn), data =dd_con,
-  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T), 
-  inla.mode = "classic", control.inla = list(strategy = "laplace"),
-  verbose = F) 
+#cav_icar_INLA_ZIP <- inla(
+#  N_ACC ~ 1 +TEP_th_22 + ELI + PGR + UIS + ELL + PDI + ER+ f(ID, model = "besag", graph = W_con,
+#                         scale.model = T, prior = "pc.prec", param = c(1.5, 0.01)),
+#  family = "zeroinflatedpoisson1", offset = log(nn), data =dd_con,
+#  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T), 
+#  inla.mode = "classic", control.inla = list(strategy = "laplace"),
+#  verbose = F) 
 ```
 
 
@@ -525,14 +529,14 @@ cav_pcar_INLA<- inla(N_ACC ~ 1 +TEP_th_22 + ELI + PGR + UIS + ELL + PDI + ER +
                          control.predictor = list(compute = T),
                          verbose = T) 
 
-cav_pcar_INLA_ZIP <- inla(N_ACC ~ 1 +TEP_th_22 + ELI + PGR + UIS + ELL + PDI + ER + 
-                           f(ID, model = PCAR.model(W = W_con, k = 1, lambda = 1.5)),
-                         family = "zeroinflatedpoisson1", offset = log(nn), data =dd_con,
-                         num.threads = 1, control.compute = 
-                           list(internal.opt = F, cpo = T, waic = T), 
-                         #inla.mode = "classic", control.inla = list(strategy = "laplace"),
-                         control.predictor = list(compute = T),
-                         verbose = T) 
+#cav_pcar_INLA_ZIP <- inla(N_ACC ~ 1 +TEP_th_22 + ELI + PGR + UIS + ELL + PDI + ER + 
+#                           f(ID, model = PCAR.model(W = W_con, k = 1, lambda = 1.5)),
+#                         family = "zeroinflatedpoisson1", offset = log(nn), data =dd_con,
+#                         num.threads = 1, control.compute = 
+#                           list(internal.opt = F, cpo = T, waic = T), 
+#                         #inla.mode = "classic", control.inla = list(strategy = "laplace"),
+#                         control.predictor = list(compute = T),
+#                         verbose = T) 
 ```
 
 We show the posterior summary for the autocorrelation coefficient. 
@@ -551,7 +555,7 @@ inla.zmarginal(inla.tmarginal(fun = expit,
 #### BYM model
 
 
-Perhaps, our data are generated by a process dominated from noise. We can thus try a different path: the BYM model. On a preliminary stance, we keep trusting in the accuracy of the Laplace approximation and stick to INLA. On a later stage, it would be more rigorous to compare INLA results to the posteriors of a model estimated with MCMC.
+Perhaps, our data are generated by a process dominated by noise. We can thus try a different path: the BYM model. On a preliminary stance, we keep trusting in the accuracy of the Laplace approximation and stick to INLA. On a later stage, it would be more rigorous to compare INLA results to the posteriors of a model estimated with MCMC.
 
 The BYM model we employ follows the parametrisation of [@BYM2]:
 
@@ -572,13 +576,13 @@ cav_bym_INLA <- inla(
   #inla.mode = "classic", control.inla = list(strategy = "laplace"),
   verbose = F)
 
-cav_bym_INLA_ZIP <- inla(
-  N_ACC ~ 1 +TEP_th_22 + ELI + PGR + UIS + ELL + PDI + ER+ f(ID, model = "bym2", graph = W_con,
-                         scale.model = T, prior = "pc.prec", param = c(1.5, 0.01)),
-  family = "zeroinflatedpoisson1", offset = log(nn), data =dd_con,
-  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T), 
+#cav_bym_INLA_ZIP <- inla(
+#  N_ACC ~ 1 +TEP_th_22 + ELI + PGR + UIS + ELL + PDI + ER+ f(ID, model = "bym2", graph = W_con,
+#                         scale.model = T, prior = "pc.prec", param = c(1.5, 0.01)),
+#  family = "zeroinflatedpoisson1", offset = log(nn), data =dd_con,
+#  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T), 
   #inla.mode = "classic", control.inla = list(strategy = "laplace"),
-  verbose = F)
+#  verbose = F)
 ```
 
 #### LCAR model
@@ -608,15 +612,15 @@ cav_leroux_INLA <-   inla(N_ACC ~ 1 +TEP_th_22 + ELI + PGR + UIS + ELL + PDI + E
                      control.predictor = list(compute = T),
                      verbose = F) 
 
-cav_leroux_INLA_ZIP <- inla(N_ACC ~ 1 +TEP_th_22 + ELI + PGR + UIS + ELL + PDI + ER +
-                          f(ID, model = "besagproper2", graph = W_con, 
-                            hyper = list(prec = list(prior = "pc.prec", param = c(1.5, 0.01)))),
-                     family = "zeroinflatedpoisson1", offset = log(nn), data =dd_con,
-                     num.threads = 1, control.compute = 
-                       list(internal.opt = F, cpo = T, waic = T), 
-                     #inla.mode = "classic", control.inla = list(strategy = "laplace"),
-                     control.predictor = list(compute = T),
-                     verbose = F) 
+#cav_leroux_INLA_ZIP <- inla(N_ACC ~ 1 +TEP_th_22 + ELI + PGR + UIS + ELL + PDI + ER +
+#                          f(ID, model = "besagproper2", graph = W_con, 
+#                            hyper = list(prec = list(prior = "pc.prec", param = c(1.5, 0.01)))),
+#                     family = "zeroinflatedpoisson1", offset = log(nn), data =dd_con,
+#                     num.threads = 1, control.compute = 
+#                       list(internal.opt = F, cpo = T, waic = T), 
+#                     #inla.mode = "classic", control.inla = list(strategy = "laplace"),
+#                     control.predictor = list(compute = T),
+#                     verbose = F) 
 
 ```
 
@@ -633,15 +637,16 @@ WAICS <- tibble::tibble(
   WAIC_Poisson = round(c(
     cav_nosp_INLA$waic$waic,  cav_icar_INLA$waic$waic,  cav_pcar_INLA$waic$waic, 
     cav_bym_INLA$waic$waic,  cav_leroux_INLA$waic$waic),3),
-  WAIC_ZIP = round(c(
-    cav_nosp_INLA_ZIP$waic$waic, cav_icar_INLA_ZIP$waic$waic, cav_pcar_INLA_ZIP$waic$waic,
-    cav_bym_INLA_ZIP$waic$waic, cav_leroux_INLA_ZIP$waic$waic),3),  
+  #WAIC_ZIP = round(c(
+   # cav_nosp_INLA_ZIP$waic$waic, cav_icar_INLA_ZIP$waic$waic, cav_pcar_INLA_ZIP$waic$waic,
+    #cav_bym_INLA_ZIP$waic$waic, cav_leroux_INLA_ZIP$waic$waic),3),  
   Eff_params_Poisson = round(c(
     cav_nosp_INLA$waic$p.eff,   cav_icar_INLA$waic$p.eff,  cav_pcar_INLA$waic$p.eff,
-    cav_bym_INLA$waic$p.eff, cav_leroux_INLA$waic$p.eff),3),
-  Eff_params_ZIP = round(c(
-    cav_nosp_INLA_ZIP$waic$p.eff,  cav_icar_INLA_ZIP$waic$p.eff,  cav_pcar_INLA_ZIP$waic$p.eff,
-    cav_bym_INLA_ZIP$waic$p.eff,  cav_leroux_INLA_ZIP$waic$p.eff),3) )
+    cav_bym_INLA$waic$p.eff, cav_leroux_INLA$waic$p.eff),3)#,
+  #Eff_params_ZIP = round(c(
+   # cav_nosp_INLA_ZIP$waic$p.eff,  cav_icar_INLA_ZIP$waic$p.eff,  cav_pcar_INLA_ZIP$waic$p.eff,
+    #cav_bym_INLA_ZIP$waic$p.eff,  cav_leroux_INLA_ZIP$waic$p.eff),3) 
+  )
 
 WAICS
 
@@ -653,46 +658,46 @@ As we can see, models taking into account random noise have a better performance
 
 ## Model results
 
-Here, posterior estimates of $\beta$ under the BYM model are shown. We compare the results assuming both the Poisson and the ZIP likelihood:
+Here, posterior estimates of $\alpha$ under the BYM model are shown. 
 
 ```{r bym summary fixed, echo = F}
-betas <- cbind(
+alphas <- cbind(
   tibble::tibble(Variable = rownames(cav_bym_INLA$summary.fixed)),
   round(tibble::tibble(
-  Mean_Pois = cav_bym_INLA$summary.fixed$mean,
-  Mean_ZIP = cav_bym_INLA_ZIP$summary.fixed$mean,
-  SD_Pois = cav_bym_INLA$summary.fixed$sd,
-  SD_ZIP = cav_bym_INLA_ZIP$summary.fixed$sd,
-  q0.025_Pois = cav_bym_INLA$summary.fixed$`0.025quant`,
-  q0.025_ZIP = cav_bym_INLA_ZIP$summary.fixed$`0.025quant`,
-  q0.975_Pois = cav_bym_INLA$summary.fixed$`0.975quant`,
-  q0.975_ZIP = cav_bym_INLA_ZIP$summary.fixed$`0.975quant`), 3))
+  Mean  = cav_bym_INLA$summary.fixed$mean,
+  #Mean_ZIP = cav_bym_INLA_ZIP$summary.fixed$mean,
+  SD  = cav_bym_INLA$summary.fixed$sd,
+  #SD_ZIP = cav_bym_INLA_ZIP$summary.fixed$sd,
+  q0.025  = cav_bym_INLA$summary.fixed$`0.025quant`,
+  #q0.025_ZIP = cav_bym_INLA_ZIP$summary.fixed$`0.025quant`,
+  q0.975  = cav_bym_INLA$summary.fixed$`0.975quant`) , 3))#,
+  #q0.975_ZIP = cav_bym_INLA_ZIP$summary.fixed$`0.975quant`), 3))
 
 
-betas
+alphas
 ```
 
-```{r plot beta, echo = FALSE}
+```{r plot alpha, echo = FALSE}
 
-betalimX <-range(do.call(c, lapply(cav_bym_INLA$marginals.fixed[-1], FUN = function(x) x[,1])))
-betalimY <-range(do.call(c, lapply(cav_bym_INLA$marginals.fixed[-1], FUN = function(x) x[,2])))
+alphalimX <-range(do.call(c, lapply(cav_bym_INLA$marginals.fixed[-1], FUN = function(x) x[,1])))
+alphalimY <-range(do.call(c, lapply(cav_bym_INLA$marginals.fixed[-1], FUN = function(x) x[,2])))
 
-betamarg <- as.data.frame(do.call(cbind, cav_bym_INLA$marginals.fixed[-1]))
-names(betamarg) <- paste0(rep(names(cav_bym_INLA$marginals.fixed[-1]),each=2), c("__X", "__Y"))
+alphamarg <- as.data.frame(do.call(cbind, cav_bym_INLA$marginals.fixed[-1]))
+names(alphamarg) <- paste0(rep(names(cav_bym_INLA$marginals.fixed[-1]),each=2), c("__X", "__Y"))
 
 
-betamarg_long <- tidyr::pivot_longer( betamarg, cols = c(1:14),
+alphamarg_long <- tidyr::pivot_longer( alphamarg, cols = c(1:14),
   names_to = c("Effect", ".value"),# Split names into "parameter" and value column names
   names_sep = "__")
 
-ggplot2::ggplot(betamarg_long, ggplot2::aes(x = .data$X, y = .data$Y, color = .data$Effect)) +
+ggplot2::ggplot(alphamarg_long, ggplot2::aes(x = .data$X, y = .data$Y, color = .data$Effect)) +
   ggplot2::geom_line(size = 0.7) +
   ggplot2::geom_vline(xintercept = 0)+
-  ggplot2::coord_cartesian(xlim = betalimX, ylim = betalimY) +
+  ggplot2::coord_cartesian(xlim = alphalimX, ylim = alphalimY) +
   ggplot2::labs(
     title = "Posterior Marginals of covariates effects",
-    x = expression(beta),
-    y = expression(pi(beta ~ "|" ~ y)),
+    x = expression(alpha),
+    y = expression(pi(alpha ~ "|" ~ y)),
     color = "Effect") +
   ggplot2::theme_classic()
 
@@ -700,7 +705,7 @@ ggplot2::ggplot(betamarg_long, ggplot2::aes(x = .data$X, y = .data$Y, color = .d
 ```
 
 
-Estimations of $\beta$ differ from the nonspatial model. For all variables, credibility intervals are wider due to increased uncertainty. 
+Estimations of $\alpha$ differ from the nonspatial model. For all variables, credibility intervals are wider due to increased uncertainty. 
 
   - `TEP_th_22` The effect of the distance from the closest support center remains similar in mean and the interpretation is not altered.
 
@@ -722,14 +727,15 @@ Lastly, we take a look at model hyperparameters:
 cav_bym_INLA_marginals.var <- unlist(inla.zmarginal(inla.tmarginal(
   fun = function(x) 1/x,marginal =cav_bym_INLA$marginals.hyperpar[[1]]), silent = T))
 
-cav_bym_INLA_ZIP_marginals.var <- unlist(inla.zmarginal(inla.tmarginal(
-  fun = function(x) 1/x,marginal =cav_bym_INLA$marginals.hyperpar[[2]]), silent = T))
+#cav_bym_INLA_ZIP_marginals.var <- unlist(inla.zmarginal(inla.tmarginal(
+#  fun = function(x) 1/x,marginal =cav_bym_INLA$marginals.hyperpar[[2]]), silent = T))
 
 hyperpars<- data.frame(rbind(cav_bym_INLA_marginals.var[c(1,3,5,7)],
-                   cav_bym_INLA$summary.hyperpar[2,c(1,3,4,5)],
-                  cav_bym_INLA_ZIP_marginals.var[c(1,3,5,7)],
-                   cav_bym_INLA_ZIP$summary.hyperpar[c(1,3),c(1,3,4,5)])) %>% 
-  dplyr::mutate(Variable =c("Z_VAR_Pois", "Mixing_Pois","Z_VAR_ZIP", "Zero_Prob",  "Mixing_ZIP")) %>% 
+                   cav_bym_INLA$summary.hyperpar[2,c(1,3,4,5)]#,
+                  #cav_bym_INLA_ZIP_marginals.var[c(1,3,5,7)],
+                   #cav_bym_INLA_ZIP$summary.hyperpar[c(1,3),c(1,3,4,5)]
+                  )) %>% 
+  dplyr::mutate(Variable =c("Z_VAR", "Mixing" )) %>% #,"Z_VAR_ZIP", "Zero_Prob",  "Mixing_ZIP"
                   dplyr::relocate(.data$Variable, .before = 1) 
 
 rownames(hyperpars) <- NULL
@@ -746,14 +752,15 @@ For completeness, we show the hyperparameters posterior summary also for the Ler
 cav_leroux_INLA_marginals.var <- unlist(inla.zmarginal(inla.tmarginal(
   fun = function(x) 1/x,marginal =cav_leroux_INLA$marginals.hyperpar[[1]]), silent = T))
 
-cav_leroux_INLA_ZIP_marginals.var <- unlist(inla.zmarginal(inla.tmarginal(
-  fun = function(x) 1/x,marginal =cav_leroux_INLA$marginals.hyperpar[[2]]), silent = T))
+#cav_leroux_INLA_ZIP_marginals.var <- unlist(inla.zmarginal(inla.tmarginal(
+#  fun = function(x) 1/x,marginal =cav_leroux_INLA$marginals.hyperpar[[2]]), silent = T))
 
 hyperpars_leroux <- data.frame(rbind(cav_leroux_INLA_marginals.var[c(1,3,5,7)],
-                   cav_leroux_INLA$summary.hyperpar[2,c(1,3,4,5)],
-                  cav_leroux_INLA_ZIP_marginals.var[c(1,3,5,7)],
-                   cav_leroux_INLA_ZIP$summary.hyperpar[c(1,3),c(1,3,4,5)])) %>% 
-  dplyr::mutate(Variable =c("Z_VAR_Pois", "Mixing_Pois", "Z_VAR_ZIP", "Zero_Prob",  "Mixing_ZIP")) %>% 
+                   cav_leroux_INLA$summary.hyperpar[2,c(1,3,4,5)]#,
+                  #cav_leroux_INLA_ZIP_marginals.var[c(1,3,5,7)],
+                   #cav_leroux_INLA_ZIP$summary.hyperpar[c(1,3),c(1,3,4,5)]
+                  )) %>% 
+  dplyr::mutate(Variable =c("Z_VAR", "Mixing")) %>% #, "Z_VAR_ZIP", "Zero_Prob",  "Mixing_ZIP"
                   dplyr::relocate(.data$Variable, .before = 1) 
 
 rownames(hyperpars_leroux) <- NULL
@@ -761,8 +768,10 @@ rownames(hyperpars_leroux) <- NULL
 hyperpars_leroux
 ```
 
-It is, however, worth noticing how INLA manages to meet the regularity conditions to approximate the CPO more often than in the non-inflated model. Still, CPO must be re-computed manually before employing it as an evaluation metrics:
-```{r cpo failures}
+
+<!--
+It is, however, worthy noticing how INLA manages to meet the regularity conditions to approximate the CPO more often than in the non-inflated model. Still, CPO must be re-computed manually before employing it as an evaluation metrics:
+```{r cpo failures, eval = FALSE}
 
 sum(cav_bym_INLA$cpo$failure)
 sum(cav_bym_INLA$cpo$failure > 0)
@@ -778,7 +787,7 @@ sum(cav_leroux_INLA$cpo$failure > 0)
 sum(cav_leroux_INLA_ZIP$cpo$failure)
 sum(cav_leroux_INLA_ZIP$cpo$failure > 0)
 ```
-
+-->
 Lastly, we plot the estimated latent BYM effect under the Poisson model
 ```{r zhat bym, echo = FALSE}
 dd_con %>% 
@@ -793,26 +802,61 @@ dd_con %>%
 
 ## Spatial regression accounting for underreporting
 
-So far, under-reporting has not been explicitly modelled. Rather, explanatory variables maintained a twofold interpretation as affecting either VAW occurrence, VAW reporting, or both.
+So far, under-reporting has not been explicitly modelled. Rather, explanatory variables maintained a twofold interpretation as affecting either VAW occurrence, VAW reporting, or both. 
+
+Let us consider a regression model in which, for instance, the incidence of low education is for some reason not taken into account and compare it with the full model.
+```{r bym dummy, echo = FALSE, message = FALSE}
+cav_bym_INLA_noELL <- inla(
+  N_ACC ~ 1 +TEP_th_22 + ELI + PGR + UIS  + PDI + ER+ f(ID, model = "bym2", graph = W_con,
+                         scale.model = T, prior = "pc.prec", param = c(1.5, 0.01)),
+  family = "poisson", offset = log(nn), data =dd_con,
+  num.threads = 1, control.compute = list(internal.opt = F), 
+  verbose = F)
+
+cav_bym_INLA_noER <- inla(
+  N_ACC ~ 1 +TEP_th_22 + ELI + PGR + UIS + ELL + PDI + f(ID, model = "bym2", graph = W_con,
+                         scale.model = T, prior = "pc.prec", param = c(1.5, 0.01)),
+  family = "poisson", offset = log(nn), data =dd_con,
+  num.threads = 1, control.compute = list(internal.opt = F), 
+  verbose = F)
+
+b.l <- round(cav_bym_INLA$summary.fixed[-which(rownames(cav_bym_INLA$summary.fixed)=="ELL"),c(1,2)],3)
+b.r <- round(cav_bym_INLA_noELL$summary.fixed[,c(1,2)],3)
+alpha.ELLvsNoELL <- data.frame(cbind(b.l, b.r))
+names(alpha.ELLvsNoELL) <- c("Mean_full", "sd_full", "Mean_noELL", "sd_noELL")
+
+alpha.ELLvsNoELL
+
+
+b.l <- round(cav_bym_INLA$summary.fixed[-which(rownames(cav_bym_INLA$summary.fixed)=="ER"),c(1,2)],3)
+b.r <- round(cav_bym_INLA_noER$summary.fixed[,c(1,2)],3)
+alpha.ERvsNoER <- data.frame(cbind(b.l, b.r))
+names(alpha.ERvsNoER) <- c("Mean_full", "sd_full", "Mean_noER", "sd_noER")
+alpha.ERvsNoER
+```
+
+As it can be seen, the mean effect of employment rate is shrunk to $1/10$ of its value under the full model. How can this fact be interpreted? The two explanatory variables have a strong negative correlation ($-0.64$), yet their effects on the target variable have the same sign, and removing one (ELL) from the model reduces the expected effect of the other (see 'full' versus 'noELL'). Removing the employment rate, instead, has a milder impact on the expected effect of low education incidence (see 'full' versus 'noER').
+
+This finding may suggest us that different variables impact different *components* of the target variable, and perhaps this bifid effect should be modelled separately. We assume these two different components are VAW occurrence and VAW reporting when occurring.
 
 In absence of either validation data, or information on complete-reporting contexts, we can only guess how to partition the effect of explanatory variables between VAW occurrence and reporting. 
 
-As an exploratory tool, we rely on a Poisson-logistic model (Pogit, see [@Pogit], [@PogitZIP]). In brief, we have
+As an exploratory tool, we rely on a Poisson-logistic model [@Pogit], [@PogitZIP]. In brief, we have
 $$
-y_i \sim \mathrm{Poisson(e^{P_i} \lambda_i \pi_i)}
+y_i \sim \mathrm{Poisson(E_i\, \lambda_i \pi_i)}
 $$
-Where $\lambda_i \in \mathbb{R}^{+}$ is the parameter controlling the occurrence of true counts, and $\pi_i \in [0,1]$ controls for reporting frequency. $P_i$ is the log-offset.
+Where $\lambda_i \in \mathbb{R}^{+}$ is the parameter controlling the occurrence of true counts, and $\pi_i \in [0,1]$ controls for reporting frequency. $E_i$ is the offset, i.e. the female population aged $>14$ years.
 Due to the different domains of $\pi_i$ and $\lambda_i$, this parametrisation implies departure from linearity in the predictor.
 
-For clarity, in the following we will denote $\alpha$ as the $k+1$ covariate effects entering $\lambda_i$ and $\beta$ the $m+1$ covariate effects entering $\pi_i$. We would thus have 
+For clarity, in the following we will denote $\alpha$ as the $k+1$ covariate effects entering $\lambda_i$ and $\beta$ the $m+1$ covariate effects entering $\pi_i$ for two integers $p$ and $m$. We would thus have 
 $$
-\lambda_i = e^{\displaystyle{\alpha_0 + \alpha_1 X_{i1} + ... + \alpha_p X_{ik}}}
+\lambda_i = e^{\displaystyle{\alpha_0 + \alpha_1 X_{i1} + ... + \alpha_p X_{ik}} + z_i}
 $$
 And
 $$
 \pi_i = \left(1 + e^{- \displaystyle{(\beta_0 + \beta_1 X_{k+1} + ... + \beta_m X_{i, k+m})}} \right)^{-1}
 $$
-Hence the linear predictor is not linear anymore. 
+Hence the linear predictor is not linear anymore. $z_i$ denotes the spatial latent effect, as in earlier section.
 
 As a preliminary modelling and computation attempt we employ the `inlabru` R package [@lindgren2024inlabru], following the operational (and coding) framework of [@Wollo].
 
@@ -823,24 +867,24 @@ The core idea is to approximate the linear predictor with a linear function of t
 R codes are based on the ones shared by [@Wollo] [on this GitHub repo](https://github.com/saraew/Prosjektoppgave).
 
 We assign the `TEP_th_22` and `ELL` covariates to the underreporting DGP and `ER` to VAW occurrring DGP.
-We assign informative prior to the intercept $\beta_0$. The idea is that, when all other effects are zero, $\pi_i \approx 1/10$. 
+An informative prior is assigned to the intercept $\beta_0$. The idea is that, when all other effects are zero, $\pi_i \approx 1/10$. 
 
-However, interpreting $\beta_0$ is limited due to the mutual non-identifiability issue with $\alpha_0$. Hence, we must be happy with maintaining prior knowledge on $E[\beta_0]$.
+However, interpreting $\beta_0$ is limited due to the mutual non-identifiability issue with $\alpha_0$. Raising the prior mean of $\beta_0$ would imply a reduction in the posterior mean of $\alpha_0$, and vice versa. 
 
-
-
+This is the code to fit a Pogit model given a model for the latent spatial effect:
 
 ```{r inlabru part 1, output = FALSE, message = FALSE, warning = FALSE}
 
 library(inlabru)
 
-logexpit <- function(v1, v2, beta0, beta1, beta2){
-  pred = beta0 + beta1 * v1 + beta2 * v2
+logexpit <- function(x, beta){
+  pred <- beta[[1]] +
+    rowSums(do.call(cbind, lapply(c(1:length(x)), function(n){
+      beta[[n+1]]*x[[n]]
+      })))
   return(-log(1+exp(-pred)))
 }
 
-bru_options_set(bru_max_iter = 30,
-                control.inla = list(tolerance = 1e-10))
 
 cmp_spatial <- function(spatial_expr) {
   f2 <- substitute(spatial_expr)
@@ -865,21 +909,14 @@ cmp_spatial <- function(spatial_expr) {
 }
 
 ```
-This rather generic function allows to implement different models for $z$ at the cost of a couple of lines of code. Nevertheless, for the sake of brevity, we only fit the BYM model, which can be seen to perform slightly better than ICAR, PCAR and LCAR. The latter models can be simply fit by defining the analogues of `cmp_bym` through the `cmp_spatial()` wrapper.
-
+And this is the code to model the latent spatial effect. We test the ICAR, PCAR, LCAR and BYM models.
 
 ```{r inlabru part 2, output = FALSE, message = FALSE, warning = FALSE}
-cmp_bym <- cmp_spatial(
-  spatial(ID, model="bym2", graph = W_con, 
-          scale.model = TRUE, 
-          hyper = list(prec = list(prior = "pc.prec", 
-                                   param = c(1.5, 0.01)))))
-
 cav_bru_basic <- function(model_cmp, verbose = FALSE) {
   terms <- c("alpha_0", "myoffset", "alpha_ELI", "alpha_PGR", "alpha_UIS",
              "alpha_PDI", "alpha_ER",
-             paste0("logexpit(v1 = TEP_th_22, v2 = ELL,",
-             "beta0 = beta_0, beta1 = beta_TEP, beta2 = beta_ELL)"))
+             paste0("logexpit(x=list(TEP_th_22, ELL) ,",
+             "beta = list(beta_0, beta_TEP,  beta_ELL))"))
   
   if (any(grepl("spatial", as.character(model_cmp)))) terms <- c(terms, "spatial")
   
@@ -895,17 +932,87 @@ cav_bru_basic <- function(model_cmp, verbose = FALSE) {
   return(res)
 }
 
-cav_bym_INLABRU <- cav_bru_basic(cmp_bym)
+cmp_icar <- cmp_spatial(
+  spatial(ID, model = "besag", graph = W_con,
+          scale.model = TRUE, 
+          hyper = list(prec = list(prior = "pc.prec",
+                                                       param = c(1.5, 0.01)))))
+#' Here \lambda denotes the rate parameter for the
+#' PC prior on the precision:
+cmp_pcar <- cmp_spatial(
+  spatial(ID, model = PCAR.model(W = W_con, k = 1,
+                                 lambda = 1.5, init = c(0, 4))))
+
+cmp_lcar <- cmp_spatial(
+  spatial( ID, model = "besagproper", graph = W_con, 
+  hyper = list(prec = list(prior = "pc.prec", param = c(1.5, 0.01)))))
+
+cmp_bym <- cmp_spatial(
+  spatial(ID, model="bym2", graph = W_con, 
+          scale.model = TRUE, 
+          hyper = list(prec = list(prior = "pc.prec", 
+                                   param = c(1.5, 0.01)))))
 ```
+
+
+
+
+
+```{r bru models run, output = FALSE, message = FALSE}
+#' Null model
+cav_nosp_inlabru <- cav_bru_basic(cmp_spatial(NULL))
+
+#' icar --> simplest, yet not satisfying
+cav_icar_inlabru <- cav_bru_basic(cmp_icar)
+
+#' lcar --> better
+cav_lcar_inlabru <- cav_bru_basic(cmp_lcar)
+
+#' pcar --> This is going to be obnoxious since verbose = T is mandatory not to make INLA crash :) 
+cav_pcar_inlabru <- cav_bru_basic(cmp_pcar, verbose = T)
+
+#' BYM --> best one
+cav_bym_inlabru <- cav_bru_basic(cmp_bym)
+
+
+```
+
+
+
+We compare four competing spatial models and the nonspatial one (Null). As for the case of linear Poisson regression, the best choice appears to be the BYM model.
+
+
+```{r WAICs table bru, echo = F}
+
+WAICS_bru <- tibble::tibble(
+  Model = c("Null", "ICAR", "PCAR", "BYM", "Leroux"),
+  WAIC = round(c(
+    cav_nosp_inlabru$waic$waic,  cav_icar_inlabru$waic$waic,  cav_pcar_inlabru$waic$waic, 
+    cav_bym_inlabru$waic$waic,  cav_lcar_inlabru$waic$waic),3),
+  Eff_params = round(c(
+    cav_nosp_inlabru$waic$p.eff,   cav_icar_inlabru$waic$p.eff,  cav_pcar_inlabru$waic$p.eff,
+    cav_bym_inlabru$waic$p.eff, cav_lcar_inlabru$waic$p.eff),3))
+
+WAICS_bru
+
+```
+
+
+
+
+
+
+
+
 
 
 ```{r plot beta pogit, echo = FALSE}
 
-betalimX <-range(do.call(c, lapply(cav_bym_INLABRU$marginals.fixed[-c(1,2)], FUN = function(x) x[,1])))
-betalimY <-range(do.call(c, lapply(cav_bym_INLABRU$marginals.fixed[-c(1,2)], FUN = function(x) x[,2])))
+betalimX <-range(do.call(c, lapply(cav_bym_inlabru$marginals.fixed[-c(1,2)], FUN = function(x) x[,1])))
+betalimY <-range(do.call(c, lapply(cav_bym_inlabru$marginals.fixed[-c(1,2)], FUN = function(x) x[,2])))
 
-betamarg <- as.data.frame(do.call(cbind, cav_bym_INLABRU$marginals.fixed[-c(1,2)]))
-names(betamarg) <- paste0(rep(names(cav_bym_INLABRU$marginals.fixed[-c(1,2)]),each=2), c("__X", "__Y"))
+betamarg <- as.data.frame(do.call(cbind, cav_bym_inlabru$marginals.fixed[-c(1,2)]))
+names(betamarg) <- paste0(rep(names(cav_bym_inlabru$marginals.fixed[-c(1,2)]),each=2), c("__X", "__Y"))
 
 
 betamarg_long <- tidyr::pivot_longer( betamarg, cols = c(1:14),
@@ -919,7 +1026,7 @@ ggplot2::ggplot(betamarg_long, ggplot2::aes(x = .data$X, y = .data$Y, color = .d
   ggplot2::labs(
     title = "Posterior Marginals of covariates effects",
     x = expression(alpha ~ "," ~ beta),
-    y = expression(pi(alpha ~ "|" ~ y) ~","~pi(alpha ~ "|" ~ y)),
+    y = expression(pi(alpha ~ "|" ~ y) ~","~pi(beta ~ "|" ~ y)),
     color = "Effect") +
   ggplot2::theme_classic()
 
@@ -932,13 +1039,13 @@ Model results are alike those of the straight Poisson regression.
 
 ```{r inlabru summary fixed, echo = FALSE}
 betas_bru <- cbind(
-  tibble::tibble(Variable = rownames(cav_bym_INLABRU$summary.fixed)),
+  tibble::tibble(Variable = rownames(cav_bym_inlabru$summary.fixed)),
   round(tibble::tibble(
-  Mean = cav_bym_INLABRU$summary.fixed$mean,
-  SD = cav_bym_INLABRU$summary.fixed$sd,
-  q0.025 = cav_bym_INLABRU$summary.fixed$`0.025quant`,
-  Median = cav_bym_INLABRU$summary.fixed$`0.5quant`,
-  q0.975_ZIP = cav_bym_INLABRU$summary.fixed$`0.975quant`), 3))
+  Mean = cav_bym_inlabru$summary.fixed$mean,
+  SD = cav_bym_inlabru$summary.fixed$sd,
+  q0.025 = cav_bym_inlabru$summary.fixed$`0.025quant`,
+  Median = cav_bym_inlabru$summary.fixed$`0.5quant`,
+  q0.975_ZIP = cav_bym_inlabru$summary.fixed$`0.975quant`), 3))
 
 
 betas_bru
@@ -946,11 +1053,11 @@ betas_bru
 
 No noticeable change seems to affect hyperparameters either:
 ```{r inlabru summary hyperpars}
-cav_bym_INLABRU_marginals.var <- unlist(inla.zmarginal(inla.tmarginal(
-  fun = function(x) 1/x, marginal =cav_bym_INLABRU$marginals.hyperpar[[1]]), silent = T))
+cav_bym_inlabru_marginals.var <- unlist(inla.zmarginal(inla.tmarginal(
+  fun = function(x) 1/x, marginal =cav_bym_inlabru$marginals.hyperpar[[1]]), silent = T))
 
-hyperpars_bru<- data.frame(rbind(cav_bym_INLABRU_marginals.var[c(1,3,5,7)],
-                   cav_bym_INLABRU$summary.hyperpar[2,c(1,3,4,5)])) %>% 
+hyperpars_bru<- data.frame(rbind(cav_bym_inlabru_marginals.var[c(1,3,5,7)],
+                   cav_bym_inlabru$summary.hyperpar[2,c(1,3,4,5)])) %>% 
   dplyr::mutate(Variable =c("Variance", "Mixing")) %>% 
                   dplyr::relocate(.data$Variable, .before = 1) 
 rownames(hyperpars_bru) <- NULL
@@ -975,11 +1082,13 @@ Moreover, spatial models are estimated using the INLA. While this is a broadly e
 
 To do so, we should e.g. rerun the same models using MCMC methods, e.g. using  `R` libraries such as `CARBayes`, and replicating the same prior structure used.
 
-Lastly, we did *not* model the rate at which gender violence occurs, but the occurrence of violence reports. Higher occurrence of violence reports from a given territory may thus depend on two factors: either the higher occurrence of violence in that territory, or the ease in reporting violence for the residents. 
+Perhaps, the biggest INLA-related weakness element is the impossibility to apply LOOCV by means of the CPO. This problematic is streeed out by the high rate of failure (221/256) in meeting the regularity conditions to compute CPOs, flagged by nonzero values in `inla$cpo$failure`. This issue could be partially mitigated by zero-inflated Poisson regression.
 
-Whereas the easiest interpretation is that violence occurrence is underestimated in low-reporting areas, at the time being nothing prevents us from suspecting that the placement of support centers is at least partially strategic, i.e. the distribution of supporting centers is more dense in areas in which violence occurs, for some reason we don't know, at a higher frequence.  
+Lastly, data at our disposal are only informative about the reported violence. Higher occurrence of violence reports from a given territory may thus depend on two factors: either the higher occurrence of violence in that territory, or the ease in reporting violence for the residents, and we can only assume *a priori* which variables impact on either of these two processes. 
 
-To this aim, an issue worthy of being explored is underreporting modelling; a reasonable methodology would be *pogit* regression [@Pogit], [@PogitZIP]. Until now, we have been avoiding the issue of non-linearity by approximating the linear predictor. Comparison with MCMC-run models would be beneficial to assess how righteous this approximation is.
+For instance, regarding the impact of the distance from support centers, whereas the easiest interpretation is that violence occurrence is underestimated in low-reporting areas, with these data at hand nothing prevents us from suspecting that the placement of support centers is instead at least partially strategic, i.e. the distribution of supporting centers is more dense in areas in which violence occurs, for some reason we don't know, at a higher frequence.  
+
+Our solution to the under-reporting issue has been *pogit* regression [@Pogit], [@PogitZIP]. Until now, we have been avoiding the issue of non-linearity by approximating the linear predictor. Comparison with MCMC-run models would be beneficial to assess how righteous this approximation is.
 
 ## Appendix: the WAIC
 
