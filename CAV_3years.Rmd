@@ -405,9 +405,9 @@ L_block <- kronecker(diag(1, 3), Lapl_con)
 A_constr <- t(pracma::nullspace(L_block))
 
 
-resids_glm_21 <- log(dd_con$N_ACC_21) - log(cav_glm_21$fitted.values) - log(dd_con$nn21)
-resids_glm_22 <- log(dd_con$N_ACC_22) - log(cav_glm_22$fitted.values) - log(dd_con$nn22)
-resids_glm_23 <- log(dd_con$N_ACC_23) - log(cav_glm_23$fitted.values) - log(dd_con$nn23)
+resids_glm_21 <- log(dd_con$N_ACC_21) - log(cav_glm_21$fitted.values) 
+resids_glm_22 <- log(dd_con$N_ACC_22) - log(cav_glm_22$fitted.values) 
+resids_glm_23 <- log(dd_con$N_ACC_23) - log(cav_glm_23$fitted.values) 
 
 resids <- c(resids_glm_21, resids_glm_22, resids_glm_23)
 rr <- range(resids[which(is.finite(resids))])
