@@ -842,7 +842,7 @@ And
 $$
 \pi_i = \left(1 + e^{- \displaystyle{(\beta_0 + \beta_1 X_{k+1} + ... + \beta_m X_{i, k+m})}} \right)^{-1}
 $$
-Hence the linear predictor is not linear anymore. $z_i$ denotes the spatial latent effect, as in earlier section.
+Hence the predictor is not linear anymore. $z_i$ denotes the spatial latent effect, as in earlier section.
 
 As a preliminary modelling and computation attempt we employ the `inlabru` R package [@lindgren2024inlabru], following the operational (and coding) framework of [@Wollo].
 

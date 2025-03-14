@@ -2039,7 +2039,7 @@ wider due to increased uncertainty.</p>
 ## generated.</code></pre>
 <div data-pagedtable="false">
 <script data-pagedtable-source type="application/json">
-{"columns":[{"label":["Variable"],"name":[1],"type":["chr"],"align":["left"]},{"label":["mean"],"name":[2],"type":["dbl"],"align":["right"]},{"label":["X0.025quant"],"name":[3],"type":["dbl"],"align":["right"]},{"label":["X0.5quant"],"name":[4],"type":["dbl"],"align":["right"]},{"label":["X0.975quant"],"name":[5],"type":["dbl"],"align":["right"]}],"data":[{"1":"Z_VAR","2":"0.4015642","3":"0.1923314","4":"0.3804986","5":"0.7319008"},{"1":"Mixing","2":"0.5622820","3":"0.1560115","4":"0.5767473","5":"0.9027359"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
+{"columns":[{"label":["Variable"],"name":[1],"type":["chr"],"align":["left"]},{"label":["mean"],"name":[2],"type":["dbl"],"align":["right"]},{"label":["X0.025quant"],"name":[3],"type":["dbl"],"align":["right"]},{"label":["X0.5quant"],"name":[4],"type":["dbl"],"align":["right"]},{"label":["X0.975quant"],"name":[5],"type":["dbl"],"align":["right"]}],"data":[{"1":"Z_VAR","2":"0.4015644","3":"0.1923316","4":"0.3804990","5":"0.7319002"},{"1":"Mixing","2":"0.5622828","3":"0.1560125","4":"0.5767485","5":"0.9027344"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
   </script>
 </div>
 <p>Even though the value of the zero-inflation parameter is low, we can
@@ -2130,7 +2130,7 @@ X_{ik}} + z_i}
 \]</span> And <span class="math display">\[
 \pi_i = \left(1 + e^{- \displaystyle{(\beta_0 + \beta_1 X_{k+1} + ... +
 \beta_m X_{i, k+m})}} \right)^{-1}
-\]</span> Hence the linear predictor is not linear anymore. <span class="math inline">\(z_i\)</span> denotes the spatial latent effect, as
+\]</span> Hence the predictor is not linear anymore. <span class="math inline">\(z_i\)</span> denotes the spatial latent effect, as
 in earlier section.</p>
 <p>As a preliminary modelling and computation attempt we employ the
 <code>inlabru</code> R package <span class="citation">(Lindgren et al.
@@ -2308,7 +2308,7 @@ rownames(hyperpars_bru) &lt;- NULL
 hyperpars_bru</code></pre>
 <div data-pagedtable="false">
 <script data-pagedtable-source type="application/json">
-{"columns":[{"label":["Variable"],"name":[1],"type":["chr"],"align":["left"]},{"label":["mean"],"name":[2],"type":["dbl"],"align":["right"]},{"label":["X0.025quant"],"name":[3],"type":["dbl"],"align":["right"]},{"label":["X0.5quant"],"name":[4],"type":["dbl"],"align":["right"]},{"label":["X0.975quant"],"name":[5],"type":["dbl"],"align":["right"]}],"data":[{"1":"Variance","2":"0.3935797","3":"0.1880099","4":"0.3730405","5":"0.7173636"},{"1":"Mixing","2":"0.5461067","3":"0.1423046","4":"0.5578536","5":"0.8972655"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
+{"columns":[{"label":["Variable"],"name":[1],"type":["chr"],"align":["left"]},{"label":["mean"],"name":[2],"type":["dbl"],"align":["right"]},{"label":["X0.025quant"],"name":[3],"type":["dbl"],"align":["right"]},{"label":["X0.5quant"],"name":[4],"type":["dbl"],"align":["right"]},{"label":["X0.975quant"],"name":[5],"type":["dbl"],"align":["right"]}],"data":[{"1":"Variance","2":"0.3935797","3":"0.1880102","4":"0.3730410","5":"0.7173612"},{"1":"Mixing","2":"0.5461065","3":"0.1423055","4":"0.5578534","5":"0.8972639"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
   </script>
 </div>
 Finally, we plot the estimated latent BYM effect:
