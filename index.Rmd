@@ -2,9 +2,9 @@
 title: "Exploratory analysis of accesses to support centers for gender-based violence
   in Apulia"
 output:
+  pdf_document: default
   html_document:
     df_print: paged
-  pdf_document: default
   word_document: default
 bibliography: references.bib
 ---
