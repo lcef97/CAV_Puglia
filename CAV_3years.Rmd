@@ -19,6 +19,22 @@ library(INLAMSM)
 #if(!rlang::is_installed("pscl")) install.packages("pscl")
 ```
 
+
+
+## Data
+
+The dataset employed regards the counts of accesses to gender-based violence support centers in the Apulia region by residence municipality of the women victims of violence during 2022. `R` codes to generate the dataset are in the R script [posted here](https://github.com/lcef97/CAV_Puglia/blob/main/CAV_full.R) which this report is based on. Observational period are years 2021, 2022, 2023.
+
+Here, we only take into account the violence reports which support centers actually take charge of, at the risk of underestimating the counts of gender-based violence cases.
+This choice is driven by the need of avoiding duplicated records, since e.g. it may happen that a support center redirects a victim to another support center. 
+
+In order to avoid singletons in the spatial structure of the dataset, we removed the Tremiti Islands from the list of municipalities included ($0$ accesses recorded so far).
+
+Therefore, the municipality-level dataset in scope consists of $256$ observations. 
+
+We can only take into account the accesses to support centers for which the origin municipality of victims is reported; therefore the total count of accesses in scope is $1477$, $1516$ and $1822$ for the three reference years respectively. 
+
+Here, we plot the log-access rate per residence municipality, i.e. the logarithm of the ratio between access counts and female population. Blank areas correspond to municipalities from which zero women accessed support centers ($82$ municipalities).
 ```{r input, echo = FALSE, message = FALSE, warning = FALSE, output = FALSE}
 ## Input ------------------------------------------------------------------f-----
 
@@ -234,22 +250,25 @@ dd_list_st$Area_bis <- dd_list_st$Area
 dd_list_st$Year_bis <- dd_list_st$Year
 dd_list_st$ID <- dd_list_st$Area + (dd_list_st$Year-1)*nrow(dd_con)
 
+ls2df <- function(lst=dd_list){
+  ls_M <- lapply(lst[-which(names(lst) %in% c("ID2", "N_ACC"))],
+                 function(X) X <- as.matrix(X))
+  df <- as.data.frame(do.call(cbind, ls_M))
+  torep <- sum(sapply(ls_M, function(X) ncol(X))==3)
+  names(df) <- c(paste0(
+    rep(names(ls_M)[1:torep], sapply(ls_M, function(X) ncol(X))[1:torep]),
+    c(rep(c("_2021", "_2022", "_2023"), torep)) ), 
+    names(ls_M)[-c(1:torep)])
+  df$N_ACC <- lst$N_ACC[which(!is.na(lst$N_ACC))]
+  df$Year <- rep(c("2021", "2022", "2023"), each = n)
+  df <- dplyr::relocate(df, .data$Year, .before = 1) %>%
+    dplyr::relocate(.data$N_ACC, .before = .data$Year)
+  return(df)
+}
+dd_extended <- ls2df()
+dd_extended[is.na(dd_extended)] <- 0
+
 ```
-
-
-## Data
-The dataset employed regards the counts of accesses to gender-based violence support centers in the Apulia region by residence municipality of the women victims of violence during 2022. `R` codes to generate the dataset are in the R script [posted here](https://github.com/lcef97/CAV_Puglia/blob/main/CAV_full.R) which this report is based on. Observational period are years 2021, 2022, 2023.
-
-Here, we only take into account the violence reports which support centers actually take charge of, at the risk of underestimating the counts of gender-based violence cases.
-This choice is driven by the need of avoiding duplicated records, since e.g. it may happen that a support center redirects a victim to another support center. 
-
-In order to avoid singletons in the spatial structure of the dataset, we removed the Tremiti Islands from the list of municipalities included ($0$ accesses recorded so far).
-
-Therefore, the municipality-level dataset in scope consists of $256$ observations. 
-
-We can only take into account the accesses to support centers for which the origin municipality of victims is reported; therefore the total count of accesses in scope is $1477$, $1516$ and $1822$ for the three reference years respectively. 
-
-Here, we plot the log-access rate per residence municipality, i.e. the logarithm of the ratio between access counts and female population. Blank areas correspond to municipalities from which zero women accessed support centers ($82$ municipalities).
 
 
 ```{r Log accesses plot, echo = FALSE, warning = FALSE, message = FALSE, fig.cap = "Log-access rate" }
@@ -301,16 +320,16 @@ In the first case, we drop the distance from the nearest infrastructural pole. I
 We regress the counts of accesses $y$ to support centers on the aforementioned explanatory variables. To estimate regression coefficients, all covariates are scaled to zero mean an unit variance. 
 
 \begin{equation}
-y_i \mid \eta_i \sim \mathrm{Poisson}(e^{\eta_i + P_i}) \quad \text{where} \quad
-\eta_i = X_i^{\top} \beta
+y_{it} \mid \eta_{it} \sim \mathrm{Poisson}(E_{it} \, e^{\eta_{it}}) \quad \text{where} \quad
+\eta_{it} = X_{it}^{\top} \alpha
 \label{eq:glm}
 \end{equation}
 
-Where $X$ are the covariate defined earlier, $\beta$ are covariate effects, and $P_i$ is the female population aged $\geq 15$ in municipality $i$.
+Where $X$ are the covariate defined earlier, $\alpha$ are covariate effects, and $E_{it}$ is the female population aged $\geq 15$ in municipality $i$ and year $t$.
 
 To gain more insight on the role of all explanatory variables we show the posterior summaries of the full regression model
 
-```{r glm full covs}
+```{r glm full covs, echo = F}
 cav_glm_21 <- glm(N_ACC_21~ 1 +TEP_th_22 + ELI + PGR +
                  UIS + ELL + PDI + ER,
                family = "poisson",offset = log(nn21), data = dd_con)
@@ -323,16 +342,13 @@ cav_glm_23 <- glm(N_ACC_23~ 1 +TEP_th_23 + ELI + PGR +
                  UIS + ELL + PDI + ER,
                family = "poisson",offset = log(nn23), data = dd_con)
 
-
-
-
 ```
 
 
 ```{r glm results, warning = FALSE, message = FALSE, echo = FALSE, results = "asis"}
 
 
-betas.glm <- data.frame(
+alphas.glm <- data.frame(
   Mean = c(summary(cav_glm_21)$coefficients[,1],
            summary(cav_glm_22)$coefficients[,1],
            summary(cav_glm_23)$coefficients[,1]),
@@ -343,13 +359,13 @@ betas.glm <- data.frame(
   dplyr::mutate(Effect = rep(c("Intercept", "TEP", rownames(summary(cav_glm_21)$coefficients)[-c(1,2)]),3)) %>% 
   dplyr::relocate(.data$Effect, .before = 1)
 
-betas.glm %<>%   tidyr::pivot_wider(
+alphas.glm %<>%   tidyr::pivot_wider(
     id_cols = Effect,           # Use the unique coefficient names as row identifier
     names_from = year,               # Create new columns for each year
     values_from = c(Mean, Sd)        # Fill in values from Mean and Sd
   )
 
-print(xtable::xtable(betas.glm, num.digits = 3), include.rowname = FALSE)
+print(xtable::xtable(alphas.glm, num.digits = 3), include.rowname = FALSE)
 ```
 
 
@@ -363,7 +379,7 @@ cav_nosp_inla <- inla(
   num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
   verbose = T)
 
-betas.nosp.inla  <- cav_nosp_inla$summary.fixed %>% 
+alphas.nosp.inla  <- cav_nosp_inla$summary.fixed %>% 
   dplyr::select(.data$mean, .data$sd)  %>%
   dplyr::mutate( year = rep(c(2021, 2022, 2023), 8)) %>% 
   dplyr::mutate(Effect = rep(c("Intercept", "TEP", rownames(summary(cav_glm_21)$coefficients)[-c(1,2)]),each=3)) %>% 
@@ -374,7 +390,7 @@ betas.nosp.inla  <- cav_nosp_inla$summary.fixed %>%
     names_from = .data$year,                
     values_from = c(.data$Mean, .data$Sd))
 
-#print(betas.nosp.inla, n.digits = 3)
+#print(alphas.nosp.inla, n.digits = 3)
 
 ```
 
@@ -397,7 +413,7 @@ betas.nosp.inla  <- cav_nosp_inla$summary.fixed %>%
 ## Spatial regression
 
 
-We plot the log-residuals $\varepsilon$ of the GLM regression models, defined as $\varepsilon := \ln y_i - \ln P_i - \ln \hat{\eta}_i$ being $\hat{\eta}_i$ the expected predictor.
+We plot the log-residuals $\varepsilon$ of the GLM regression models, defined as $\varepsilon := \ln y_{it} - \ln \hat{y}_{it}$ being $\hat{\eta}_{it}$ the fitted value.
 
 
 ```{r glm residuals, echo = FALSE, warnings = FALSE, message = FALSE, output = FALSE}
@@ -499,7 +515,7 @@ unlist(spdep::geary.test(
 unlist(spdep::moran.test(
   resids_glm_22[nonzero_con_22],
   listw = spdep::nb2listw(
-    nb_con_nonzero_22))[c("statitic", "p.value")])
+    nb_con_nonzero_22))[c("statistic", "p.value")])
 unlist(spdep::geary.test(
   resids_glm_22[nonzero_con_22],
   listw = spdep::nb2listw(
@@ -527,14 +543,16 @@ Based on the autocorrelation evidence, though it has only been assessed for a su
 
 
 \begin{equation}
-\eta_i = X_i^{\top} \beta + z_i 
+\eta_{it} = X_{it}^{\top} \alpha + z_{it} 
 \label{eq:mspat}
 \end{equation}
 
 
-We test a total of three models, all of which have a prior distribution depending on the spatial structure of the underlying graph, in this case the Apulia region. 
+We test a total of four models, all of which have a prior distribution depending on the spatial structure of the underlying graph, in this case the Apulia region. 
 
-We describe the spatial structure starting from municipality neighbourhood, and introduce the neighbourhood matrix $W$, whose generic element $w_{ij}$ takes value $1$ if municipalities $i$ and $j$ are neighbours and $0$ otherwise. For each $i \in [1,n]$, $d_i:= \sum_{j=1}^n w_{ij}$ is the number of neigbours of $i$-th municipality. Plase notice we have have $n = 256$.
+In the following, the area-specific latent field is denoted as $z_i = (z_{i1}^{\top}\, z_{i2}^{\top}\, z_{i3}^{\top})^{\top}$
+
+We describe the spatial structure starting from municipalities neighbourhood, and introduce the neighbourhood matrix $W$, whose generic element $w_{ij}$ takes value $1$ if municipalities $i$ and $j$ are neighbours and $0$ otherwise. For each $i \in [1,n]$, $d_i:= \sum_{j=1}^n w_{ij}$ is the number of neigbours of $i$-th municipality. Plase notice we have have $n = 256$.
 
 For all models, we define $\Lambda$ as the precision parameter of the latent effect, and assign it a Wishart prior.
 
@@ -578,10 +596,10 @@ while also requiring the minimum number of additional parameter (either the scal
 The drawback, however, is that we implicitly assume a deterministic spatial autocorrelation coefficient equal to 1.
 When the autocorrelation is weak, setting an ICAR prior may be a form of misspecification.
 
-A generalisation of this model is the PCAR (proper CAR), which introduces an autocorrelation parameter $\alpha$:
+A generalisation of this model is the PCAR (proper CAR), which introduces an autocorrelation parameter $\rho$:
 
 \begin{equation}
-z_i \mid z_{-i} \sim N \left( \sum_{j=1}^n \alpha \frac{w_{ij}}{d_i} z_j \,, \frac{}{d_i} \Lambda^{-1}\right)
+z_i \mid z_{-i} \sim N \left( \sum_{j=1}^n \rho \frac{w_{ij}}{d_i} z_j \,, \frac{}{d_i} \Lambda^{-1}\right)
 \label{eq:pcar_loc}
 \end{equation}
 
@@ -602,17 +620,17 @@ cav_PMCAR_inla <- inla(
 
 We show the posterior summary for the autocorrelation coefficient. 
 
-```{r alfa, echo = FALSE, fig.height = 3, fig.cap = "Posterior marginal of the PCAR autocorrelation parameter"}
-alpha_marg_pcar <- inla.tmarginal(
+```{r rho pcar, echo = FALSE, fig.height = 3, fig.cap = "Posterior marginal of the PCAR autocorrelation parameter"}
+rho_marg_pcar <- inla.tmarginal(
   fun = function(X) 1/(1 + exp(-X)),
   marginal = cav_PMCAR_inla$marginals.hyperpar[[1]])
 
-plot(alpha_marg_pcar, type = 'l', xlab = expression(alpha), ylab = expression(pi (alpha ~ "|" ~ y)  ))
+plot(rho_marg_pcar, type = 'l', xlab = expression(rho), ylab = expression(pi (rho ~ "|" ~ y)  ))
 
-unlist(inla.zmarginal(alpha_marg_pcar, silent = TRUE))
+unlist(inla.zmarginal(rho_marg_pcar, silent = TRUE))
 ```
  
- The credible interval for $\alpha$ is quite pushed towards unity, denoting the model estimates a strong spatial autocorrelation. 
+ The credible interval for $\rho$ is quite pushed towards unity, denoting the model estimates a strong spatial autocorrelation. 
  
 #### Leroux model
 
@@ -898,7 +916,7 @@ A different perspective than multivariate modelling would be spatiotemporal mode
 
 In this case, we would assume the DGP of the linear predictor to be of this form:
 \begin{equation}
-\eta_{it} = X_{it}^{\top} \beta_t + z_{i} + \delta_{it}
+\eta_{it} = X_{it}^{\top} \alpha_t + z_{i} + \delta_{it}
 \label{eq:st}
 \end{equation}
 
@@ -938,7 +956,7 @@ cav_STbym_i1_INLA <- inla(N_ACC ~ 1 +TEP_th + ELI + PGR + UIS + ELL + PDI + ER +
 
 We briefly compare the three models in scope through the WAIC [@GelmanWAIC]:
 
-```{r WAICs table, echo = F, results = "asis"}
+```{r WAICs table, echo = F, results = "asis", message = FALSE}
 
 WAICS <- tibble::tibble(
   Model = c("Null", "ICAR", "PCAR", "Leroux", "BYM", "ST_I"),
@@ -956,17 +974,16 @@ print(xtable::xtable(WAICS),include.rowname = F)
 As we can see, adding a spatial model is an improving element, not a waste of complexity.
 
 
-
 ## Preliminary findings
 
-Here we show some posterior summaries for $\beta$ under the BYM model.
+Here we show some posterior summaries for $\alpha$ under the BYM model.
 
 <!--
 Since the latent effect has a proper distribution and does not require sum to zero constraints, using year-specific intercepts would cause confounding between intercepts and latent effects, leading to system crashing and thus failure to estimate the model. As a consequence, we used the same intercept for the three different years, allowing the latent effect to have *a posteriori* an additive year-specific shift.
 -->
 
-```{r betas bym, echo = FALSE, results = "asis"}
-betas.MBYM.inla   <- cav_MBYM_inla$summary.fixed %>% 
+```{r alphas bym, echo = FALSE, results = "asis", message = FALSE}
+alphas.MBYM.inla   <- cav_MBYM_inla$summary.fixed %>% 
   dplyr::select(.data$mean, .data$sd)  %>%
   dplyr::mutate( year = rep(c(2021, 2022, 2023), 8)) %>% 
   dplyr::mutate(Effect = rep(c("Intercept", "TEP",
@@ -978,7 +995,7 @@ betas.MBYM.inla   <- cav_MBYM_inla$summary.fixed %>%
     names_from = .data$year,                
     values_from = c(.data$Mean, .data$Sd))
 
-#betas.MBYM.inla <- dplyr::bind_rows(
+#alphas.MBYM.inla <- dplyr::bind_rows(
 #  data.frame(Effect = "Intercept", 
 #             Mean_2021 = cav_MBYM_inla$summary.fixed$mean[1],
 #             Sd_2021 = cav_MBYM_inla$summary.fixed$sd[1],
@@ -986,14 +1003,14 @@ betas.MBYM.inla   <- cav_MBYM_inla$summary.fixed %>%
 #             Sd_2022 = cav_MBYM_inla$summary.fixed$sd[1],
 #             Mean_2023 = cav_MBYM_inla$summary.fixed$mean[1],
 #             Sd_2023 = cav_MBYM_inla$summary.fixed$sd[1]),
- # betas.MBYM.inla.noint) 
+ # alphas.MBYM.inla.noint) 
 
-print(xtable::xtable(betas.MBYM.inla, num.digits = 3), include.rowname = FALSE)
+print(xtable::xtable(alphas.MBYM.inla, num.digits = 3), include.rowname = FALSE)
 
 ```
 
 
-Estimations of $\beta$ differ slightly from the nonspatial model. For all variables, credibility intervals are wider due to increased uncertainty. 
+Estimations of $\alpha$ differ slightly from the nonspatial model. For all variables, credibility intervals are wider due to increased uncertainty. 
 
   - `TEP_th_22` The effect of the distance from the closest support center remains similar in mean and the interpretation is not altered.
 
@@ -1086,9 +1103,6 @@ gridExtra::grid.arrange(ggyhat21, ggyhat22, ggyhat23, nrow = 3, ncol = 1)
 
 
 
-
-
-
 We show the posterior median of the marginal variances of $z$, i.e. $\Lambda^{-1}$:
 ```{r Sigma LCAR, echo = FALSE, eval = FALSE, message = FALSE, warning = FALSE}
 Sigma_diag_ls <- sapply(c(2,3,4), function(i){
@@ -1171,7 +1185,7 @@ phi_marg_bym <- inla.tmarginal(
   fun = function(X) 1/(1 + exp(-X)),
   marginal = cav_MBYM_inla$marginals.hyperpar[[1]])
 
-plot(phi_marg_bym, type = 'l', xlab = expression(xi), ylab = expression(pi (phi ~ "|" ~ y)  ))
+plot(phi_marg_bym, type = 'l', xlab = expression(phi), ylab = expression(pi (phi ~ "|" ~ y)  ))
 
 unlist(inla.zmarginal(phi_marg_bym, silent = TRUE))
 ```
@@ -1211,6 +1225,168 @@ print(xtable::xtable(hyperpar_df, digits = 3), include.rowname = F)
 
 
 ```
+
+## Further development: pogit model for underreporting
+
+The observed counts of accesses to AVCs clearly imply a severe under-reporting of gender-based violence, regarding the vast majority of incidents. 
+
+If this does not provide a valid reason to model the under-reporting process explicitly - as there are not any data to assess the spatial distribution of true VAW incindents counts at *this* level of granularity, it is still needful to consider that some risk factors with a strong negative association have same-sign effects on accesses counts. 
+
+More specifically, employment rate and low-education incidence have a very high negative correlation, as it is reasonable to expect. Notwithstanding this, both appear to have a negative impact on access counts. A possible explanation for this finding is that these two variables impact on two different processes, which we do not observe, but whose interaction yields to the observed response variable, namely accesses counts. 
+
+We therefore attempt at implementing a Poisson - logistic model to explicitly account for under-reporting [@Pogit].
+Given the scarce information at our disposal, we can only guess which variable enter either of the two predictor components, i.e. the VAW reporting and the actual occurrence Specifically, we assign distance from closest AVC and low education incidence to the former component and all other variables plus the spatial effect to the latter. 
+
+The model is thus defined:
+\begin{equation}
+y_{i,t} \sim \mathrm{Poisson}(E_{it} \, \lambda_{it} \, \pi_{it}) \quad \forall i \in [1,256], t \in \lbrace 2021, 2022, 2023 \rbrace
+\end{equation}
+Where $E_{i,t}$ is the offset, $\lambda_{it}$ is the expected count of incidents $\pi_{it}$ is the expected reporting rate. 
+We will denote $\alpha$ as the $k+1$ covariate effects entering $\lambda_{it}$ and $\beta$ the $m+1$ covariate effects entering $\pi_{it}$ for two integers $p$ and $m$.
+
+
+We would thus have, for each year $t$ and municipality $i$;
+$$
+\lambda_{it} = e^{\displaystyle{\alpha_{0t} + \alpha_{1t} X_{i1,t} + ... + \alpha_{pt} X_{ik,t}} + z_{it}}
+$$
+And
+$$
+\pi_{it} = \left[1 + e^{- \displaystyle{(\beta_{0t} + \beta_{1t} X_{k+1,t} + ... + \beta_{mt} X_{i (k+m),t})}} \right]^{-1}
+$$
+Hence the predictor is not linear anymore. 
+
+We approximate the predictor through first-order Taylor expansion, which is made possible by the \texttt{inlabru R} package [@lindgren2024inlabru]. To define the nonlinear predictor component, we follow [@Wollo].
+
+Here, we show the \texttt{R} code to achieve this. For computational reasons, we only employ the BYM model with a Uniform prior on the mixing parameter. The R function shown here can also be used for spatiotemporal models. 
+```{r inlabru setting}
+logexpit <- function(x, beta){
+  pred <- beta[[1]] +
+    rowSums(do.call(cbind, lapply(c(1:length(x)), function(n){
+      beta[[n+1]]*x[[n]]
+      })))
+  return(-log(1+exp(-pred)))
+}
+
+cmp_spatial <- function(spatial_expr, st_expr = NULL, t_expr = NULL) {
+  
+  spatial <- function(id, ...) INLA::f(id, ...)
+  spatiotemporal <- function(id, ...) INLA::f(id, ...)
+  temporal <- function(id, ...) INLA::f(id, ...)
+  
+  f2 <- substitute(spatial_expr)
+  f3 <- substitute(t_expr)
+  f4 <- substitute(st_expr)
+  f1 <- bquote(
+    ~ 0 +
+      alpha_0_2021(Intercept_2021) + 
+      alpha_0_2022(Intercept_2022) +  
+      alpha_0_2023(Intercept_2023) +  
+      beta_0_2021(main = Intercept_2021,  model = "linear",
+                  mean.linear = -2.2,
+                  prec.linear = 1e+2) +
+      beta_0_2022(main = Intercept_2022,  model = "linear",
+                  mean.linear = -2.2,
+                  prec.linear = 1e+2) +
+      beta_0_2023(main = Intercept_2023,  model = "linear",
+                  mean.linear = -2.2,
+                  prec.linear = 1e+2) +
+      myoffset(log(nn), model = "offset") +
+      alpha_ELI_2021(ELI_2021) + alpha_ELI_2022(ELI_2022) + alpha_ELI_2023(ELI_2023) + 
+      alpha_PGR_2021(PGR_2021) + alpha_PGR_2022(PGR_2022) + alpha_PGR_2023(PGR_2023) + 
+      alpha_UIS_2021(UIS_2021) + alpha_UIS_2022(UIS_2022) + alpha_UIS_2023(UIS_2023) + 
+      alpha_PDI_2021(PDI_2021) + alpha_PDI_2022(PDI_2022) + alpha_PDI_2023(PDI_2023) + 
+      alpha_ER_2021(ER_2021) + alpha_ER_2022(ER_2022) + alpha_ER_2023(ER_2023) + 
+      beta_TEP_2021(main = Intercept_2021, model = "linear", 
+                    mean.linear = 0,
+                    prec.linear = 1e-3) + 
+      beta_TEP_2022(main = Intercept_2022, model = "linear", 
+                    mean.linear = 0,
+                    prec.linear = 1e-3)  +
+      beta_TEP_2023(main = Intercept_2023, model = "linear", 
+                    mean.linear = 0,
+                    prec.linear = 1e-3) +
+      beta_ELL_2021(main = Intercept_2021, model = "linear", 
+                    mean.linear = 0,
+                    prec.linear = 1e-3)  +
+      beta_ELL_2022(main = Intercept_2022, model = "linear", 
+                    mean.linear = 0,
+                    prec.linear = 1e-3)  +
+      beta_ELL_2023(main = Intercept_2023, model = "linear", 
+                    mean.linear = 0,
+                    prec.linear = 1e-3) )
+  ff <- f1[[2]]
+  if (!is.null(f2)) ff <- as.call(c(quote(`+`), ff, f2))
+  if (!is.null(f3)) ff <- as.call(c(quote(`+`), ff, f3))
+  if (!is.null(f4)) ff <- as.call(c(quote(`+`), ff, f4))
+  final_formula <- as.formula(bquote(~ .(ff)))
+  return(final_formula)
+}
+
+cmp_BYM <- cmp_spatial(spatial(
+  ID, model = inla.MBYM.dense(k = 3, W = W_con, 
+                              PC = FALSE),
+  extraconstr = list(A = A_constr, e = rep(0, 3))))
+
+library(inlabru)
+
+cav_bru <- function(model_cmp, data = dd_extended){
+
+  terms <- c("0", "alpha_0_2021", "alpha_0_2022", "alpha_0_2023",
+             "myoffset", 
+             "alpha_ELI_2021", "alpha_ELI_2022", "alpha_ELI_2023",
+             "alpha_PGR_2021", "alpha_PGR_2022", "alpha_PGR_2023",
+             "alpha_UIS_2021", "alpha_UIS_2022", "alpha_UIS_2023",
+             "alpha_PDI_2021", "alpha_PDI_2022", "alpha_PDI_2023",
+             "alpha_ER_2021", "alpha_ER_2022", "alpha_ER_2023",
+             paste0("logexpit(x = list(TEP_th_2021, ELL_2021),",
+                    "beta = list(beta_0_2021, beta_TEP_2021, beta_ELL_2021))"),
+             paste0("logexpit(x = list(TEP_th_2022, ELL_2022),",
+                    "beta = list(beta_0_2022, beta_TEP_2022, beta_ELL_2022))"),
+             paste0("logexpit(x = list(TEP_th_2023, ELL_2023),",
+                    "beta = list(beta_0_2023, beta_TEP_2023, beta_ELL_2023))"))
+  
+  if (any(grepl("spatial", as.character(model_cmp)))) terms <- c(terms, "spatial")
+  if (any(grepl("time", as.character(model_cmp)))) terms <- c(terms, "time")
+  if (any(grepl("spatiotemporal", as.character(model_cmp)))) terms <- c(terms, "spatiotemporal")
+  
+  formula <- as.formula(paste("N_ACC ~", paste(terms, collapse = " + ")))
+  
+  res <- inlabru::bru(
+    components = model_cmp,
+    lik = inlabru::like(family = "poisson", formula = formula, data = data),
+    options = list(verbose = T, num.threads = 1,
+                   control.compute = list(
+                     waic = T, cpo = T, dic = T, internal.opt = F),
+                   control.predictor = list(compute =  T)))
+  return(res)
+}
+
+```
+
+
+```{r inlabru BYM run, message = F, output = F, warning = F}
+cav_MBYM_inlabru <- cav_bru(cmp_BYM)
+
+```
+
+Here we show some posterior summaries for covariate effects.
+```{r alphas bym inlabru, echo = FALSE, results = "asis", message = FALSE}
+alphas.MBYM.inlabru  <- cav_MBYM_inlabru$summary.fixed %>% 
+    dplyr::select(.data$mean, .data$sd)  %>%
+    dplyr::mutate(effect = rownames(.)) %>% 
+    tidyr::separate(.data$effect, into = c("e1", "e2", "year"), sep = "_") %>% 
+    tidyr::unite("Effect", c(.data$e1, .data$e2), remove = T)%>% 
+  dplyr::relocate(.data$Effect, .before = 1) %>%  
+  dplyr::rename(Mean = .data$mean, Sd = .data$sd) %>% 
+  tidyr::pivot_wider( 
+    id_cols = .data$Effect,            
+    names_from = .data$year,                
+    values_from = c(.data$Mean, .data$Sd))
+
+print(xtable::xtable(alphas.MBYM.inlabru, num.digits = 3), include.rowname = FALSE)
+
+```
+
 
 ## Appendices
 
@@ -1567,7 +1743,7 @@ inla.rgeneric.MBYM.sparse <-
 
 #### Addressing the potential issue of spatial confounding
 
-The changes in $E[\beta|y]$ may suggest we are in presence of confounding bias. 
+The changes in $E[\alpha|y]$ may suggest we are in presence of confounding bias. 
 We adopt the most parsimonious approach to overcome this situation, i.e. removing spatial trends up to a certain order from all explanatory variables except for the distance from the closest AVC. In this case, interpreting a distance indicator from which spatial structure is removed becomes challenging. For all other covariates we follow the methodology of [@Urdangarin].
 
 The fundamental decision regards the number of spatial trends to remove from each covariate. We try at removing as few spatial trends as possible in order to obtain a value of the Moran's standardised index less than $1.645$, which corresponds to the $95$-th percentile of the standard Normal distribution.
@@ -1657,6 +1833,9 @@ dd_list_nosp <- list (
   ID = dd_list$ID,
   nn = dd_list$nn) 
 
+
+
+
 ```
 
 Then we fit the BYM model to the deconfounded data
@@ -1676,8 +1855,8 @@ cav_MBYM_inla_spatplus <- inla(
 ```
 
 Resulting estimates for covariate effects are summarised:
-```{r betas leroux spatplus, echo = FALSE, results = "asis"}
-betas.mbym.inla.1  <- cav_MBYM_inla_spatplus$summary.fixed %>% #[-1,] 
+```{r alphas leroux spatplus, echo = FALSE, results = "asis", message = FALSE}
+alphas.mbym.inla.1  <- cav_MBYM_inla_spatplus$summary.fixed %>% #[-1,] 
   dplyr::select(.data$mean, .data$sd)  %>%
   dplyr::mutate( year = rep(c(2021, 2022, 2023), 8)) %>% 
   dplyr::mutate(Effect = rep(c("Intercept", "TEP", rownames(summary(cav_glm_21)$coefficients)[-c(1,2)]),each=3)) %>% 
@@ -1688,7 +1867,7 @@ betas.mbym.inla.1  <- cav_MBYM_inla_spatplus$summary.fixed %>% #[-1,]
     names_from = .data$year,                
     values_from = c(.data$Mean, .data$Sd))
 
-#betas.mlcar.inla1 <- dplyr::bind_rows(
+#alphas.mlcar.inla1 <- dplyr::bind_rows(
 #  data.frame(Effect = "Intercept", 
 #             Mean_2021 = cav_MLCAR_inla_spatplus$summary.fixed$mean[1],
 #             Sd_2021 = cav_MLCAR_inla_spatplus$summary.fixed$sd[1],
@@ -1696,13 +1875,13 @@ betas.mbym.inla.1  <- cav_MBYM_inla_spatplus$summary.fixed %>% #[-1,]
 #             Sd_2022 = cav_MLCAR_inla_spatplus$summary.fixed$sd[1],
 #             Mean_2023 = cav_MLCAR_inla_spatplus$summary.fixed$mean[1],
 #             Sd_2023 = cav_MLCAR_inla_spatplus$summary.fixed$sd[1]),
-#  betas.mlcar.inla.noint1) 
+#  alphas.mlcar.inla.noint1) 
 
-print(xtable::xtable(betas.mbym.inla.1, num.digits = 3), include.rowname = FALSE)
+print(xtable::xtable(alphas.mbym.inla.1, num.digits = 3), include.rowname = FALSE)
 
 ```
 
-The most notable change is perhaps the shrinkage in the effect of employment rate in 2021 and 2023. This being said, the interpretation of the posteriors of $\beta$ is overall consistent with the base MLCAR model. 
+The most notable change is perhaps the shrinkage in the effect of employment rate in 2021 and 2023. This being said, the interpretation of the posteriors of $\alpha$ is overall consistent with the base MLCAR model. 
 
 
 
