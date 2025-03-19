@@ -1966,13 +1966,13 @@ z_i \mid z_{-i} \sim N \left( \sum_{j=1}^n \alpha \frac{w_{ij}}{d_i} z_j
 <code>R-INLA</code> is in Appendix.</p>
 <p>We show the posterior summary for the autocorrelation
 coefficient.</p>
-<pre><code>## Mean            0.812698 
-## Stdev           0.137317 
-## Quantile  0.025 0.456104 
-## Quantile  0.25  0.744349 
-## Quantile  0.5   0.849084 
-## Quantile  0.75  0.916071 
-## Quantile  0.975 0.974667</code></pre>
+<pre><code>## Mean            0.826504 
+## Stdev           0.127968 
+## Quantile  0.025 0.491135 
+## Quantile  0.25  0.764806 
+## Quantile  0.5   0.860781 
+## Quantile  0.75  0.921856 
+## Quantile  0.975 0.975769</code></pre>
 </div>
 <div id="bym-model" class="section level4">
 <h4>BYM model</h4>
@@ -2014,7 +2014,7 @@ corresponding degree matrix.</p>
 <p>We briefly compare these four through the WAIC <span class="citation">(Gelman, Hwang, and Vehtari 2014)</span>:</p>
 <div data-pagedtable="false">
 <script data-pagedtable-source type="application/json">
-{"columns":[{"label":["Model"],"name":[1],"type":["chr"],"align":["left"]},{"label":["WAIC_Poisson"],"name":[2],"type":["dbl"],"align":["right"]},{"label":["WAIC_ZIP"],"name":[3],"type":["dbl"],"align":["right"]},{"label":["Eff_params_Poisson"],"name":[4],"type":["dbl"],"align":["right"]},{"label":["Eff_params_ZIP"],"name":[5],"type":["dbl"],"align":["right"]}],"data":[{"1":"Null","2":"1098.397","3":"1047.493","4":"20.355","5":"18.091"},{"1":"ICAR","2":"951.387","3":"962.571","4":"74.725","5":"66.380"},{"1":"PCAR","2":"947.449","3":"953.208","4":"76.765","5":"64.976"},{"1":"BYM","2":"942.879","3":"952.994","4":"75.336","5":"65.131"},{"1":"Leroux","2":"945.463","3":"951.509","4":"75.595","5":"63.958"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
+{"columns":[{"label":["Model"],"name":[1],"type":["chr"],"align":["left"]},{"label":["WAIC_Poisson"],"name":[2],"type":["dbl"],"align":["right"]},{"label":["WAIC_ZIP"],"name":[3],"type":["dbl"],"align":["right"]},{"label":["Eff_params_Poisson"],"name":[4],"type":["dbl"],"align":["right"]},{"label":["Eff_params_ZIP"],"name":[5],"type":["dbl"],"align":["right"]}],"data":[{"1":"Null","2":"1098.361","3":"1047.185","4":"20.358","5":"17.924"},{"1":"ICAR","2":"951.051","3":"959.422","4":"75.242","5":"65.316"},{"1":"PCAR","2":"948.917","3":"954.509","4":"76.339","5":"64.122"},{"1":"BYM","2":"942.879","3":"952.994","4":"75.336","5":"65.131"},{"1":"Leroux","2":"945.463","3":"951.509","4":"75.595","5":"63.958"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
   </script>
 </div>
 <p>As we can see, models taking into account random noise have a better
@@ -2217,7 +2217,7 @@ cmp_icar &lt;- cmp_spatial(
 #&#39; PC prior on the precision:
 cmp_pcar &lt;- cmp_spatial(
   spatial(ID, model = PCAR.model(W = W_con, k = 1,
-                                 lambda = 1.5, init = c(0, 4))))
+                                 lambda = log(100)/1.5, init = c(0, 4))))
 
 cmp_lcar &lt;- cmp_spatial(
   spatial( ID, model = &quot;besagproper&quot;, graph = W_con, 
@@ -2247,7 +2247,7 @@ cav_bym_inlabru &lt;- cav_bru_basic(cmp_bym)</code></pre>
 appears to be the BYM model.</p>
 <div data-pagedtable="false">
 <script data-pagedtable-source type="application/json">
-{"columns":[{"label":["Model"],"name":[1],"type":["chr"],"align":["left"]},{"label":["WAIC"],"name":[2],"type":["dbl"],"align":["right"]},{"label":["Eff_params"],"name":[3],"type":["dbl"],"align":["right"]}],"data":[{"1":"Null","2":"1098.033","3":"20.338"},{"1":"ICAR","2":"951.722","3":"75.437"},{"1":"PCAR","2":"947.859","3":"76.962"},{"1":"BYM","2":"943.102","3":"75.434"},{"1":"Leroux","2":"947.429","3":"75.349"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
+{"columns":[{"label":["Model"],"name":[1],"type":["chr"],"align":["left"]},{"label":["WAIC"],"name":[2],"type":["dbl"],"align":["right"]},{"label":["Eff_params"],"name":[3],"type":["dbl"],"align":["right"]}],"data":[{"1":"Null","2":"1098.033","3":"20.338"},{"1":"ICAR","2":"951.722","3":"75.437"},{"1":"PCAR","2":"949.337","3":"76.530"},{"1":"BYM","2":"943.102","3":"75.434"},{"1":"Leroux","2":"947.429","3":"75.349"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
   </script>
 </div>
 <div id="pogit-model-preliminary-findings" class="section level4">
@@ -2308,7 +2308,7 @@ rownames(hyperpars_bru) &lt;- NULL
 hyperpars_bru</code></pre>
 <div data-pagedtable="false">
 <script data-pagedtable-source type="application/json">
-{"columns":[{"label":["Variable"],"name":[1],"type":["chr"],"align":["left"]},{"label":["mean"],"name":[2],"type":["dbl"],"align":["right"]},{"label":["X0.025quant"],"name":[3],"type":["dbl"],"align":["right"]},{"label":["X0.5quant"],"name":[4],"type":["dbl"],"align":["right"]},{"label":["X0.975quant"],"name":[5],"type":["dbl"],"align":["right"]}],"data":[{"1":"Variance","2":"0.3935797","3":"0.1880102","4":"0.3730410","5":"0.7173612"},{"1":"Mixing","2":"0.5461065","3":"0.1423055","4":"0.5578534","5":"0.8972639"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
+{"columns":[{"label":["Variable"],"name":[1],"type":["chr"],"align":["left"]},{"label":["mean"],"name":[2],"type":["dbl"],"align":["right"]},{"label":["X0.025quant"],"name":[3],"type":["dbl"],"align":["right"]},{"label":["X0.5quant"],"name":[4],"type":["dbl"],"align":["right"]},{"label":["X0.975quant"],"name":[5],"type":["dbl"],"align":["right"]}],"data":[{"1":"Variance","2":"0.3935798","3":"0.1880104","4":"0.3730411","5":"0.7173605"},{"1":"Mixing","2":"0.5461065","3":"0.1423062","4":"0.5578533","5":"0.8972632"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
   </script>
 </div>
 Finally, we plot the estimated latent BYM effect:

@@ -2,9 +2,9 @@
 title: "Exploratory analysis of accesses to support centers for gender-based violence
   in Apulia"
 output:
-  pdf_document: default
   html_document:
     df_print: paged
+  pdf_document: default
   word_document: default
 bibliography: references.bib
 ---
@@ -404,14 +404,14 @@ cav_nosp_INLA <- inla(
   N_ACC ~ 1 +TEP_th_22 + ELI + PGR + UIS + ELL + PDI + ER,
   family = "poisson", offset = log(nn), data =dd_con,
   num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T), 
-  inla.mode = "classic", control.inla = list(strategy = "laplace"),
+  #inla.mode = "classic", control.inla = list(strategy = "laplace"),
   verbose = F)
 
 cav_nosp_INLA_ZIP <- inla(
   N_ACC ~ 1 +TEP_th_22 + ELI + PGR + UIS + ELL + PDI + ER,
   family = "zeroinflatedpoisson1", offset = log(nn), data =dd_con,
   num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T), 
-  inla.mode = "classic", control.inla = list(strategy = "laplace"),
+  #inla.mode = "classic", control.inla = list(strategy = "laplace"),
   verbose = F)
 
 ```
@@ -425,7 +425,7 @@ cav_icar_INLA <- inla(
                          scale.model = T, prior = "pc.prec", param = c(1.5, 0.01)),
   family = "poisson", offset = log(nn), data =dd_con,
   num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T), 
-  inla.mode = "classic", control.inla = list(strategy = "laplace"),
+  #inla.mode = "classic", control.inla = list(strategy = "laplace"),
   verbose = F) 
 
 cav_icar_INLA_ZIP <- inla(
@@ -433,7 +433,7 @@ cav_icar_INLA_ZIP <- inla(
                          scale.model = T, prior = "pc.prec", param = c(1.5, 0.01)),
   family = "zeroinflatedpoisson1", offset = log(nn), data =dd_con,
   num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T), 
-  inla.mode = "classic", control.inla = list(strategy = "laplace"),
+  #inla.mode = "classic", control.inla = list(strategy = "laplace"),
   verbose = F) 
 ```
 
@@ -520,7 +520,7 @@ PCAR.model <- function(...) INLA::inla.rgeneric.define(inla.rgeneric.PCAR.model,
 
 ```{r pcar run, message = FALSE, echo = FALSE, output = FALSE}
 cav_pcar_INLA<- inla(N_ACC ~ 1 +TEP_th_22 + ELI + PGR + UIS + ELL + PDI + ER + 
-                           f(ID, model = PCAR.model(W = W_con, k = 1, lambda = 1.5)),
+                           f(ID, model = PCAR.model(W = W_con, k = 1, lambda = log(100)/1.5)),
                          family = "poisson", offset = log(nn), data =dd_con,
                          num.threads = 1, control.compute = 
                            list(internal.opt = F, cpo = T, waic = T), 
@@ -529,7 +529,7 @@ cav_pcar_INLA<- inla(N_ACC ~ 1 +TEP_th_22 + ELI + PGR + UIS + ELL + PDI + ER +
                          verbose = T) 
 
 cav_pcar_INLA_ZIP <- inla(N_ACC ~ 1 +TEP_th_22 + ELI + PGR + UIS + ELL + PDI + ER + 
-                           f(ID, model = PCAR.model(W = W_con, k = 1, lambda = 1.5)),
+                           f(ID, model = PCAR.model(W = W_con, k = 1, lambda = log(100)/1.5)),
                          family = "zeroinflatedpoisson1", offset = log(nn), data =dd_con,
                          num.threads = 1, control.compute = 
                            list(internal.opt = F, cpo = T, waic = T), 
@@ -927,7 +927,7 @@ cmp_icar <- cmp_spatial(
 #' PC prior on the precision:
 cmp_pcar <- cmp_spatial(
   spatial(ID, model = PCAR.model(W = W_con, k = 1,
-                                 lambda = 1.5, init = c(0, 4))))
+                                 lambda = log(100)/1.5, init = c(0, 4))))
 
 cmp_lcar <- cmp_spatial(
   spatial( ID, model = "besagproper", graph = W_con, 

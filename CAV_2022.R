@@ -434,7 +434,7 @@ cav_icar_INLA <- inla(N_ACC ~ 1 +TEP_th_22 + ELI + PGR + UIS + ELL + PDI + ER +
 
 # PCAR model
 cav_pcar_INLA <- inla(N_ACC ~ 1 +TEP_th_22 + ELI + PGR + UIS + ELL + PDI + ER +
-                        f(ID, model = PCAR.model(W = W_con, k = 1, lambda = 1.5, init = c(0, 4))),
+                        f(ID, model = PCAR.model(W = W_con, k = 1, lambda = log(100)/1.5, init = c(0, 4))),
                          family = "poisson", offset = log(nn), data =dd_con,
                          num.threads = 1, control.compute = 
                            list(internal.opt = F, cpo = T, waic = T), 
@@ -614,7 +614,7 @@ cmp_icar <- cmp_spatial(spatial(ID, model = "besag", graph = W_con, scale.model 
                                 hyper = list(prec = list(prior = "pc.prec", param = c(1.5, 0.01)))))
 
 cmp_pcar <- cmp_spatial(spatial(ID, model = PCAR.model(W = W_con, k = 1,
-                                                       lambda = 1.5, init = c(0, 4))))
+                                                       lambda = log(100)/1.5, init = c(0, 4))))
 
 cmp_lcar <- cmp_spatial(spatial(ID, model = "besagproper", graph = W_con, 
                                hyper = list(prec = list(prior = "pc.prec", param = c(1.5, 0.01)))))
