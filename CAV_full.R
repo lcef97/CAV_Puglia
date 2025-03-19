@@ -449,7 +449,7 @@ cav_PMCAR_inla <- inla(
   family = rep("poisson", 3), data =dd_list,
   #control.fixed = list(prec = list(Intercept1 = 0, Intercept2 = 0, Intercept3 = 0)),
   #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
-  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, pit= T, waic = T, config = T), 
   verbose = T)
 
 
