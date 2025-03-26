@@ -474,7 +474,7 @@ inla.zmarginal(inla.tmarginal(
 #' even stronger in absolute value than for 2022.
 
 
-#' Leroux model, tentative manual definition:
+#' Leroux model, manual definition: --------------------------------------------
 
 inla.rgeneric.MLCAR.model <- 
   function (cmd = c("graph", "Q", "mu", "initial", "log.norm.const", 
@@ -569,6 +569,7 @@ cav_MLCAR_inla <- inla(
   num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
   verbose = T)
 
+#' Allow to set initial values
 cav_MLCAR_inla_init <- inla(
   N_ACC ~ 1 +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
     f(ID, model = inla.MLCAR.model(k = 3, W = W_con, init = c(-3, rep(0,6)))),
@@ -633,7 +634,6 @@ Sigma <- Matrix::Diagonal(x = Sigma_diagonal)
 Sigma[lower.tri(Sigma)] <- Sigma_offdiag
 Sigma[upper.tri(Sigma)] <- t(Sigma[lower.tri(Sigma)])
 Sigma
-
 
 
 
@@ -939,16 +939,6 @@ cav_MBYM_inla_sparse <- inla(
   num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
   verbose = T)
 
-#'  Worse fitting
-cav_MBYM_inla_noconstr <- inla(
-  N_ACC ~ 1 +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
-    f(ID, model = inla.MBYM.dense(k = 3, W = W_con, PC = FALSE)) ,
-  offset = log(nn),
-  family = rep("poisson", 3), data =dd_list,
-  #control.fixed = list(prec = list(Intercept1 = 0, Intercept2 = 0, Intercept3 = 0)),
-  #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
-  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
-  verbose = T)
 
 #' More 'standard' initial values, but not in line
 #' with INLAMSM models
@@ -990,6 +980,74 @@ inla.zmarginal(inla.tmarginal(
   fun = function(X) 1/(1 + exp(-X)),
   marginal = cav_MBYM_inla$marginals.hyperpar[[1]]))
 
+#' Nasty:
+#' 
+alphalimX <-range(do.call(c, lapply(cav_MBYM_inla$marginals.fixed[-c(1:3)], FUN = function(x) x[,1])))
+alphalimY <-range(do.call(c, lapply(cav_MBYM_inla$marginals.fixed[-c(1:3)], FUN = function(x) x[,2])))
+
+alphamarg <- as.data.frame(do.call(cbind, cav_MBYM_inla$marginals.fixed[-c(1:3)]))
+names(alphamarg) <- paste0(rep(names(cav_MBYM_inla$marginals.fixed[-c(1:3)]),each=2), c("__X", "__Y"))
+names(alphamarg) <- 
+  gsub("1__", "_._2021__", gsub("2__", "_._2022__", gsub("3__", "_._2023__",
+                                                       names(alphamarg))))
+
+alphamarg_long <- tidyr::pivot_longer(alphamarg, cols = c(1:42),
+                                       names_to = c("Effect", ".value"),
+                                       names_sep = "__") %>% 
+  tidyr::separate(.data$Effect, into = c("Effect", "Year"), sep = "_._")
+
+#' If we do not indulge into pogit regression, let us just keep calling effects \beta:
+
+ggplot2::ggplot(alphamarg_long, ggplot2::aes(x = .data$X, y = .data$Y, color = .data$Effect)) +
+  ggplot2::geom_line(size = 0.7) +
+  ggplot2::geom_vline(xintercept = 0) +
+  ggplot2::coord_cartesian(xlim = alphalimX, ylim = alphalimY) +
+  ggplot2::labs(
+    #title = "Posterior Marginals of Covariates Effects",
+    x = expression(beta),
+    y = expression(pi(beta ~ "|" ~ y)),
+    color = "Effect") +
+  ggplot2::theme_classic() +
+  ggplot2::facet_wrap(~.data$Year, scales = "free_y") 
+
+
+##' Comparison using LGOCV -----------------------------------------------------
+
+mm <- list(ICAR = cav_IMCAR_inla, PCAR = cav_PMCAR_inla,
+           LCAR = cav_MLCAR_inla, BYM = cav_MBYM_inla)
+
+lpml.lgo <- function(models, num.level.sets){
+  res <- lapply(models, function(x){
+    obj <- inla.group.cv(x, num.level.sets = num.level.sets)
+    cv <- obj$cv
+    groups <- obj$groups
+    lpml <- -sum(log(obj$cv))
+    return(list(cv = cv, lpml = lpml, groups = groups))
+  })
+  if(!is.null(names(models))) names(res) <- names(models)
+  return(res)
+}
+
+
+
+
+LPMLs <- lapply(lapply(list(1,2,3,4,5,6, 10, 12, 15, 20), function(x){
+  lpml.lgo(mm, x)
+  }), function(x){
+    return(lapply(x, function(x) return(x$lpml)))
+    } )
+names(LPMLs) <- paste0("Out_", c(1,2,3,4,5,6, 10, 12, 15, 20), "_sets")
+
+lpml.lgo.1 <- lpml.lgo(mm, 1)
+lpml.lgo.2 <- lpml.lgo(mm, 2)
+lpml.lgo.3 <- lpml.lgo(mm, 3)
+lpml.lgo.4 <- lpml.lgo(mm, 4)
+lpml.lgo.5 <- lpml.lgo(mm, 5)
+lpml.lgo.6 <- lpml.lgo(mm, 6)
+lpml.lgo.10 <- lpml.lgo(mm, 10)
+lpml.lgo.12 <- lpml.lgo(mm, 12)
+lpml.lgo.15 <- lpml.lgo(mm, 15)
+lpml.lgo.20 <- lpml.lgo(mm, 20)
 
 
 
