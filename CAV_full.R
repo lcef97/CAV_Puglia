@@ -1013,9 +1013,12 @@ ggplot2::ggplot(alphamarg_long, ggplot2::aes(x = .data$X, y = .data$Y, color = .
 
 ##' Comparison using LGOCV -----------------------------------------------------
 
+
+#' List of models
 mm <- list(ICAR = cav_IMCAR_inla, PCAR = cav_PMCAR_inla,
            LCAR = cav_MLCAR_inla, BYM = cav_MBYM_inla)
 
+#' Wrapper function to summarise the output of inla.group.cv
 lpml.lgo <- function(models, num.level.sets){
   res <- lapply(models, function(x){
     obj <- inla.group.cv(x, num.level.sets = num.level.sets)
@@ -1029,25 +1032,16 @@ lpml.lgo <- function(models, num.level.sets){
 }
 
 
-
-
+#' Whole list of LPMLs obtained via LGOCV. 
+#' Different combinations of numbers of level sets
 LPMLs <- lapply(lapply(list(1,2,3,4,5,6, 10, 12, 15, 20), function(x){
   lpml.lgo(mm, x)
   }), function(x){
-    return(lapply(x, function(x) return(x$lpml)))
+    return(lapply(x, function(x){
+      return(x$lpml)
+      }))
     } )
 names(LPMLs) <- paste0("Out_", c(1,2,3,4,5,6, 10, 12, 15, 20), "_sets")
-
-lpml.lgo.1 <- lpml.lgo(mm, 1)
-lpml.lgo.2 <- lpml.lgo(mm, 2)
-lpml.lgo.3 <- lpml.lgo(mm, 3)
-lpml.lgo.4 <- lpml.lgo(mm, 4)
-lpml.lgo.5 <- lpml.lgo(mm, 5)
-lpml.lgo.6 <- lpml.lgo(mm, 6)
-lpml.lgo.10 <- lpml.lgo(mm, 10)
-lpml.lgo.12 <- lpml.lgo(mm, 12)
-lpml.lgo.15 <- lpml.lgo(mm, 15)
-lpml.lgo.20 <- lpml.lgo(mm, 20)
 
 
 
@@ -1275,10 +1269,6 @@ cav_STbym_i3_INLA <- inla(formula = as.formula(
                           control.predictor = list(compute = T),
                           verbose = T)
 cav_STbym_i3_INLA$cpu.used
-
-
-
-
 
 
 X.bru <- dd_extended_alt %>% 
