@@ -1004,6 +1004,18 @@ alphas.MBYM.inla   <- cav_MBYM_inla$summary.fixed %>%
 #             Mean_2023 = cav_MBYM_inla$summary.fixed$mean[1],
 #             Sd_2023 = cav_MBYM_inla$summary.fixed$sd[1]),
  # alphas.MBYM.inla.noint) 
+#alphas.MBYM.inla.ci   <- cav_MBYM_inla$summary.fixed %>% 
+#    dplyr::select(.data$mean, .data$`0.025quant`, .data$`0.975quant`)  %>%
+#    dplyr::mutate( year = rep(c(2021, 2022, 2023), 8)) %>% 
+#    dplyr::mutate(Effect = rep(c("Intercept", "TEP",
+#                                 rownames(summary(cav_glm_21)$coefficients)[-c(1,2)]),each=3)) %>% 
+#    dplyr::relocate(.data$Effect, .before = 1) %>%  
+#    dplyr::rename(Mean = .data$mean, Q0.025 = .data$`0.025quant`,
+#                  Q0.975 = .data$`0.975quant`) %>% 
+#    tidyr::pivot_wider( 
+#        id_cols = .data$Effect,            
+#        names_from = .data$year,                
+#        values_from = c(.data$Mean, .data$Q0.025, .data$Q0.975))
 
 print(xtable::xtable(alphas.MBYM.inla, num.digits = 3), include.rowname = FALSE)
 
