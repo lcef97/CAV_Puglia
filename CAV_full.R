@@ -1031,19 +1031,21 @@ lpml.lgo <- function(models, num.level.sets){
   return(res)
 }
 
-
-#' Whole list of LPMLs obtained via LGOCV. 
-#' Different combinations of numbers of level sets
-LPMLs <- lapply(lapply(list(1,2,3,4,5,6, 10, 12, 15, 20), function(x){
-  lpml.lgo(mm, x)
+#' Summary with the scores of various numbers of level sets
+LPMLs <- function(models, num.level.sets){
+  num.level.sets<- as.list(num.level.sets)
+  LPMLs_list <- lapply(lapply(num.level.sets, function(x){
+    lpml.lgo(models, x)
   }), function(x){
     return(lapply(x, function(x){
       return(x$lpml)
-      }))
-    } )
-names(LPMLs) <- paste0("Out_", c(1,2,3,4,5,6, 10, 12, 15, 20), "_sets")
-
-
+    }))
+  })
+  names(LPMLs_list) <- paste0("Out_", as.character(unlist(num.level.sets)), "_sets")
+  df <- as.data.frame(do.call(rbind, lapply(LPMLs_list, unlist)))
+  return(df)
+}
+LPMLs_df <- LPMLs(models = mm, c(1:6, 8, 10, 12, 15, 20, 25))
 
 ## Multivariate Pogit analysis ATTEMPT ---------------------------------
  
