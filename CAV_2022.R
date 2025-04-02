@@ -704,6 +704,121 @@ cav_bym0_CARBayes$summary.results
 cav_bym0_CARBayes$modelfit
 
 
+
+
+## Spatial regression: MCMC using NIMBLE ---------------------------------------
+
+
+library(nimble)
+
+#' Model constants and known values: ------------------------------------------#
+#' 
+LconvConsts <- list(
+  N = nrow(dd_con), offset = dd_con$nn,
+  adj_con = unlist(nb_con),
+  #' Alternatively, num_con <- sapply(nb_con, length)
+  num_con = rowSums(W_con),
+      #L = sum(rowSums(W_con)),
+  nsumN = sum(rowSums(W_con)),
+  sigma0 = 1.5,
+  typVar = exp(mean(log(diag(
+    inla.qinv(Q = Lapl_con + Matrix::Diagonal(nrow(W_con)) * 
+                max(diag(Lapl_con)) *sqrt(.Machine$double.eps),
+              constr = list(
+                A = matrix(1, nrow = 1, ncol = nrow(W_con)), e = 0))))))
+)
+
+#' input data to be arranged into a list
+LconvData <- list(
+  y = dd_con$N_ACC, TEP = dd_con$TEP_th_22, ELI = dd_con$ELI,
+  PGR = dd_con$PGR, UIS = dd_con$UIS, ELL = dd_con$ELL, PDI = dd_con$PDI, 
+  ER = dd_con$ER
+)
+
+#' Explicit model definition using the JAGS language --------------------------#
+#' 
+BYM_code <- nimbleCode({
+  phi ~ dunif(0,1)
+  sigma ~ dexp(log(100)/sigma0)
+  uc[1:N]~dcar_normal(adj_con[1:nsumN],
+                      wei_con[1:nsumN],
+                      num_con[1:N],1,zero_mean=1)
+  for(i in 1:N){
+    vc[i] ~ dnorm(0,1)
+    Corr[i]  <- sigma*uc[i]*sqrt(phi/sqrt(typVar))
+    UCorr[i] <- sigma*vc[i]*sqrt((1-phi))
+    z[i] <- Corr[i] + UCorr[i]
+    log(eta[i])<- Intercept + 
+      alpha_TEP * TEP[i] + alpha_ELI * ELI[i] + 
+      alpha_PGR * PGR[i] + alpha_UIS * UIS[i] +
+      alpha_ELL * ELL[i] + alpha_PDI * PDI[i] +
+      alpha_ER * ER[i] + z[i]
+    lambda[i] <- eta[i]*offset[i]
+    y[i] ~ dpois(lambda[i])
+  }
+  for(k in 1:nsumN){wei_con[k]<-1}
+  Intercept ~ dnorm(0, 1e-5)
+  alpha_TEP ~ dnorm(0, 1e-3)
+  alpha_ELI ~ dnorm(0, 1e-3)  
+  alpha_PGR ~ dnorm(0, 1e-3)
+  alpha_UIS ~ dnorm(0, 1e-3)
+  alpha_ELL ~ dnorm(0, 1e-3)
+  alpha_PDI ~ dnorm(0, 1e-3)
+  alpha_ER  ~ dnorm(0, 1e-3)
+})
+
+
+Inits<-
+  list(Intercept = - 6,
+       alpha_TEP = 0, alpha_ELI = 0, alpha_PGR = 0, alpha_UIS = 0,
+       alpha_ELL = 0, alpha_PDI = 0, alpha_ER = 0,
+       uc=rep(0.0, LconvConsts$N),
+       vc=rep(0.0, LconvConsts$N),
+       sigma = exp(-2),
+       phi = exp(-4))
+
+#Lconv<-nimbleModel(code=LconvCode,
+#                   name="Lconv",constants=LconvConsts,
+#                   data=LconvData,inits=LconvInits)
+
+
+#LconvConf<-configureMCMC(Lconv,print=TRUE,
+#                         enableWAIC=nimbleOptions(`enableWAIC`=TRUE))
+#LconvConf$addMonitors(c("a0",
+#                        "alpha_TEP", "alpha_ELI", "alpha_PGR", 
+#                        "alpha_UIS", "alpha_ELL", "alpha_PDI", "alpha_ER", #"tau0",
+#                        "uc","vc","sigma", "phi"))
+
+
+cav_BYM_nimble <-nimbleMCMC(code=BYM_code,
+                     constants=LconvConsts,
+                     data=LconvData, inits=Inits,
+                     nchains=3, nburnin=5000, niter=30000,
+                     summary=TRUE, WAIC=TRUE,
+                     monitors = c("Intercept","alpha_TEP", "alpha_ELI", "alpha_PGR",  
+                                  "alpha_UIS", "alpha_ELL", "alpha_PDI", "alpha_ER", 
+                                  "uc","vc","sigma", "phi"))
+cav_BYM_nimble$summary$all.chains
+ 
+
+
+
+
+
+
+
+
+
+cav_bym_INLA <- inla(N_ACC ~ 1 +
+                       f(ID, model = "bym2", graph = W_con,  scale.model = T, 
+                         hyper = list(prec = list(prior = "pc.prec", param = c(1.5, 0.01)))),
+                     family = "poisson", offset = log(nn), data =dd_con,
+                     num.threads = 1, control.compute = 
+                       list(internal.opt = F, cpo = T, waic = T), 
+                     #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
+                     control.predictor = list(compute = T),
+                     verbose = T) # better
+
 ## TBD: model fitting with BRMS --> warning: slow ------------------------------
 library(brms)
 cav_icar_brms <- brm(N_ACC ~ 1 +TEP_th_22 + ELI + PGR + UIS + ELL + PDI + ER + offset(log(nn)) +
