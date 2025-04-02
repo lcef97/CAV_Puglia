@@ -1047,6 +1047,16 @@ LPMLs <- function(models, num.level.sets){
 }
 LPMLs_df <- LPMLs(models = mm, c(1:6, 8, 10, 12, 15, 20, 25))
 
+## Spatiotemporal model: INLA versus MCMC --------------------------------------
+
+
+
+cav_BYM_st_bmstdrCARBayes <- 
+  bmstdr::Bcartime(N_ACC ~ 1 + offset(log(nn)) + TEP_th + ELI + PGR + UIS + ELL + PDI + ER,
+                 data=dd_long, package = "CARBayesST", model = "ar",
+                 scol="ID_m", tcol = "Year",  family="poisson", W=W_con,
+                 N=50000, burn.in=10000, thin=5)
+
 ## Multivariate Pogit analysis ATTEMPT ---------------------------------
  
 
