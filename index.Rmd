@@ -137,12 +137,16 @@ Here, we plot the log-access rate per residence municipality, i.e. the logarithm
 
 ```{r Log accesses plot, echo = FALSE, warning = FALSE, message = FALSE, fig.height = 3}
 dd_con %>% 
-  dplyr::mutate(rate = log(.data$N_ACC) - log(.data$nn)) %>% 
+  dplyr::mutate(log_incidence_rate = log(.data$N_ACC) - log(.data$nn)) %>% 
   ggplot2::ggplot() +
-  ggplot2::geom_sf(ggplot2::aes(fill = .data$rate))+
-  ggplot2::labs("Log incidence ratio") +
-  ggplot2::scale_fill_viridis_c(na.value = "white", direction = -1) +
-  ggplot2::theme_classic()
+  ggplot2::geom_sf(ggplot2::aes(fill = .data$log_incidence_rate))+
+  #ggplot2::labs("Log incidence ratio") +
+  ggplot2::scale_fill_viridis_c(name = "log-access rate", na.value = "white", direction = -1) +
+  ggplot2::theme_classic() +
+  ggplot2::theme(
+    legend.title = ggplot2::element_text(size = 16),
+    legend.text = ggplot2::element_text(size = 14)
+  )
   
 
 ```
