@@ -332,6 +332,7 @@ dd_list <- list (
   nn = c(dd_con$nn21, dd_con$nn22, dd_con$nn23)) 
 
 #'  May be useful?
+#'  
 #'  dataframe input obejct ==> same regression coefficients
 #'  for all years (not so trustable indeed)
 #'  ID_m is the municipality ID; ID_ym is the unique ID
@@ -395,7 +396,12 @@ library(INLA)
 library(INLAMSM)#' But before spatial analysis, let's do some NONspatial analysis:
 
 
-
+#' Two ways of seeing this issue: 
+#'   A) Panel - like analysis: covariate effects
+#'      are constant in time
+#'   B) Multivariate analysis: each year accounts
+#'      for a different target variable, in other words
+#'      covariate effects are time-varying ==>
 
 cav_nosp_inla <- inla(
   N_ACC ~ 0 + Intercept +TEP_th + ELI + PGR + UIS + ELL + PDI + ER,
@@ -404,6 +410,12 @@ cav_nosp_inla <- inla(
   num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
   verbose = T)
 
+cav_nosp_inla_panel <- inla(
+  N_ACC ~ 0 + Intercept +TEP_th + ELI + PGR + UIS + ELL + PDI + ER,
+  offset = log(nn),
+  family = "poisson", data =dd_long,
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  verbose = T)
 
 
 #' The simplest way to take into account the three different years
@@ -429,6 +441,15 @@ cav_IMCAR_inla <- inla(
 #' Warning: only works with unique intercept for
 #' all years.
 
+cav_IMCAR_inla_panel <- inla(
+  N_ACC ~ 0 + Intercept +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID_im, model = inla.IMCAR.model(k = 3, W = W_con), extraconstr = list(
+      A = A_constr, e = c(0,0,0))),
+  offset = log(nn),
+  family = "poisson", data =dd_long,
+  #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  verbose = T)
 
 
 cav_INDPMCAR_inla <- inla(
@@ -449,8 +470,9 @@ cav_PMCAR_inla <- inla(
   family = rep("poisson", 3), data =dd_list,
   #control.fixed = list(prec = list(Intercept1 = 0, Intercept2 = 0, Intercept3 = 0)),
   #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
-  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, pit= T, waic = T, config = T), 
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T,  waic = T, config = T), 
   verbose = T)
+
 
 
 
@@ -1303,6 +1325,10 @@ X.bru <- as.matrix(X.bru)
 ## M-Model PCAR attempt --------------------------------------------------------
 
 
+#' Edited version of INLAMSM:::inla.rgeneric.Mmodel.model
+#' matching latest R versions, in which dependencies must always be recalled through the namespace
+
+
 inla.Mmodel.man <- function(...) INLA::inla.rgeneric.define(inla.rgeneric.Mmodel.man, ...)
 
 
@@ -1367,7 +1393,6 @@ inla.rgeneric.Mmodel.man <- function (cmd = c("graph", "Q", "mu", "initial", "lo
   return(val)
 }
 
-
 cav_PMMCAR_inla <- inla(
   N_ACC ~ 1 +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
     f(ID, model = inla.Mmodel.man(k = 3, W = W_con,  alpha.min = 0,alpha.max = 1)),
@@ -1381,7 +1406,120 @@ cav_PMMCAR_inla <- inla(
 inla.zmarginal(inla.tmarginal(fun = function(x) (1+exp(-x))^-1,
                               cav_PMMCAR_inla$marginals.hyperpar[[1]]))
 
+#' More general version covering also LCAR and sparse BYM:
 
+inla.rgeneric.Mmodel <- 
+  function (cmd = c("graph", "Q", "mu", "initial", "log.norm.const", 
+                    "log.prior", "quit"), theta = NULL) {
+    envir <- parent.env(environment())
+    if(!exists("cache.done", envir=envir)){
+      starttime.scale <- Sys.time()
+      if(Qmod == "BYM"){
+        #' Unscaled Laplacian matrix (marginal precision of u_1, u_2 ... u_k)
+        L_unscaled <- Matrix::Diagonal(nrow(W), rowSums(W)) -  W
+        L_unscaled_block <- kronecker(diag(1,k), L_unscaled)
+        A_constr <- t(pracma::nullspace(as.matrix(L_unscaled_block)))
+        scaleQ <- INLA:::inla.scale.model.internal(
+          L_unscaled_block, constr = list(A = A_constr, e = rep(0, nrow(A_constr))))
+        #' Block Laplacian, i.e. precision of U = I_k \otimes L
+        n <- nrow(W)
+        L <- scaleQ$Q[c(1:n), c(1:n)]
+        Sigma.u <- MASS::ginv(as.matrix(L))
+        endtime.scale <- Sys.time()
+        cat("Time needed for scaling Laplacian matrix: ",
+            round(difftime(endtime.scale, starttime.scale), 3), " seconds \n")
+        assign("Sigma.u", Sigma.u, envir = envir)
+      }
+      assign("cache.done", TRUE, envir = envir)
+    }
+    interpret.theta <- function() {
+      alpha <- alpha.min + (alpha.max - alpha.min)/(1 + exp(-theta[as.integer(1:k)]))
+      M <- matrix(theta[-as.integer(1:k)], ncol = k)
+      return(list(alpha = alpha, M = M))
+    }
+    graph <- function() {
+      MI <- kronecker(Matrix::Matrix(1, ncol = k, nrow = k), 
+                      Matrix::Diagonal(nrow(W), 1))
+      IW <- Matrix::Diagonal(nrow(W), 1) + W
+      BlockIW <- Matrix::bdiag(replicate(k, IW, simplify = FALSE))
+      G <- (MI %*% BlockIW) %*% MI
+      return(G)
+    }
+    Q <- function() {
+      param <- interpret.theta()
+      M.inv <- solve(param$M)
+      MI <- kronecker(M.inv, Matrix::Diagonal(nrow(W), 1))
+      D <- as.vector(apply(W, 1, sum))
+      if(Qmod == "LCAR"){
+        BlockIW <- Matrix::bdiag(lapply(1:k, function(i) {
+          param$alpha[i]*(Matrix::Diagonal(x = D) - W) + 
+            (1 - param$alpha[i]) * Matrix::Diagonal(nrow(W), 1)
+        }))
+      } else if (Qmod == "BYM"){
+        BlockIW <- Matrix::bdiag(lapply(1:k, function(i) {
+          solve(
+            sqrt(param$alpha[i])*Sigma.u+
+              sqrt(1-param$alpha[i]*Matrix::Diagonal(nrow(W), 1))
+          )
+        }))
+      } else if(Qmod == "PCAR"){
+        BlockIW <- Matrix::bdiag(lapply(1:k, function(i) {
+          Matrix::Diagonal(x = D) - param$alpha[i] * W
+        }))
+      }
+      
+      Q <- (MI %*% BlockIW) %*% kronecker(t(M.inv), Matrix::Diagonal(nrow(W),  1))
+      
+      
+      
+      return(Q)
+    }
+    mu <- function() {
+      return(numeric(0))
+    }
+    log.norm.const <- function() {
+      val <- numeric(0)
+      return(val)
+    }
+    log.prior <- function() {
+      param <- interpret.theta()
+      val <- sum(-theta[as.integer(1:k)] - 2 * log(1 + exp(-theta[as.integer(1:k)])))
+      sigma2 <- 1000
+      val = val + log(MCMCpack::dwish(W = crossprod(param$M), 
+                                      v = k, S = diag(rep(sigma2, k))))
+      return(val)
+    }
+    initial <- function() {
+      return(c(rep(0, k), as.vector(diag(rep(1, k)))))
+    }
+    quit <- function() {
+      return(invisible())
+    }
+    if (as.integer(R.version$major) > 3) {
+      if (!length(theta)) 
+        theta = initial()
+    }
+    else {
+      if (is.null(theta)) {
+        theta <- initial()
+      }
+    }
+    val <- do.call(match.arg(cmd), args = list())
+    return(val)
+  }
+inla.Mmodel <- function (...)    INLA::inla.rgeneric.define(inla.rgeneric.Mmodel, ...)
+
+
+cav_MmodPCAR_inla <- inla(
+  N_ACC ~ 1 +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.Mmodel(k = 3, W = W_con, 
+                              alpha.min = 0, alpha.max = 1, Qmod = "PCAR")),
+  offset = log(nn),
+  family = rep("poisson", 3), data =dd_list,
+  #control.fixed = list(prec = list(Intercept1 = 0, Intercept2 = 0, Intercept3 = 0)),
+  #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T,  waic = T, config = T), 
+  verbose = T)
 
 
 ## TBD: Spatiotemporal attempt -------------------------------------------------
