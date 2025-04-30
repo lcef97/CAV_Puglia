@@ -547,7 +547,7 @@ z \mid \rho, \Sigma \left(  (M^{\top} \otimes I_n)(\mathrm{Bdiag}(D - \rho_t W))
 
 Where $\mathrm{Bdiag}(A_i)$ denotes a block-diagonal matrix with blocks given by $A_i$ for an appropriate set of indices.
 The R code for implementing M-models is based on the script of [@INLAMSM], which has been extended to fit also the LCAR and BYM models (vd. infra)
-```{r M model silent, echo = TRUE}
+```{r M model silent, echo = FALSE}
 inla.rgeneric.Mmodel <- 
   function (cmd = c("graph", "Q", "mu", "initial", "log.norm.const", 
                     "log.prior", "quit"), theta = NULL) {
