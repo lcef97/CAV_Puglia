@@ -851,16 +851,19 @@ inla.rgeneric.MBYM.sparse <-
       })
       param <- c(phi, mprec, corre)
       n <- (k - 1) * k/2
-      M <- diag(1, k)
-      M[lower.tri(M)] <- param[k + 2:(n + 1)]
-      M[upper.tri(M)] <- t(M)[upper.tri(M)]
+      R <- diag(1, k)
+      R[lower.tri(R)] <- param[k + 2:(n + 1)]
+      R[upper.tri(R)] <- t(R)[upper.tri(R)]
       st.dev <- 1/sqrt(param[2:(k + 1)])
-      st.dev.mat <- matrix(st.dev, ncol = 1) %*% matrix(st.dev, 
-                                                        nrow = 1)
-      M <- M * st.dev.mat
-      PREC <- solve(M)
-      return(list(phi = phi, param = param, VACOV = M, 
-                  PREC = PREC))
+      st.dev.mat <- matrix(st.dev, ncol = 1) %*%
+        matrix(st.dev, nrow = 1)
+      Sigma <- R * st.dev.mat
+      V <- eigen(Sigma)$vectors
+      D <- eigen(Sigma)$values
+      invM <- V %*% diag(sqrt(1/D))
+      PREC <- invM %*% t(invM)
+      return(list(phi = phi, param = param, VACOV = Sigma, 
+                  PREC = PREC, invM = invM))
     }
     graph <- function() {
       BPrec <- matrix(1, ncol = 2*k, nrow = 2*k)
@@ -871,8 +874,8 @@ inla.rgeneric.MBYM.sparse <-
     Q <- function() {
       param <- interpret.theta()
       Q11 <- 1/(1 - param$phi) * kronecker(param$PREC, Matrix::Diagonal(n = nrow(W), x  = 1))
-      Q12 <- Q21 <- -sqrt(param$phi)/(1 - param$phi) * kronecker(param$PREC, Matrix::Diagonal(n = nrow(W), x  = 1))
-      Q22 <- kronecker(param$PREC, 
+      Q12 <- Q21 <- -sqrt(param$phi)/(1 - param$phi) * kronecker(param$invM, Matrix::Diagonal(n = nrow(W), x  = 1))
+      Q22 <- kronecker(Matrix::Diagonal(n = k, x = 1),
                        ((param$phi/(1-param$phi))* Matrix::Diagonal(n = nrow(W), x = 1) + L))
       Q <- rbind(cbind(Q11, Q12), cbind(Q21, Q22))
       return(Q)
@@ -950,7 +953,6 @@ cav_MBYM_inla <- inla(
 cav_MBYM_inla_sparse <- inla(
   N_ACC ~ 0 + Intercept +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
     f(ID, model = inla.MBYM.sparse(k = 3, W = W_con, 
-                                   init = c(0, rep(0,3), rep(0,3)),
                                    PC = FALSE),
       extraconstr = list(A = kronecker(diag(1,2), A_constr), e = rep(0, 6)),
       values = dd_list$ID2 ) ,
@@ -1033,7 +1035,7 @@ ggplot2::ggplot(alphamarg_long, ggplot2::aes(x = .data$X, y = .data$Y, color = .
   ggplot2::facet_wrap(~.data$Year, scales = "free_y") 
 
 
-##' Comparison using LGOCV -----------------------------------------------------
+## Comparison using LGOCV -----------------------------------------------------
 
 
 #' List of models
@@ -1514,6 +1516,17 @@ cav_MmodPCAR_inla <- inla(
   N_ACC ~ 1 +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
     f(ID, model = inla.Mmodel(k = 3, W = W_con, 
                               alpha.min = 0, alpha.max = 1, Qmod = "PCAR")),
+  offset = log(nn),
+  family = rep("poisson", 3), data =dd_list,
+  #control.fixed = list(prec = list(Intercept1 = 0, Intercept2 = 0, Intercept3 = 0)),
+  #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T,  waic = T, config = T), 
+  verbose = T)
+
+cav_MmodLCAR_inla <- inla(
+  N_ACC ~ 1 +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.Mmodel(k = 3, W = W_con, 
+                              alpha.min = 0, alpha.max = 1, Qmod = "LCAR")),
   offset = log(nn),
   family = rep("poisson", 3), data =dd_list,
   #control.fixed = list(prec = list(Intercept1 = 0, Intercept2 = 0, Intercept3 = 0)),
