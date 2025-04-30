@@ -1,0 +1,894 @@
+---
+title: "Exploratory analysis of accesses to support centers for gender-based violence
+  in Apulia"
+output:
+  pdf_document: default
+  word_document: default
+  html_document:
+    df_print: paged
+bibliography: references.bib
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning= FALSE)
+par(mar = c(2,2,1,1))
+library(magrittr)
+library(sf)
+library(INLA)
+library(INLAMSM)
+#if(!rlang::is_installed("pscl")) install.packages("pscl")
+```
+
+
+
+## Data
+
+The dataset employed regards the counts of accesses to gender-based violence support centers in the Apulia region by residence municipality of the women victims of violence in 2021-2023. `R` codes to generate the dataset are in the R script [posted here](https://github.com/lcef97/CAV_Puglia/blob/main/CAV_full.R) which this report is based on. 
+
+Here, we only take into account the violence reports which support centers actually take charge of, at the risk of underestimating the counts of gender-based violence cases.
+This choice is driven by the need of avoiding duplicated records, since e.g. it may happen that a support center redirects a victim to another support center. 
+```{r input mute, echo = FALSE, message = FALSE, warning = FALSE, output = FALSE}
+
+## Input ----------------------------------------------------------------------
+
+#' NEVER forget calling magrittr and sf. Never --------------------------------#
+
+library(magrittr)
+library(sf)
+
+load("input/CAV_input_mun_2021.RData")
+load("input/CAV_input_mun_2022.RData")
+load("input/CAV_input_mun_2023.RData")
+
+CAV_mun_21 <- CAV_mun_21 %>%
+  dplyr::mutate(Year = "2021")
+  
+CAV_mun_22 <- CAV_mun_22 %>%
+  dplyr::mutate(Year = "2022")
+
+CAV_mun_23 <- CAV_mun_23 %>%
+  dplyr::mutate(Year = "2023")
+
+CAV_mun <- dplyr::bind_rows(CAV_mun_21, CAV_mun_22,  CAV_mun_23)
+
+
+load("input/dists_th_22.RData")
+load("input/dists_th_23.RData")
+dists_th_22 %<>% dplyr::rename(TEP_th = .data$TEP_th_22) 
+dists_th_23 %<>% dplyr::rename(TEP_th = .data$TEP_th_23) 
+
+TEP <- dplyr::bind_rows(dists_th_22, dists_th_22, dists_th_23) %>% 
+  dplyr::mutate(Year = c(rep("2021", nrow(dists_th_22)),
+                         rep("2022", nrow(dists_th_22)),
+                         rep("2023", nrow(dists_th_23))))
+load("input/Shp.RData")
+
+#'  Function to extract numeric digits from a strings vector (needed to filter age):
+nn_extract <- function(string){
+  nn <- gregexpr("([0-9])", string)
+  ls.out <- regmatches(as.list(string), nn)
+  res <- unlist(lapply(ls.out, function(x) as.numeric(paste(x, collapse = ""))))  
+  return(res)
+}
+
+# Female population aged >= 15 years.
+# Source data: http://dati.istat.it/Index.aspx?DataSetCode=DCIS_POPRES1#
+Popolazione_Puglia_2021 <- readr::read_csv("input/Popolazione_Puglia_2021.csv") %>% 
+  dplyr::select(.data$ITTER107, .data$Territorio, .data$SEXISTAT1, .data$ETA1, .data$Value) %>% 
+  dplyr::filter(.data$ETA1 != "TOTAL") %>% 
+  dplyr::mutate(ETA1 = nn_extract(ETA1)) %>% 
+  dplyr::mutate(ITTER107 = as.numeric(ITTER107)) %>% 
+  dplyr::mutate(Year = "2021")
+
+Popolazione_Puglia_2022 <- readr::read_csv("input/Popolazione_Puglia_2022.csv") %>% 
+  dplyr::select(.data$ITTER107, .data$Territorio, .data$SEXISTAT1, .data$ETA1, .data$Value) %>% 
+  dplyr::filter(.data$ETA1 != "TOTAL") %>% 
+  dplyr::mutate(ETA1 = nn_extract(ETA1)) %>% 
+  dplyr::mutate(ITTER107 = as.numeric(ITTER107)) %>% 
+  dplyr::mutate(Year = "2022")
+
+Popolazione_Puglia_2023 <- readr::read_csv("input/Popolazione_Puglia_2023.csv") %>% 
+  dplyr::select(.data$ITTER107, .data$Territorio, .data$SEXISTAT1, .data$ETA1, .data$Value) %>% 
+  dplyr::filter(.data$ETA1 != "TOTAL") %>% 
+  dplyr::mutate(ETA1 = nn_extract(ETA1)) %>% 
+  dplyr::mutate(ITTER107 = as.numeric(ITTER107)) %>% 
+  dplyr::mutate(Year  = "2023")
+
+# Filter and aggregate:
+Pop_f_15 <- Popolazione_Puglia_2021 %>% 
+  dplyr::bind_rows(list(Popolazione_Puglia_2022, Popolazione_Puglia_2023))
+
+names(Pop_f_15) <-  c("PRO_COM", "Comune", "Sesso", "Eta", 
+                      "Popolazione",  "Year")
+
+Pop_f_15 <- Pop_f_15 %>% dplyr::filter(.data$Sesso == 2) %>% 
+  dplyr::filter(.data$Eta > 14) %>% 
+  dplyr::group_by(.data$Year, .data$PRO_COM, .data$Comune) %>% 
+  dplyr::summarise(nn = sum(.data$Popolazione)) %>%
+  dplyr::ungroup()
+
+# Tremiti Islands are a singleton --> need to remove them to perform spatial analysis
+suppressWarnings({
+  singletons <- which(unlist(lapply(spdep::poly2nb(Shp), function(x) x[1L] == 0)))
+})
+
+Shp_con <- Shp[-singletons, ]
+
+n <- nrow(Shp_con)
+
+dd <- Shp_con %>% 
+  dplyr::left_join(dplyr::select(Indicators, -.data$Comune), by = "PRO_COM") %>% 
+  dplyr::bind_rows(list(., .)) %>% 
+  dplyr::mutate(Year = rep(c("2021", "2022", "2023"), each = nrow(.)/3)) %>% 
+  dplyr::left_join(dplyr::select(Pop_f_15, -.data$Comune), by = c("PRO_COM", "Year")) %>% 
+  dplyr::left_join(dplyr::select(CAV_mun, -.data$comune), by = c("PRO_COM", "Year")) %>% 
+  dplyr::left_join(TEP, by = c("PRO_COM", "Year")) %>% 
+  dplyr::mutate(TEP_th = as.vector(scale(.data$TEP_th))) %>% 
+  dplyr::mutate(AES = as.vector(scale(.data$AES))) %>% 
+  dplyr::mutate(MFI = as.vector(scale(.data$MFI)))  %>% 
+  dplyr::mutate(PDI = as.vector(scale(.data$PDI)))  %>% 
+  dplyr::mutate(ELL = as.vector(scale(.data$ELL)))  %>% 
+  dplyr::mutate(ER = as.vector(scale(.data$ER)))  %>% 
+  dplyr::mutate(PGR = as.vector(scale(.data$PGR)))  %>% 
+  dplyr::mutate(UIS = as.vector(scale(.data$UIS)))  %>% 
+  dplyr::mutate(ELI = as.vector(scale(.data$ELI))) %>% 
+  dplyr::mutate(Area = as.numeric(as.factor(.data$PRO_COM))) %>% 
+  dplyr::mutate(Year = as.numeric(as.factor(.data$Year))) %>% 
+  dplyr::mutate(ID = .data$Area + (.data$Year-1)*n)
+
+# Municipalities from which no woman reported violence --> count == 0
+dd$N_ACC[is.na(dd$N_ACC)] <- 0
+
+# "access ratio"
+dd$LN_ACC <- log(dd$N_ACC/dd$nn)
+
+
+# This is the dataset we will concretely work on.
+# Covariates are all scaled to zero mean and unit variance
+
+# neighbours list
+nb_con <- spdep::poly2nb(Shp_con)
+# neighbouring/adjacency matrix
+W_con <- spdep::nb2mat(nb_con, style = "B")
+rownames(W_con) <- colnames(W_con) <- Shp_con$PRO_COM
+
+# Laplacian matrix:
+Lapl_con <- diag(rowSums(W_con)) - W_con
+V_con <- eigen(Lapl_con)$vectors
+
+# row ID - needed for spatial models
+#dd$ID <- c(1:nrow(dd))
+
+
+```
+
+```{r check 1, echo = FALSE}
+if(!all( rep(Shp_con$PRO_COM, 3) == dd$PRO_COM)){
+  problematics <- which( !rep(Shp_con$PRO_COM, 3) == dd$PRO_COM)
+  warning("Something went wrong! Check the ordering of municipality codes!! \n
+         ")
+  probl <- dd[problematics, ]
+  message("Problem for:")
+  print(head(probl))
+}
+```
+
+
+In order to avoid singletons in the spatial structure of the dataset, the Tremiti Islands need to be removed from the list of municipalities included ($0$ accesses recorded so far).
+
+Therefore, the municipality-level dataset in scope consists of $256$ observations. 
+
+We can only take into account the accesses to support centers for which the origin municipality of victims is reported; therefore the total count of accesses in scope is $1477$, $1516$ and $1822$ for the three reference years respectively:
+```{r tot counts, message = FALSE, warning = FALSE}
+dd %>% sf::st_drop_geometry() %>% 
+  dplyr::group_by(.data$Year) %>%
+  dplyr::summarise(Tot_accesses = sum(.data$N_ACC))
+```
+
+
+Here, we plot the log-access rate per residence municipality, i.e. the logarithm of the ratio between access counts and female population. Blank areas correspond to municipalities from which zero women accessed support centers ($82$ municipalities).
+
+```{r Log accesses plot, echo = FALSE, warning = FALSE, message = FALSE, fig.cap = "Log-access rate" }
+
+
+ggy21 <- ggplot2::ggplot() +
+  ggplot2::geom_sf(data = dplyr::filter(dd, .data$Year == 1), 
+                   ggplot2::aes(fill = .data$LN_ACC))+
+  ggplot2::labs(fill = "Log-accesses, 2021")+
+  ggplot2::scale_fill_viridis_c(na.value = "white",
+                                direction = -1,
+                                limits = c(-9.5, -4.5))+
+  ggplot2::theme_classic()
+
+ggy22 <- ggplot2::ggplot() +
+  ggplot2::geom_sf(data = dplyr::filter(dd, .data$Year == 2), 
+                   ggplot2::aes(fill = .data$LN_ACC))+
+  ggplot2::labs(fill = "Log-accesses, 2022")+
+  ggplot2::scale_fill_viridis_c(na.value = "white",
+                                direction = -1,
+                                limits = c(-9.5, -4.5))+
+  ggplot2::theme_classic()
+
+ggy23 <- ggplot2::ggplot() +
+  ggplot2::geom_sf(data = dplyr::filter(dd, .data$Year == 3), 
+                   ggplot2::aes(fill = .data$LN_ACC))+
+  ggplot2::labs(fill = "Log-accesses, 2023")+
+  ggplot2::scale_fill_viridis_c(na.value = "white",
+                                direction = -1,
+                                limits = c(-9.5, -4.5))+
+  ggplot2::theme_classic()
+
+gridExtra::grid.arrange(ggy21, ggy22, ggy23, nrow = 3, ncol = 1)
+
+```
+
+## Covariates
+
+Our target is explaining the number of accesses to support centers, $y$, defined at the municipality level, on the basis of a set of candidate known variables. Unfortunately, these data are only available for year 2021. $y$ is modelled with simple Poisson regression.
+
+We have at disposal a number of candidate explanatory variables, which include the distance of a municipality from the closest support center and a set of variables measuring social vulnerability under different dimensions; these latter covariates are provided by the ISTAT.A more detailed description of these covariates is in [this excel metadata file](https://github.com/lcef97/CAV_Puglia/blob/main/Metadata/Indice_composito_fragilita_PUGLIA_2021.xlsx).
+
+All covariates are scaled to have null mean and unit variance.
+
+  -  $\mathrm{TEP\_th}$, i.e. the distance of each municipality from the closest municipality hosting a support center. Distance is measured by road travel time in minutes (acronym TEP stays for Tempo Effettivo di Percorrenza, i.e. Actual Travel Time). Since to the best of our knowledge the list of active support centers changed between 2022 and 2023, we employ the list of centers active until 2022 for 2021-2022 data, and the list of centers active in 2023 for 2023 data.
+
+  -  $\mathrm{AES}$, the distance from the closest infrastructural pole, always measured in travel time.
+  -  $\mathrm{MFI}$, i.e. the decile of municipality vulnerability index.
+  -  $\mathrm{PDI}$, i.e. the dependency index, i.e. population either $\leq 20$ or $\geq 65$ years over population in $[20 - 64]$ years.
+  -  $\mathrm{ELL}$, i.e. the proportion of people aged $[25-54]$ with low education.
+  -  $\mathrm{ERR}$, i.e. employment rate among people aged $[20-64]$.
+  -  $\mathrm{PGR}$, i.e. population growth rate with respect to 2011.
+  -  $\mathrm{UIS}$, i.e. the ventile of the density of local units of industry and services (where density is defined as the ratio between the counts of industrial units and population).
+  -  $\mathrm{ELI}$, i.e. the ventile of employees in low productivity local units by sector for industry and services.
+
+First, we visualise the correlations among these explanatory variables:
+
+```{r correls, echo = F, warning = F, fig.height = 3, fig.cap = "Correlations in explanatory variables"}
+
+
+
+glm_all_X <- glm(N_ACC ~ 1 + TEP_th + MFI + AES + PDI + ELL + ER +
+                   PGR + UIS + ELI + offset(log(nn)),
+                 data = dd, family = "poisson")
+# model matrix
+X <- model.matrix(glm_all_X)
+
+
+
+ggplot2::ggplot(data = reshape2::melt(cor(X[,-1]))) +
+  ggplot2::geom_tile(ggplot2::aes(
+    x = .data$Var2, y = .data$Var1, fill = .data$value), color = "black", size = 3) +
+  ggplot2::geom_text(ggplot2::aes(
+    x = .data$Var2, y = .data$Var1, label = round(.data$value, 2))) +
+  ggplot2::scale_fill_gradient2(
+    low = "blue", mid = "white", high = "red", midpoint = 0) +
+  ggplot2::theme_minimal()
+```
+
+We see the correlation between the two distances is very high ($0.72$), and so is the correlation between the fragility index decile and the density of productive units. 
+
+In the first case, we drop the distance from the nearest infrastructural pole. In the latter we drop `MFI`, which is a combination of all covariates except for `TEP_th`, and is a weakly informative choice.
+
+
+## Nonspatial regression
+
+We regress the counts of accesses $y$ to support centers on the aforementioned explanatory variables. To estimate regression coefficients, all covariates are scaled to zero mean an unit variance. 
+
+\begin{equation}
+y_{it} \mid \eta_{it} \sim \mathrm{Poisson}(E_{it} \, e^{\eta_{it}}) \quad \text{where} \quad
+\eta_{it} = X_{it}^{\top} \alpha
+\label{eq:glm}
+\end{equation}
+
+Where $X$ are the covariate defined earlier, $\alpha$ are covariate effects, and $E_{it}$ is the female population aged $\geq 15$ in municipality $i$ and year $t$.
+
+To gain more insight on the role of all explanatory variables we show the posterior summaries of the regression model
+ 
+
+```{r glm results, warning = FALSE, message = FALSE, echo = FALSE, results = "asis"}
+
+
+cav_glm <- glm(N_ACC ~ 0 + as.factor(Year) + TEP_th + PDI + ELL + ER +
+                   PGR + UIS + ELI + offset(log(nn)),
+                 data = dd, family = "poisson")
+
+alphas.glm <- data.frame(
+  Mean = summary(cav_glm)$coefficients[,1],
+  Sd = summary(cav_glm)$coefficients[,2]) %>% 
+  dplyr::mutate(Effect = c("Int_2021", "Int_2022", "Int_2023",
+                           rownames(summary(cav_glm)$coefficients)[-c(1,2,3)])) %>% 
+  dplyr::relocate(.data$Effect, .before = 1)
+
+#print(xtable::xtable(alphas.glm, num.digits = 3), include.rowname = FALSE)
+```
+
+
+```{r INLA nosp, warning = FALSE, echo = FALSE, message = FALSE, results = "asis"}
+cav_nosp_inla <- inla(
+  N_ACC ~ 0 +TEP_th + ELI + PGR + UIS + ELL + PDI + ER + 
+    f(Year, model = "iid"),
+  offset = log(nn),
+  family = "poisson", data =dd,
+  #control.inla = list(strategy = "laplace", int.strategy = "grid"),
+  #inla.mode = "classic",
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  verbose = T)
+
+alphas.nosp.inla <- dplyr::bind_rows(cav_nosp_inla$summary.random$Year[,-1],
+                                      cav_nosp_inla$summary.fixed) %>% 
+  dplyr::select(c(1,2,3,5)) %>% 
+  dplyr::mutate(Effect = c("Int_2021", "Int_2022", "Int_2023", 
+                           rownames(cav_nosp_inla$summary.fixed))) %>% 
+  dplyr::relocate(.data$Effect, .before = 1) %>%  
+  dplyr::rename(Mean = .data$mean, Sd = .data$sd)
+  
+
+print(xtable::xtable(alphas.nosp.inla, digits = 3), include.rowname  = F)
+
+```
+
+
+
+  - `TEP_th_22`: The distance from the closest support center appears to play an important role. The easiest interpretation is that the physical distance represents a barrier to violence reporting. This is quite intuitive if we think of the material dynamics of reporting gender-based violence: one could reasonably expect violent men to prevent their partners to come out and report the violence suffered.
+  
+  - `ELI`: The (ventile of the distribution of the) share of employees in low productivity economic units is a clear indicator of (relative) economic underdevelopment. The most naive interpretation wuld be that in underdeveloped areas reporting gender violence is somewhat harder than in developed ones; however this relationship does not appear to be strong and is indeed negligible for 2021 and 2023 data.
+
+  - `PGR`: The association with population growth rate is harder to interpret. This association is most likely influenced by several demographic instrumental variables we are not keeping into account and would indeed deserve a more dedicated focus. Only in 2022 does growth rate appear to have a significant association with AVCs accesses.
+  
+  - `UIS`: The (ventile of the distribution of the) density of production units has a somewhat ambiguous interpretation. From the one side, it has a strong negative relationship with the social frailty index. It should be therefore considered an indicator of economic development. Nevertheless, for 2022 data the regression coefficient bears the same negative sign as the incidence of low-productivity economic units; for 2023 data the association with AVCs accesses is positive instead. For 2021 data, this association appears not significantly different from zero. *Honestly I have no idea on how to interpret it*.
+
+  - `ELL`: The association with the proportion of people with low educational level has negative sign and is high in absolute value. The interpretation seems quite easy: cultural development, in general, would encourage reporting violence.
+  
+  - `PDI`: The association with population dependency index does not seem significantly different from zero
+  
+  - `ER`: The association with employment rate is very strong and bears negative sign for 2021 and 2023 data.
+
+## Spatial regression
+
+```{r zhat plot, eval = FALSE}
+zhat_plot <- function(mod){
+  
+  rr <- range(mod$summary.random$ID$mean)
+  
+  plot_map <- purrr::map(unique(dd$Year), function (t){
+  dd %>% dplyr::mutate(zhat = mod$summary.random$ID$mean) %>% 
+    dplyr::filter(.data$Year == t) %>% 
+    ggplot2::ggplot() +
+    ggplot2::geom_sf(ggplot2::aes(fill = .data$zhat))+
+    ggplot2::labs(title = paste("Year:", t), fill = "zhat") +
+    ggplot2::scale_fill_viridis_c(na.value = "white", direction = -1, limits = rr) +
+    ggplot2::theme_classic()
+})
+
+do.call(gridExtra::grid.arrange, c(plot_map, nrow = 1, ncol = 3))
+
+}
+
+```
+
+
+#### Exploratory analysis of residuals
+We plot the log-residuals $\varepsilon$ of the GLM regression models, defined as $\varepsilon := \ln y_{it} - \ln \hat{y}_{it}$ being $\hat{\eta}_{it}$ the fitted value.
+
+```{r glm residuals, echo = FALSE, warnings = FALSE, message = FALSE, output = FALSE}
+L_block <- kronecker(diag(1, 3), Lapl_con)
+A_constr <- t(pracma::nullspace(L_block))
+resids_glm <- log(dd$N_ACC) - log(cav_glm$fitted.values)
+
+rr <- range(resids_glm[which(is.finite(resids_glm))])
+
+ggr21 <- dd %>% 
+  dplyr::mutate(log_resids_2021 = resids_glm) %>% 
+  dplyr::filter(.data$Year == 1) %>% 
+  ggplot2::ggplot() +
+  ggplot2::geom_sf(ggplot2::aes(fill = .data$log_resids_2021))+
+  ggplot2::labs("blank") +
+  ggplot2::scale_fill_viridis_c(na.value = "white", direction = -1, limits = rr) +
+  ggplot2::theme_classic()
+
+ggr22 <- dd %>% 
+  dplyr::mutate(log_resids_2022 = resids_glm) %>% 
+  dplyr::filter(.data$Year == 2) %>% 
+  ggplot2::ggplot() +
+  ggplot2::geom_sf(ggplot2::aes(fill = .data$log_resids_2022))+
+  ggplot2::labs("blank") +
+  ggplot2::scale_fill_viridis_c(na.value = "white", direction = -1, limits = rr) +
+  ggplot2::theme_classic()
+
+ggr23 <- dd  %>% 
+  dplyr::mutate(log_resids_2023 = resids_glm) %>% 
+  dplyr::filter(.data$Year == 3) %>% 
+  ggplot2::ggplot() +
+  ggplot2::geom_sf(ggplot2::aes(fill = .data$log_resids_2023))+
+  ggplot2::labs("blank") +
+  ggplot2::scale_fill_viridis_c(na.value = "white", direction = -1, limits = rr) +
+  ggplot2::theme_classic()
+
+
+#' Problem: cannot apply Moran test to infinite values!
+#' Hence we need to only test autocorrelation across nonzero records.
+#' This strongly limits the relevance of the test, if I have a better idea I'll implememnt it.
+nonzero_21 <- which(dd$N_ACC > 0 & dd$Year == 1)
+nonzero_22 <- which(dd$N_ACC > 0 & dd$Year == 2)
+nonzero_23 <- which(dd$N_ACC > 0 & dd$Year == 3)
+
+spdep::set.ZeroPolicyOption(TRUE)
+suppressWarnings(nb_nonzero_21 <- spdep::poly2nb(dd[nonzero_21, ]))
+suppressWarnings(nb_nonzero_22 <- spdep::poly2nb(dd[nonzero_22, ]))
+suppressWarnings(nb_nonzero_23 <- spdep::poly2nb(dd[nonzero_23, ]))
+
+nonzero_singletons_21 <- which(unlist(lapply(nb_nonzero_21, function(X) X[1L]==0)))
+nonzero_singletons_22 <- which(unlist(lapply(nb_nonzero_22, function(X) X[1L]==0)))
+nonzero_singletons_23 <- which(unlist(lapply(nb_nonzero_23, function(X) X[1L]==0)))
+
+if(length(nonzero_singletons_21 > 0)){
+  nonzero_con_21 <- nonzero_21[-nonzero_singletons_21]
+  } else nonzero_con_21 <- nonzero_21
+nonzero_con_22 <- nonzero_22[-nonzero_singletons_22]
+nonzero_con_23 <- nonzero_23[-nonzero_singletons_23]
+
+nb_con_nonzero_21 <- spdep::poly2nb(dd[nonzero_con_21, ])
+nb_con_nonzero_22 <- spdep::poly2nb(dd[nonzero_con_22, ])
+nb_con_nonzero_23 <- spdep::poly2nb(dd[nonzero_con_23, ])
+
+
+```
+```{r Log residuals, echo=FALSE, fig.cap = "Log-residuals in GLM regression", message=FALSE, warning=FALSE}
+
+gridExtra::grid.arrange(ggr21, ggr22, ggr23, nrow = 3, ncol = 1)
+
+
+```
+
+
+Residuals may exhibit spatial structure. To assess it, we employ the Moran and Geary tests. Since 
+
+Please notice that log-residuals only take finite values across the municipalities whose female citizens have reported at least one case of violence in 2022.
+
+Additionally, this set of municipalities may include some singletons, which we remove to assess the value of the Moran and Geary statistics. Thus, for each year we have defined the indexes set `nonzero_con` as the set of municipalities from which at least one case of gender-based violence has been reported, *and* which have at least one neighbouring municipality from which at least one case of gender-based violence was reported as well. For brevity, we only show the standardised $I$ values, which under the null hypothesis should be distributed as $N(0,1)$. The Geary's test is also included for completeness.
+
+```{r moran residuals, echo = F, message = F, warning = F, results = "asis"}
+
+autocorrel.tests <- as.data.frame(
+  do.call(rbind,  lapply(list(nonzero_con_21, nonzero_con_22, nonzero_con_23), function(NN){
+    rbind(
+      round(unlist(spdep::moran.test(resids_glm[NN],
+                                     listw = spdep::nb2listw( 
+                                       spdep::poly2nb(dd[NN, ])))[c("statistic", "p.value")]), 3),
+      round(unlist(spdep::geary.test(resids_glm[NN],
+                                     listw = spdep::nb2listw(
+                                       spdep::poly2nb(dd[NN, ])))[c("statistic", "p.value")]), 3))
+               }))) %>% 
+  dplyr::mutate(test = rep(c("Moran", "Geary"), 3)) %>% 
+  dplyr::mutate(year = rep(c("2021", "2022", "2023"), each = 2)) %>% 
+  dplyr::select(c(4,3,1,2))
+names(autocorrel.tests) <- c("Year", "Test", "Statistic_std", "p.value")
+
+print(xtable::xtable(autocorrel.tests), include.rowname = F, n.digits = 3)                 
+               
+```
+
+We find evidence for spatial autocorrelation. However, we must stress out this result does not refer to all the regional territory, but only to a subset of all municipalities.
+
+Based on the autocorrelation evidence, though it has only been assessed for a subset of all municipalities, we try implementing some simple spatial models by adding a conditionally autoregressive latent effect, say $z$, to the linear predictor
+
+\begin{equation}
+\eta_{it} = X_{it}^{\top} \alpha + z_{it} 
+\label{eq:mspat}
+\end{equation}
+
+
+We test a total of four models, all of which have a prior distribution depending on the spatial structure of the underlying graph, in this case the Apulia region. 
+
+In the following, the area-specific latent field is denoted as $z_i = (z_{i, 2021}^{\top}\, z_{i, 2022}^{\top}\, z_{i, 2023}^{\top})^{\top}$
+
+We describe the spatial structure starting from municipalities neighbourhood, and introduce the neighbourhood matrix $W$, whose generic element $w_{ij}$ takes value $1$ if municipalities $i$ and $j$ are neighbours and $0$ otherwise. For each $i \in [1,n]$, $d_i:= \sum_{j=1}^n w_{ij}$ is the number of neigbours of $i$-th municipality. Plase notice we have have $n = 256$.
+
+For all models, we define $\Lambda$ as the precision parameter of the latent effect, and assign it a Wishart prior.
+
+Spatial models are computed by approximating the marginal posteriors of interest via the Integrated Nested Laplace Approximation (INLA), adopting the novel Variational Bayes Approach [@INLAVB].
+
+Priors for spatial effects have been defined using the \texttt{INLAMSM} \texttt{R} package [@INLAMSM].
+
+#### ICAR model
+
+The Intrinsic CAR model is the simplest formulation among spatial autoregressive models. The conditional distribution of each value $z_i \mid z_{-i}$ is:
+
+\begin{equation}
+z_i \mid z_{-i} \sim N \left( \sum_{j=1}^n \frac{w_{ij}}{d_i} z_j \,, \frac{1}{d_i} \Lambda^{-1} \right)
+\label{eq:icar_loc}
+\end{equation}
+
+And the joint prior distribution is:
+
+\begin{equation}
+z \mid \Sigma \left( 0, \Sigma \otimes (D - W)^{+} \right)
+\label{eq:icar_joint}
+\end{equation}
+
+Since the joint distribution of $z$ is improper, a sum-to-zero constraint is required for identifiability.
+
+ 
+
+```{r inla icar, echo = FALSE, message = FALSE, warning = FALSE}
+
+cav_IMCAR_inla <- inla(
+  N_ACC ~ 0 +TEP_th + ELI + PGR + UIS + ELL + PDI + ER + 
+    f(Year, model = "iid") + 
+    f(ID, model = inla.IMCAR.model(k = 3, W = W_con), extraconstr = list(
+      A = A_constr, e = c(rep(0, nrow(A_constr))))),
+  offset = log(nn),
+  family = "poisson", data =dd,
+  #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  verbose = T)
+```
+
+
+
+#### PCAR model
+
+The intrinsic autoregressive model is relatively simple to interpret and to implement, while also requiring the minimum number of additional parameter (either the scale or the precision).
+
+The drawback, however, is that we implicitly assume a deterministic spatial autocorrelation coefficient equal to 1 each year. When the autocorrelation is weak, setting an ICAR prior may be a form of misspecification.
+
+A generalisation of this model is the PCAR (proper CAR), which introduces an autocorrelation parameter $\rho = (\rho_{2021}, \rho_{2022}, \rho_{2023})$.
+
+For the sake of notation, $z$ can be conveniently parametrised as $z := U M$, with $M:/ M^{\top}M = \Sigma$, and $U = (U_{2021}^{\top}, U_{2022}^{\top}, U_{2023}^{\top})^{\top}$, for $t = 2021, 2022, 2023$ $U_t \sim N(0, (D - \rho_t W)^{-1})$ and $U_t \bot U_s$ for $t \neq s$.
+
+This modelling framework, generalising univiariate autoregressions, goes under the name of M-models [@Mmodels]. The joint prior for the M-PCAR is:
+
+$z \mid \rho, \Sigma \sim  N \left( 0,  (M^{\top} \otimes I_n)\mathrm{Bdiag}(D - \rho_t W)(M \otimes I_n) \right)$
+
+\begin{equation}
+z \mid \rho, \Sigma \left(  (M^{\top} \otimes I_n)(\mathrm{Bdiag}(D - \rho_t W))(M \otimes I_n) \right)
+\label{eq:pcar_joint}
+\end{equation}
+
+Where $\mathrm{Bdiag}(A_i)$ denotes a block-diagonal matrix with blocks given by $A_i$ for an appropriate set of indices.
+The R code for implementing M-models is based on the script of [@INLAMSM], which has been extended to fit also the LCAR and BYM models (vd. infra)
+```{r M model silent, echo = TRUE}
+inla.rgeneric.Mmodel <- 
+  function (cmd = c("graph", "Q", "mu", "initial", "log.norm.const", 
+                    "log.prior", "quit"), theta = NULL) {
+    envir <- parent.env(environment())
+    if(!exists("cache.done", envir=envir)){
+      starttime.scale <- Sys.time()
+      if(Qmod == "BYM"){
+        #' Unscaled Laplacian matrix (marginal precision of u_1, u_2 ... u_k)
+        L_unscaled <- Matrix::Diagonal(nrow(W), rowSums(W)) -  W
+        L_unscaled_block <- kronecker(diag(1,k), L_unscaled)
+        A_constr <- t(pracma::nullspace(as.matrix(L_unscaled_block)))
+        scaleQ <- INLA:::inla.scale.model.internal(
+          L_unscaled_block, constr = list(A = A_constr, e = rep(0, nrow(A_constr))))
+        #' Block Laplacian, i.e. precision of U = I_k \otimes L
+        n <- nrow(W)
+        L <- scaleQ$Q[c(1:n), c(1:n)]
+        Sigma.u <- MASS::ginv(as.matrix(L))
+        endtime.scale <- Sys.time()
+        cat("Time needed for scaling Laplacian matrix: ",
+            round(difftime(endtime.scale, starttime.scale), 3), " seconds \n")
+        assign("Sigma.u", Sigma.u, envir = envir)
+      }
+      assign("cache.done", TRUE, envir = envir)
+    }
+    interpret.theta <- function() {
+      alpha <- alpha.min + (alpha.max - alpha.min)/(1 + exp(-theta[as.integer(1:k)]))
+      M <- matrix(theta[-as.integer(1:k)], ncol = k)
+      return(list(alpha = alpha, M = M))
+    }
+    graph <- function() {
+      MI <- kronecker(Matrix::Matrix(1, ncol = k, nrow = k), 
+                      Matrix::Diagonal(nrow(W), 1))
+      IW <- Matrix::Diagonal(nrow(W), 1) + W
+      BlockIW <- Matrix::bdiag(replicate(k, IW, simplify = FALSE))
+      G <- (MI %*% BlockIW) %*% MI
+      return(G)
+    }
+    Q <- function() {
+      param <- interpret.theta()
+      M.inv <- solve(param$M)
+      MI <- kronecker(M.inv, Matrix::Diagonal(nrow(W), 1))
+      D <- as.vector(apply(W, 1, sum))
+      if(Qmod == "LCAR"){
+        print("tempcheck: model = LCAR")
+        BlockIW <- Matrix::bdiag(lapply(1:k, function(i) {
+          param$alpha[i]*(Matrix::Diagonal(x = D) - W) + 
+            (1 - param$alpha[i]) * Matrix::Diagonal(nrow(W), 1)
+        }))
+      } else if (Qmod == "BYM"){
+        print("tempcheck: model = BYM")
+        BlockIW <- Matrix::bdiag(lapply(1:k, function(i) {
+          solve(
+            sqrt(param$alpha[i])*Sigma.u+
+              sqrt(1-param$alpha[i]*Matrix::Diagonal(nrow(W), 1))
+          )
+        }))
+      } else if(Qmod == "PCAR"){
+        print("tempcheck: model = PCAR")
+        BlockIW <- Matrix::bdiag(lapply(1:k, function(i) {
+          Matrix::Diagonal(x = D) - param$alpha[i] * W
+        }))
+      }
+      
+      Q <- (MI %*% BlockIW) %*% kronecker(t(M.inv), Matrix::Diagonal(nrow(W),  1))
+
+      return(Q)
+    }
+    mu <- function() {
+      return(numeric(0))
+    }
+    log.norm.const <- function() {
+      val <- numeric(0)
+      return(val)
+    }
+    log.prior <- function() {
+      param <- interpret.theta()
+      val <- sum(-theta[as.integer(1:k)] - 2 * log(1 + exp(-theta[as.integer(1:k)])))
+      sigma2 <- 1000
+      val = val + log(MCMCpack::dwish(W = crossprod(param$M), 
+                                      v = k, S = diag(rep(sigma2, k))))
+      return(val)
+    }
+    initial <- function() {
+      return(c(rep(0, k), as.vector(diag(rep(1, k)))))
+    }
+    quit <- function() {
+      return(invisible())
+    }
+    if (as.integer(R.version$major) > 3) {
+      if (!length(theta)) 
+        theta = initial()
+    }
+    else {
+      if (is.null(theta)) {
+        theta <- initial()
+      }
+    }
+    val <- do.call(match.arg(cmd), args = list())
+    return(val)
+  }
+inla.Mmodel <- function (...)    INLA::inla.rgeneric.define(inla.rgeneric.Mmodel, ...)
+
+
+```
+
+```{r MmodPCAR run, echo = F, output= F, warning = F, message =F}
+cav_MmodPCAR_inla <- inla(
+  N_ACC ~ 1 +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+        f(ID, model = inla.Mmodel(k = 3, W = W_con,  alpha.min = 0,alpha.max = 1, Qmod = "PCAR")),
+    offset = log(nn),
+    family =  "poisson", data =dd,
+  #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T,  waic = T, config = T), 
+  verbose = T)
+
+```
+
+We show posterior summaries of the autocorrelation parameter. As it can be seen, the spatial component of the first two years is almost randomly distributed, while spatial autocorrelation is very strong for 2023.
+
+```{r rho pcar, echo = FALSE, fig.height = 3, fig.cap = "Posterior marginal of the PCAR autocorrelation parameter", results = 'asis'}
+
+rho_marg_pcar <- lapply(cav_MmodPCAR_inla$marginals.hyperpar[c(1,2,3)], function(f){
+  inla.tmarginal(fun = function(X) 1/(1 + exp(-X)), marginal = f)
+})
+names(rho_marg_pcar) <- c("rho1", "rho2", "rho3")
+
+rholimX <-range(do.call(c, lapply(rho_marg_pcar, FUN = function(x) x[,1])))
+rholimY <-range(do.call(c, lapply(rho_marg_pcar, FUN = function(x) x[,2])))
+
+rhomarg <- as.data.frame(do.call(cbind, rho_marg_pcar))
+names(rhomarg) <- paste0(rep(names(rho_marg_pcar), each=2), c("__X", "__Y"))
+names(rhomarg) <- 
+  gsub("1__", "_._2021__", gsub("2__", "_._2022__", gsub("3__", "_._2023__",
+                                                       names(rhomarg))))
+
+rhomarg_long <- tidyr::pivot_longer(rhomarg, cols = c(1:ncol(rhomarg)),
+                                    names_to = c("Effect", ".value"),
+                                    names_sep = "__") %>% 
+  tidyr::separate(.data$Effect, into = c("Effect", "Year"), sep = "_._")
+
+#' If we do not indulge into pogit regression, let us just keep calling effects \beta:
+
+ggplot2::ggplot(rhomarg_long, ggplot2::aes(x = .data$X, y = .data$Y, color = .data$Year)) +
+  ggplot2::geom_line(size = 0.7) +
+  ggplot2::geom_vline(xintercept = 0) +
+  ggplot2::coord_cartesian(xlim = rholimX, ylim = rholimY) +
+  ggplot2::labs(
+    #title = "Posterior Marginals of Covariates Effects",
+    x = expression(rho),
+    y = expression(pi(rho ~ "|" ~ y)),
+    color = "Autoregressive parameter") +
+  ggplot2::theme_classic() 
+
+rho_summary_pcar <- data.frame(do.call(rbind, lapply(
+  rho_marg_pcar, function(x) unlist(inla.zmarginal(x, silent = TRUE))))) %>% 
+  dplyr::select(1,2,3,5,7)
+
+xtable::xtable(rho_summary_pcar, digits = 3)
+
+```
+ 
+
+
+
+
+#### LCAR model
+
+As an alternative to relax the hypothesis of spatial autocorrelation $=1$, we also test the Leroux autoregressive model [@Leroux], LCAR hereinafter. In this case, the joint prior for $z$ is
+
+\begin{equation}
+z \mid \xi, \Sigma \sim  N \left( 0,  (M^{\top} \otimes I_n)\mathrm{Bdiag}[\xi_t(D - W) + (1-\xi_t)I_n](M \otimes I_n) \right)
+\label{eq:lcar_joint}
+\end{equation}
+
+With notation alike equation \ref{eq:pcar_joint}. $\xi \in [0, 1]^3$ is the mixing parameter.
+
+```{r MmodLCAR run, echo = F, output= F, warning = F, message =F}
+cav_MmodLCAR_inla <- inla(
+  N_ACC ~ 1 +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+        f(ID, model = inla.Mmodel(k = 3, W = W_con,  alpha.min = 0,alpha.max = 1, Qmod = "LCAR")),
+    offset = log(nn),
+    family =  "poisson", data =dd,
+  #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T,  waic = T, config = T), 
+  verbose = T)
+
+```
+
+We show posterior summaries of the autocorrelation parameter. As it can be seen, the spatial component of the first two years is almost randomly distributed, while spatial autocorrelation is very strong for 2023.
+
+```{r rho LCAR, echo = FALSE, fig.height = 3, fig.cap = "Posterior marginal of the LCAR autocorrelation parameter", results = 'asis'}
+
+rho_marg_lcar <- lapply(cav_MmodLCAR_inla$marginals.hyperpar[c(1,2,3)], function(f){
+  inla.tmarginal(fun = function(X) 1/(1 + exp(-X)), marginal = f)
+})
+names(rho_marg_lcar) <- c("rho1", "rho2", "rho3")
+
+rholimX <-range(do.call(c, lapply(rho_marg_lcar, FUN = function(x) x[,1])))
+rholimY <-range(do.call(c, lapply(rho_marg_lcar, FUN = function(x) x[,2])))
+
+rhomarg <- as.data.frame(do.call(cbind, rho_marg_lcar))
+names(rhomarg) <- paste0(rep(names(rho_marg_lcar), each=2), c("__X", "__Y"))
+names(rhomarg) <- 
+  gsub("1__", "_._2021__", gsub("2__", "_._2022__", gsub("3__", "_._2023__",
+                                                       names(rhomarg))))
+
+rhomarg_long <- tidyr::pivot_longer(rhomarg, cols = c(1:ncol(rhomarg)),
+                                    names_to = c("Effect", ".value"),
+                                    names_sep = "__") %>% 
+  tidyr::separate(.data$Effect, into = c("Effect", "Year"), sep = "_._")
+
+#' If we do not indulge into pogit regression, let us just keep calling effects \beta:
+
+ggplot2::ggplot(rhomarg_long, ggplot2::aes(x = .data$X, y = .data$Y, color = .data$Year)) +
+  ggplot2::geom_line(size = 0.7) +
+  ggplot2::geom_vline(xintercept = 0) +
+  ggplot2::coord_cartesian(xlim = rholimX, ylim = rholimY) +
+  ggplot2::labs(
+    #title = "Posterior Marginals of Covariates Effects",
+    x = expression(rho),
+    y = expression(pi(rho ~ "|" ~ y)),
+    color = "Autoregressive parameter") +
+  ggplot2::theme_classic() 
+
+rho_summary_lcar <- data.frame(do.call(rbind, lapply(
+  rho_marg_lcar, function(x) unlist(inla.zmarginal(x, silent = TRUE))))) %>% 
+  dplyr::select(1,2,3,5,7)
+
+xtable::xtable(rho_summary_lcar, digits = 3)
+
+```
+ 
+
+
+
+## Appendices
+
+#### R code for the M-model
+
+```{r  M model displayed, eval = FALSE, echo = TRUE}
+inla.rgeneric.Mmodel <- 
+  function (cmd = c("graph", "Q", "mu", "initial", "log.norm.const", 
+                    "log.prior", "quit"), theta = NULL) {
+    envir <- parent.env(environment())
+    if(!exists("cache.done", envir=envir)){
+      starttime.scale <- Sys.time()
+      if(Qmod == "BYM"){
+        #' Unscaled Laplacian matrix (marginal precision of u_1, u_2 ... u_k)
+        L_unscaled <- Matrix::Diagonal(nrow(W), rowSums(W)) -  W
+        L_unscaled_block <- kronecker(diag(1,k), L_unscaled)
+        A_constr <- t(pracma::nullspace(as.matrix(L_unscaled_block)))
+        scaleQ <- INLA:::inla.scale.model.internal(
+          L_unscaled_block, constr = list(A = A_constr, e = rep(0, nrow(A_constr))))
+        #' Block Laplacian, i.e. precision of U = I_k \otimes L
+        n <- nrow(W)
+        L <- scaleQ$Q[c(1:n), c(1:n)]
+        Sigma.u <- MASS::ginv(as.matrix(L))
+        endtime.scale <- Sys.time()
+        cat("Time needed for scaling Laplacian matrix: ",
+            round(difftime(endtime.scale, starttime.scale), 3), " seconds \n")
+        assign("Sigma.u", Sigma.u, envir = envir)
+      }
+      assign("cache.done", TRUE, envir = envir)
+    }
+    interpret.theta <- function() {
+      alpha <- alpha.min + (alpha.max - alpha.min)/(1 + exp(-theta[as.integer(1:k)]))
+      M <- matrix(theta[-as.integer(1:k)], ncol = k)
+      return(list(alpha = alpha, M = M))
+    }
+    graph <- function() {
+      MI <- kronecker(Matrix::Matrix(1, ncol = k, nrow = k), 
+                      Matrix::Diagonal(nrow(W), 1))
+      IW <- Matrix::Diagonal(nrow(W), 1) + W
+      BlockIW <- Matrix::bdiag(replicate(k, IW, simplify = FALSE))
+      G <- (MI %*% BlockIW) %*% MI
+      return(G)
+    }
+    Q <- function() {
+      param <- interpret.theta()
+      M.inv <- solve(param$M)
+      MI <- kronecker(M.inv, Matrix::Diagonal(nrow(W), 1))
+      D <- as.vector(apply(W, 1, sum))
+      if(Qmod == "LCAR"){
+        BlockIW <- Matrix::bdiag(lapply(1:k, function(i) {
+          param$alpha[i]*(Matrix::Diagonal(x = D) - W) + 
+            (1 - param$alpha[i]) * Matrix::Diagonal(nrow(W), 1)
+        }))
+      } else if (Qmod == "BYM"){
+        BlockIW <- Matrix::bdiag(lapply(1:k, function(i) {
+          solve(
+            sqrt(param$alpha[i])*Sigma.u+
+              sqrt(1-param$alpha[i]*Matrix::Diagonal(nrow(W), 1))
+          )
+        }))
+      } else if(Qmod == "PCAR"){
+        BlockIW <- Matrix::bdiag(lapply(1:k, function(i) {
+          Matrix::Diagonal(x = D) - param$alpha[i] * W
+        }))
+      }
+      
+      Q <- (MI %*% BlockIW) %*% kronecker(t(M.inv), Matrix::Diagonal(nrow(W),  1))
+      
+      
+      
+      return(Q)
+    }
+    mu <- function() {
+      return(numeric(0))
+    }
+    log.norm.const <- function() {
+      val <- numeric(0)
+      return(val)
+    }
+    log.prior <- function() {
+      param <- interpret.theta()
+      val <- sum(-theta[as.integer(1:k)] - 2 * log(1 + exp(-theta[as.integer(1:k)])))
+      sigma2 <- 1000
+      val = val + log(MCMCpack::dwish(W = crossprod(param$M), 
+                                      v = k, S = diag(rep(sigma2, k))))
+      return(val)
+    }
+    initial <- function() {
+      return(c(rep(0, k), as.vector(diag(rep(1, k)))))
+    }
+    quit <- function() {
+      return(invisible())
+    }
+    if (as.integer(R.version$major) > 3) {
+      if (!length(theta)) 
+        theta = initial()
+    }
+    else {
+      if (is.null(theta)) {
+        theta <- initial()
+      }
+    }
+    val <- do.call(match.arg(cmd), args = list())
+    return(val)
+  }
+inla.Mmodel <- function (...)    INLA::inla.rgeneric.define(inla.rgeneric.Mmodel, ...)
+
+
+```
+
