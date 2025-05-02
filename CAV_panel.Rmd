@@ -767,8 +767,8 @@ ggplot2::ggplot(rhomarg_long, ggplot2::aes(x = .data$X, y = .data$Y, color = .da
   ggplot2::coord_cartesian(xlim = rholimX, ylim = rholimY) +
   ggplot2::labs(
     #title = "Posterior Marginals of Covariates Effects",
-    x = expression(rho),
-    y = expression(pi(rho ~ "|" ~ y)),
+    x = expression(xi),
+    y = expression(pi(xi ~ "|" ~ y)),
     color = "Autoregressive parameter") +
   ggplot2::theme_classic() 
 
