@@ -21,6 +21,7 @@ library(INLAMSM)
 
 
 
+
 ## Data
 
 The dataset employed regards the counts of accesses to gender-based violence support centers in the Apulia region by residence municipality of the women victims of violence in 2021-2023. `R` codes to generate the dataset are in the R script [posted here](https://github.com/lcef97/CAV_Puglia/blob/main/CAV_full.R) which this report is based on. 
@@ -132,7 +133,7 @@ dd <- Shp_con %>%
   dplyr::mutate(PGR = as.vector(scale(.data$PGR)))  %>% 
   dplyr::mutate(UIS = as.vector(scale(.data$UIS)))  %>% 
   dplyr::mutate(ELI = as.vector(scale(.data$ELI))) %>% 
-  dplyr::mutate(Area = as.numeric(as.factor(.data$PRO_COM))) %>% 
+  dplyr::mutate(Area = rep(c(1:n), 3)) %>% 
   dplyr::mutate(Year = as.numeric(as.factor(.data$Year))) %>% 
   dplyr::mutate(ID = .data$Area + (.data$Year-1)*n)
 
@@ -524,371 +525,51 @@ cav_IMCAR_inla <- inla(
   verbose = T)
 ```
 
+## PCAR model
+
+The intrinsic autoregressive model is relatively simple to interpret and to implement, 
+while also requiring the minimum number of additional parameter (either the scale or the precision).
 
 
-#### PCAR model
+The drawback, however, is that we implicitly assume a deterministic spatial autocorrelation coefficient equal to 1.
+When the autocorrelation is weak, setting an ICAR prior may be a form of misspecification.
 
-The intrinsic autoregressive model is relatively simple to interpret and to implement, while also requiring the minimum number of additional parameter (either the scale or the precision).
-
-The drawback, however, is that we implicitly assume a deterministic spatial autocorrelation coefficient equal to 1 each year. When the autocorrelation is weak, setting an ICAR prior may be a form of misspecification.
-
-A generalisation of this model is the PCAR (proper CAR), which introduces an autocorrelation parameter $\rho = (\rho_{2021}, \rho_{2022}, \rho_{2023})$.
-
-For the sake of notation, $z$ can be conveniently parametrised as $z := U M$, with $M:/ M^{\top}M = \Sigma$, and $U = (U_{2021}^{\top}, U_{2022}^{\top}, U_{2023}^{\top})^{\top}$, for $t = 2021, 2022, 2023$ $U_t \sim N(0, (D - \rho_t W)^{-1})$ and $U_t \bot U_s$ for $t \neq s$.
-
-This modelling framework, generalising univiariate autoregressions, goes under the name of M-models [@Mmodels]. The joint prior for the M-PCAR is:
-
-$z \mid \rho, \Sigma \sim  N \left( 0,  (M^{\top} \otimes I_n)\mathrm{Bdiag}(D - \rho_t W)(M \otimes I_n) \right)$
+A generalisation of this model is the PCAR (proper CAR), which introduces an autocorrelation parameter $\rho$:
 
 \begin{equation}
-z \mid \rho, \Sigma \left(  (M^{\top} \otimes I_n)(\mathrm{Bdiag}(D - \rho_t W))(M \otimes I_n) \right)
-\label{eq:pcar_joint}
+z_i \mid z_{-i} \sim N \left( \sum_{j=1}^n \rho \frac{w_{ij}}{d_i} z_j \,, \frac{}{d_i} \Lambda^{-1}\right)
+\label{eq:pcar_loc}
 \end{equation}
 
-Where $\mathrm{Bdiag}(A_i)$ denotes a block-diagonal matrix with blocks given by $A_i$ for an appropriate set of indices.
-The R code for implementing M-models is based on the script of [@INLAMSM], which has been extended to fit also the LCAR and BYM models (vd. infra)
-```{r M model silent, echo = FALSE}
-inla.rgeneric.Mmodel <- 
-  function (cmd = c("graph", "Q", "mu", "initial", "log.norm.const", 
-                    "log.prior", "quit"), theta = NULL) {
-    envir <- parent.env(environment())
-    if(!exists("cache.done", envir=envir)){
-      starttime.scale <- Sys.time()
-      if(Qmod == "BYM"){
-        #' Unscaled Laplacian matrix (marginal precision of u_1, u_2 ... u_k)
-        L_unscaled <- Matrix::Diagonal(nrow(W), rowSums(W)) -  W
-        L_unscaled_block <- kronecker(diag(1,k), L_unscaled)
-        A_constr <- t(pracma::nullspace(as.matrix(L_unscaled_block)))
-        scaleQ <- INLA:::inla.scale.model.internal(
-          L_unscaled_block, constr = list(A = A_constr, e = rep(0, nrow(A_constr))))
-        #' Block Laplacian, i.e. precision of U = I_k \otimes L
-        n <- nrow(W)
-        L <- scaleQ$Q[c(1:n), c(1:n)]
-        Sigma.u <- MASS::ginv(as.matrix(L))
-        endtime.scale <- Sys.time()
-        cat("Time needed for scaling Laplacian matrix: ",
-            round(difftime(endtime.scale, starttime.scale), 3), " seconds \n")
-        assign("Sigma.u", Sigma.u, envir = envir)
-      }
-      assign("cache.done", TRUE, envir = envir)
-    }
-    interpret.theta <- function() {
-      alpha <- alpha.min + (alpha.max - alpha.min)/(1 + exp(-theta[as.integer(1:k)]))
-      M <- matrix(theta[-as.integer(1:k)], ncol = k)
-      return(list(alpha = alpha, M = M))
-    }
-    graph <- function() {
-      MI <- kronecker(Matrix::Matrix(1, ncol = k, nrow = k), 
-                      Matrix::Diagonal(nrow(W), 1))
-      IW <- Matrix::Diagonal(nrow(W), 1) + W
-      BlockIW <- Matrix::bdiag(replicate(k, IW, simplify = FALSE))
-      G <- (MI %*% BlockIW) %*% MI
-      return(G)
-    }
-    Q <- function() {
-      param <- interpret.theta()
-      M.inv <- solve(param$M)
-      MI <- kronecker(M.inv, Matrix::Diagonal(nrow(W), 1))
-      D <- as.vector(apply(W, 1, sum))
-      if(Qmod == "LCAR"){
-        print("tempcheck: model = LCAR")
-        BlockIW <- Matrix::bdiag(lapply(1:k, function(i) {
-          param$alpha[i]*(Matrix::Diagonal(x = D) - W) + 
-            (1 - param$alpha[i]) * Matrix::Diagonal(nrow(W), 1)
-        }))
-      } else if (Qmod == "BYM"){
-        print("tempcheck: model = BYM")
-        BlockIW <- Matrix::bdiag(lapply(1:k, function(i) {
-          solve(
-            sqrt(param$alpha[i])*Sigma.u+
-              sqrt(1-param$alpha[i]*Matrix::Diagonal(nrow(W), 1))
-          )
-        }))
-      } else if(Qmod == "PCAR"){
-        print("tempcheck: model = PCAR")
-        BlockIW <- Matrix::bdiag(lapply(1:k, function(i) {
-          Matrix::Diagonal(x = D) - param$alpha[i] * W
-        }))
-      }
-      
-      Q <- (MI %*% BlockIW) %*% kronecker(t(M.inv), Matrix::Diagonal(nrow(W),  1))
 
-      return(Q)
-    }
-    mu <- function() {
-      return(numeric(0))
-    }
-    log.norm.const <- function() {
-      val <- numeric(0)
-      return(val)
-    }
-    log.prior <- function() {
-      param <- interpret.theta()
-      val <- sum(-theta[as.integer(1:k)] - 2 * log(1 + exp(-theta[as.integer(1:k)])))
-      sigma2 <- 1000
-      val = val + log(MCMCpack::dwish(W = crossprod(param$M), 
-                                      v = k, S = diag(rep(sigma2, k))))
-      return(val)
-    }
-    initial <- function() {
-      return(c(rep(0, k), as.vector(diag(rep(1, k)))))
-    }
-    quit <- function() {
-      return(invisible())
-    }
-    if (as.integer(R.version$major) > 3) {
-      if (!length(theta)) 
-        theta = initial()
-    }
-    else {
-      if (is.null(theta)) {
-        theta <- initial()
-      }
-    }
-    val <- do.call(match.arg(cmd), args = list())
-    return(val)
-  }
-inla.Mmodel <- function (...)    INLA::inla.rgeneric.define(inla.rgeneric.Mmodel, ...)
+```{r pcar run, message = FALSE, echo = FALSE, output = FALSE}
 
-
-```
-
-```{r MmodPCAR run, echo = F, output= F, warning = F, message =F}
-cav_MmodPCAR_inla <- inla(
+cav_PMCAR_inla <- inla(
   N_ACC ~ 1 +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
-        f(ID, model = inla.Mmodel(k = 3, W = W_con,  alpha.min = 0,alpha.max = 1, Qmod = "PCAR")),
-    offset = log(nn),
-    family =  "poisson", data =dd,
+    f(Area, model = inla.MCAR.model(k = 3, W = W_con, alpha.min = 0, alpha.max = 1)),
+  offset = log(nn),
+  family = "poisson", data =dd,
   #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
-  num.threads = 1, control.compute = list(internal.opt = F, cpo = T,  waic = T, config = T), 
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T, dic = T), 
   verbose = T)
 
+
+
+
 ```
 
-We show posterior summaries of the autocorrelation parameter. As it can be seen, the spatial component of the first two years is almost randomly distributed, while spatial autocorrelation is very strong for 2023.
+We show the posterior summary for the autocorrelation coefficient. 
 
-```{r rho pcar, echo = FALSE, fig.height = 3, fig.cap = "Posterior marginal of the PCAR autocorrelation parameter", results = 'asis'}
+```{r rho pcar, echo = FALSE, fig.height = 3, fig.cap = "Posterior marginal of the PCAR autocorrelation parameter"}
+rho_marg_pcar <- inla.tmarginal(
+  fun = function(X) 1/(1 + exp(-X)),
+  marginal = cav_PMCAR_inla$marginals.hyperpar[[1]])
 
-rho_marg_pcar <- lapply(cav_MmodPCAR_inla$marginals.hyperpar[c(1,2,3)], function(f){
-  inla.tmarginal(fun = function(X) 1/(1 + exp(-X)), marginal = f)
-})
-names(rho_marg_pcar) <- c("rho1", "rho2", "rho3")
+plot(rho_marg_pcar, type = 'l', xlab = expression(rho), ylab = expression(pi (rho ~ "|" ~ y)  ))
 
-rholimX <-range(do.call(c, lapply(rho_marg_pcar, FUN = function(x) x[,1])))
-rholimY <-range(do.call(c, lapply(rho_marg_pcar, FUN = function(x) x[,2])))
-
-rhomarg <- as.data.frame(do.call(cbind, rho_marg_pcar))
-names(rhomarg) <- paste0(rep(names(rho_marg_pcar), each=2), c("__X", "__Y"))
-names(rhomarg) <- 
-  gsub("1__", "_._2021__", gsub("2__", "_._2022__", gsub("3__", "_._2023__",
-                                                       names(rhomarg))))
-
-rhomarg_long <- tidyr::pivot_longer(rhomarg, cols = c(1:ncol(rhomarg)),
-                                    names_to = c("Effect", ".value"),
-                                    names_sep = "__") %>% 
-  tidyr::separate(.data$Effect, into = c("Effect", "Year"), sep = "_._")
-
-#' If we do not indulge into pogit regression, let us just keep calling effects \beta:
-
-ggplot2::ggplot(rhomarg_long, ggplot2::aes(x = .data$X, y = .data$Y, color = .data$Year)) +
-  ggplot2::geom_line(size = 0.7) +
-  ggplot2::geom_vline(xintercept = 0) +
-  ggplot2::coord_cartesian(xlim = rholimX, ylim = rholimY) +
-  ggplot2::labs(
-    #title = "Posterior Marginals of Covariates Effects",
-    x = expression(rho),
-    y = expression(pi(rho ~ "|" ~ y)),
-    color = "Autoregressive parameter") +
-  ggplot2::theme_classic() 
-
-rho_summary_pcar <- data.frame(do.call(rbind, lapply(
-  rho_marg_pcar, function(x) unlist(inla.zmarginal(x, silent = TRUE))))) %>% 
-  dplyr::select(1,2,3,5,7)
-
-xtable::xtable(rho_summary_pcar, digits = 3)
-
+unlist(inla.zmarginal(rho_marg_pcar, silent = TRUE))
 ```
  
+ The credible interval for $\rho$ is quite pushed towards unity, denoting the model estimates a strong spatial autocorrelation. 
 
-
-
-
-#### LCAR model
-
-As an alternative to relax the hypothesis of spatial autocorrelation $=1$, we also test the Leroux autoregressive model [@Leroux], LCAR hereinafter. In this case, the joint prior for $z$ is
-
-\begin{equation}
-z \mid \xi, \Sigma \sim  N \left( 0,  (M^{\top} \otimes I_n)\mathrm{Bdiag}[\xi_t(D - W) + (1-\xi_t)I_n](M \otimes I_n) \right)
-\label{eq:lcar_joint}
-\end{equation}
-
-With notation alike equation \ref{eq:pcar_joint}. $\xi \in [0, 1]^3$ is the mixing parameter.
-
-```{r MmodLCAR run, echo = F, output= F, warning = F, message =F}
-cav_MmodLCAR_inla <- inla(
-  N_ACC ~ 1 +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
-        f(ID, model = inla.Mmodel(k = 3, W = W_con,  alpha.min = 0,alpha.max = 1, Qmod = "LCAR")),
-    offset = log(nn),
-    family =  "poisson", data =dd,
-  #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
-  num.threads = 1, control.compute = list(internal.opt = F, cpo = T,  waic = T, config = T), 
-  verbose = T)
-
-```
-
-We show posterior summaries of the autocorrelation parameter. As it can be seen, the spatial component of the first two years is almost randomly distributed, while spatial autocorrelation is very strong for 2023.
-
-```{r rho LCAR, echo = FALSE, fig.height = 3, fig.cap = "Posterior marginal of the LCAR autocorrelation parameter", results = 'asis'}
-
-rho_marg_lcar <- lapply(cav_MmodLCAR_inla$marginals.hyperpar[c(1,2,3)], function(f){
-  inla.tmarginal(fun = function(X) 1/(1 + exp(-X)), marginal = f)
-})
-names(rho_marg_lcar) <- c("rho1", "rho2", "rho3")
-
-rholimX <-range(do.call(c, lapply(rho_marg_lcar, FUN = function(x) x[,1])))
-rholimY <-range(do.call(c, lapply(rho_marg_lcar, FUN = function(x) x[,2])))
-
-rhomarg <- as.data.frame(do.call(cbind, rho_marg_lcar))
-names(rhomarg) <- paste0(rep(names(rho_marg_lcar), each=2), c("__X", "__Y"))
-names(rhomarg) <- 
-  gsub("1__", "_._2021__", gsub("2__", "_._2022__", gsub("3__", "_._2023__",
-                                                       names(rhomarg))))
-
-rhomarg_long <- tidyr::pivot_longer(rhomarg, cols = c(1:ncol(rhomarg)),
-                                    names_to = c("Effect", ".value"),
-                                    names_sep = "__") %>% 
-  tidyr::separate(.data$Effect, into = c("Effect", "Year"), sep = "_._")
-
-#' If we do not indulge into pogit regression, let us just keep calling effects \beta:
-
-ggplot2::ggplot(rhomarg_long, ggplot2::aes(x = .data$X, y = .data$Y, color = .data$Year)) +
-  ggplot2::geom_line(size = 0.7) +
-  ggplot2::geom_vline(xintercept = 0) +
-  ggplot2::coord_cartesian(xlim = rholimX, ylim = rholimY) +
-  ggplot2::labs(
-    #title = "Posterior Marginals of Covariates Effects",
-    x = expression(xi),
-    y = expression(pi(xi ~ "|" ~ y)),
-    color = "Autoregressive parameter") +
-  ggplot2::theme_classic() 
-
-rho_summary_lcar <- data.frame(do.call(rbind, lapply(
-  rho_marg_lcar, function(x) unlist(inla.zmarginal(x, silent = TRUE))))) %>% 
-  dplyr::select(1,2,3,5,7)
-
-xtable::xtable(rho_summary_lcar, digits = 3)
-
-```
- 
-
-
-
-## Appendices
-
-#### R code for the M-model
-
-```{r  M model displayed, eval = FALSE, echo = TRUE}
-inla.rgeneric.Mmodel <- 
-  function (cmd = c("graph", "Q", "mu", "initial", "log.norm.const", 
-                    "log.prior", "quit"), theta = NULL) {
-    envir <- parent.env(environment())
-    if(!exists("cache.done", envir=envir)){
-      starttime.scale <- Sys.time()
-      if(Qmod == "BYM"){
-        #' Unscaled Laplacian matrix (marginal precision of u_1, u_2 ... u_k)
-        L_unscaled <- Matrix::Diagonal(nrow(W), rowSums(W)) -  W
-        L_unscaled_block <- kronecker(diag(1,k), L_unscaled)
-        A_constr <- t(pracma::nullspace(as.matrix(L_unscaled_block)))
-        scaleQ <- INLA:::inla.scale.model.internal(
-          L_unscaled_block, constr = list(A = A_constr, e = rep(0, nrow(A_constr))))
-        #' Block Laplacian, i.e. precision of U = I_k \otimes L
-        n <- nrow(W)
-        L <- scaleQ$Q[c(1:n), c(1:n)]
-        Sigma.u <- MASS::ginv(as.matrix(L))
-        endtime.scale <- Sys.time()
-        cat("Time needed for scaling Laplacian matrix: ",
-            round(difftime(endtime.scale, starttime.scale), 3), " seconds \n")
-        assign("Sigma.u", Sigma.u, envir = envir)
-      }
-      assign("cache.done", TRUE, envir = envir)
-    }
-    interpret.theta <- function() {
-      alpha <- alpha.min + (alpha.max - alpha.min)/(1 + exp(-theta[as.integer(1:k)]))
-      M <- matrix(theta[-as.integer(1:k)], ncol = k)
-      return(list(alpha = alpha, M = M))
-    }
-    graph <- function() {
-      MI <- kronecker(Matrix::Matrix(1, ncol = k, nrow = k), 
-                      Matrix::Diagonal(nrow(W), 1))
-      IW <- Matrix::Diagonal(nrow(W), 1) + W
-      BlockIW <- Matrix::bdiag(replicate(k, IW, simplify = FALSE))
-      G <- (MI %*% BlockIW) %*% MI
-      return(G)
-    }
-    Q <- function() {
-      param <- interpret.theta()
-      M.inv <- solve(param$M)
-      MI <- kronecker(M.inv, Matrix::Diagonal(nrow(W), 1))
-      D <- as.vector(apply(W, 1, sum))
-      if(Qmod == "LCAR"){
-        BlockIW <- Matrix::bdiag(lapply(1:k, function(i) {
-          param$alpha[i]*(Matrix::Diagonal(x = D) - W) + 
-            (1 - param$alpha[i]) * Matrix::Diagonal(nrow(W), 1)
-        }))
-      } else if (Qmod == "BYM"){
-        BlockIW <- Matrix::bdiag(lapply(1:k, function(i) {
-          solve(
-            sqrt(param$alpha[i])*Sigma.u+
-              sqrt(1-param$alpha[i]*Matrix::Diagonal(nrow(W), 1))
-          )
-        }))
-      } else if(Qmod == "PCAR"){
-        BlockIW <- Matrix::bdiag(lapply(1:k, function(i) {
-          Matrix::Diagonal(x = D) - param$alpha[i] * W
-        }))
-      }
-      
-      Q <- (MI %*% BlockIW) %*% kronecker(t(M.inv), Matrix::Diagonal(nrow(W),  1))
-      
-      
-      
-      return(Q)
-    }
-    mu <- function() {
-      return(numeric(0))
-    }
-    log.norm.const <- function() {
-      val <- numeric(0)
-      return(val)
-    }
-    log.prior <- function() {
-      param <- interpret.theta()
-      val <- sum(-theta[as.integer(1:k)] - 2 * log(1 + exp(-theta[as.integer(1:k)])))
-      sigma2 <- 1000
-      val = val + log(MCMCpack::dwish(W = crossprod(param$M), 
-                                      v = k, S = diag(rep(sigma2, k))))
-      return(val)
-    }
-    initial <- function() {
-      return(c(rep(0, k), as.vector(diag(rep(1, k)))))
-    }
-    quit <- function() {
-      return(invisible())
-    }
-    if (as.integer(R.version$major) > 3) {
-      if (!length(theta)) 
-        theta = initial()
-    }
-    else {
-      if (is.null(theta)) {
-        theta <- initial()
-      }
-    }
-    val <- do.call(match.arg(cmd), args = list())
-    return(val)
-  }
-inla.Mmodel <- function (...)    INLA::inla.rgeneric.define(inla.rgeneric.Mmodel, ...)
-
-
-```
 

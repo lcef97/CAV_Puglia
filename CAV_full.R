@@ -288,8 +288,50 @@ glm_all_X <- glm(N_ACC_21 ~ 1 + TEP_th_22 + TEP_th_23 + MFI + AES + PDI + ELL + 
 X <- model.matrix(glm_all_X)
 
 
+if(!rlang::is_installed("INLAMSM")) devtools::install_github("becarioprecario/INLAMSM")
+
+#' Besides calling the package, the present R code is frequently 
+#' derived from INLAMSM source codes.
+
+library(INLA)
+library(INLAMSM)#' But before spatial analysis, let's do some NONspatial analysis:
+
+
+
+#' Deconfounding with Spatial+ 
+#' First approach, more radical: fitting an ICAR model on covariates
+
+ICAR_ELL <- inla(ELL ~ 1 + f(ID, model = "besag", graph = W_con,
+                             hyper = list(prec=list(prior = "PC.prec"))),
+                 data  = dd_con, family = "gaussian", 
+                 control.compute = list(internal.opt = F),
+                 num.threads = 1, verbose = T)
+ICAR_ER <- inla(ER ~ 1 + f(ID, model = "besag", graph = W_con,
+                           hyper = list(prec=list(prior = "PC.prec"))),
+                data  = dd_con, family = "gaussian", 
+                control.compute = list(internal.opt = F),
+                num.threads = 1, verbose = T)
+
+dd_con %>% dplyr::mutate(xhat = ICAR_ELL$summary.random$ID$mean) %>% 
+  ggplot2::ggplot() +
+  ggplot2::geom_sf(ggplot2::aes(fill = .data$xhat))+
+  ggplot2::labs( fill = "xhat") +
+  ggplot2::scale_fill_viridis_c(na.value = "white", direction = -1) +
+  ggplot2::theme_classic()
+
+ELL_nosp_resid <- as.vector(scale(dd_con$ELL - ICAR_ELL$summary.random$ID$mean))
+ER_nosp_resid <- as.vector(scale(dd_con$ER - ICAR_ER$summary.random$ID$mean))
+
+
+
+
+
 n <- nrow(dd_con)
 dd_list <- list (
+  PRO_COM  = matrix(c(dd_con$PRO_COM, rep(NA, 3*n), 
+                      dd_con$PRO_COM, rep(NA, 3*n), 
+                      dd_con$PRO_COM), nrow = 3*n, 
+                    ncol = 3, byrow = FALSE),
   Intercept = matrix(c(rep(1, n), rep(NA, 3*n), 
                        rep(1,n), rep(NA, 3*n), 
                        rep(1,n)), nrow = 3*n, 
@@ -318,6 +360,10 @@ dd_list <- list (
                  dd_con$ELL, rep(NA, 3*n), 
                  dd_con$ELL), nrow = 3*n,
                ncol = 3, byrow = FALSE),
+  ELL_nosp_resid = matrix(c(ELL_nosp_resid, rep(NA, 3*n), 
+                 ELL_nosp_resid, rep(NA, 3*n), 
+                 ELL_nosp_resid), nrow = 3*n,
+               ncol = 3, byrow = FALSE),
   PDI = matrix(c(dd_con$PDI, rep(NA, 3*n), 
                  dd_con$PDI, rep(NA, 3*n), 
                  dd_con$PDI), nrow = 3*n,
@@ -326,6 +372,10 @@ dd_list <- list (
                 dd_con$ER, rep(NA, 3*n), 
                 dd_con$ER), nrow = 3*n,
               ncol = 3, byrow = FALSE),
+  ER_nosp_resid = matrix(c(ER_nosp_resid, rep(NA, 3*n), 
+                            ER_nosp_resid, rep(NA, 3*n), 
+                            ER_nosp_resid), nrow = 3*n,
+                          ncol = 3, byrow = FALSE),
   ID = c(1:n, (n + c(1:n)), (2*n + c(1:n))),
   ID2 = c(1:n, (n + c(1:n)), (2*n + c(1:n)),
           (3*n)+c(1:n, (n + c(1:n)), (2*n + c(1:n)))),
@@ -387,27 +437,20 @@ zhat_plot <- function(model, main = NULL){
 ## Spatial analysis ------------------------------------------------------------
 
 
-if(!rlang::is_installed("INLAMSM")) devtools::install_github("becarioprecario/INLAMSM")
-
-#' Besides calling the package, the present R code is frequently 
-#' derived from INLAMSM source codes.
-
-library(INLA)
-library(INLAMSM)#' But before spatial analysis, let's do some NONspatial analysis:
-
 
 #' Two ways of seeing this issue: 
 #'   A) Panel - like analysis: covariate effects
 #'      are constant in time
 #'   B) Multivariate analysis: each year accounts
 #'      for a different target variable, in other words
-#'      covariate effects are time-varying ==>
+#'      covariate effects are time-varying 
 
 cav_nosp_inla <- inla(
   N_ACC ~ 0 + Intercept +TEP_th + ELI + PGR + UIS + ELL + PDI + ER,
   offset = log(nn),
   family = rep("poisson", 3), data =dd_list,
   num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  control.predictor = list(compute = T),
   verbose = T)
 
 cav_nosp_inla_panel <- inla(
@@ -428,8 +471,9 @@ cav_nosp_inla_panel <- inla(
 #' 
 
 
+#' Complex model: time-varying covariate effects
 cav_IMCAR_inla <- inla(
-  N_ACC ~ 0 + Intercept +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+  N_ACC ~ 0 + Intercept + TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
     f(ID, model = inla.IMCAR.model(k = 3, W = W_con), extraconstr = list(
       A = A_constr, e = c(0,0,0))),
   offset = log(nn),
@@ -438,12 +482,11 @@ cav_IMCAR_inla <- inla(
   num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
   verbose = T)
 
-#' Warning: only works with unique intercept for
-#' all years.
-
+#' Compare to simpler model
 cav_IMCAR_inla_panel <- inla(
-  N_ACC ~ 0 + Intercept +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
-    f(ID_im, model = inla.IMCAR.model(k = 3, W = W_con), extraconstr = list(
+  N_ACC ~ 0 +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(Year, model = "iid", hyper = list(prec = list(initial = 1e-3, fixed = TRUE))) +
+    f(ID_ym, model = inla.IMCAR.model(k = 3, W = W_con), extraconstr = list(
       A = A_constr, e = c(0,0,0))),
   offset = log(nn),
   family = "poisson", data =dd_long,
@@ -470,9 +513,17 @@ cav_PMCAR_inla <- inla(
   family = rep("poisson", 3), data =dd_list,
   #control.fixed = list(prec = list(Intercept1 = 0, Intercept2 = 0, Intercept3 = 0)),
   #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
-  num.threads = 1, control.compute = list(internal.opt = F, cpo = T,  waic = T, config = T), 
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T,  waic = T, config = T, dic = T), 
   verbose = T)
 
+cav_PMCAR_inla_panel <- inla(
+  N_ACC ~ 1 +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID_ym, model = inla.MCAR.model(k = 3, W = W_con, alpha.min = 0, alpha.max = 1)),
+  offset = log(nn),
+  family = "poisson", data =dd_long,
+  #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T, dic = T), 
+  verbose = T)
 
 
 
@@ -494,6 +545,9 @@ inla.zmarginal(inla.tmarginal(
 
 #' Weird result: employment rate has negative association, and 
 #' even stronger in absolute value than for 2022.
+
+#' It seems the panel model outperforms the more complex one.
+#' This is not entirely due to reduced complexity.
 
 
 #' Leroux model, manual definition: --------------------------------------------
@@ -588,8 +642,19 @@ cav_MLCAR_inla <- inla(
   family = rep("poisson", 3), data =dd_list,
   #control.fixed = list(prec = list(Intercept1 = 0, Intercept2 = 0, Intercept3 = 0)),
   #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
-  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T, dic = T), 
   verbose = T)
+
+cav_MLCAR_inla_panel <- inla(
+  N_ACC ~ 1 +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID_ym, model = inla.MLCAR.model(k = 3, W = W_con, init = NULL)),
+  offset = log(nn),
+  family = "poisson", data =dd_long,
+  #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T, dic = T), 
+  verbose = T)
+
+
 
 #' Allow to set initial values
 cav_MLCAR_inla_init <- inla(
@@ -947,6 +1012,22 @@ cav_MBYM_inla <- inla(
   #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
   num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
   verbose = T)
+
+
+cav_MBYM_inla_panel <- inla(
+  N_ACC ~ 0 +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(Year, model = "iid", hyper = list(prec = list(initial = 1e-3, fixed = TRUE))) +
+    f(ID_ym, model = inla.MBYM.dense(k = 3, W = W_con, PC = FALSE),
+      extraconstr = list(A = A_constr, e = rep(0, 3))) ,
+  offset = log(nn),
+  family = "poisson", data =dd_long,
+  #control.fixed = list(prec = list(Intercept1 = 0, Intercept2 = 0, Intercept3 = 0)),
+  #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  verbose = T)
+
+ 
+
 
 #' Weird results, needs to be checked. 
 #' Still, it's fast!
@@ -1324,7 +1405,7 @@ X.bru <- dd_extended_alt %>%
   dplyr::select(rownames(cav_nosp_inlabru$summary.fixed))
 X.bru <- as.matrix(X.bru)          
 
-## M-Model PCAR attempt --------------------------------------------------------
+## M-Model attempt --------------------------------------------------------
 
 
 #' Edited version of INLAMSM:::inla.rgeneric.Mmodel.model
@@ -1405,8 +1486,25 @@ cav_PMMCAR_inla <- inla(
   num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
   verbose = T)
 
-inla.zmarginal(inla.tmarginal(fun = function(x) (1+exp(-x))^-1,
-                              cav_PMMCAR_inla$marginals.hyperpar[[1]]))
+rho_marg_pcar <- lapply(cav_PMMCAR_inla$marginals.hyperpar[c(1,2,3)], function(f){
+  inla.tmarginal(fun = function(X) 1/(1 + exp(-X)), marginal = f)
+})
+
+rho_summary_pcar <- data.frame(do.call(rbind, lapply(
+  rho_marg_pcar, function(x) unlist(inla.zmarginal(x, silent = TRUE))))) %>% 
+  dplyr::select(1,2,3,5,7)
+
+#' This looks very different from the factorisable PCAR. 
+#' Basically, 2021 and 2022 data have no spatial structure,
+#' according to the M-model posteriors. 
+#'
+#'
+#'
+#'
+
+
+
+
 
 #' More general version covering also LCAR and sparse BYM:
 
@@ -1435,7 +1533,7 @@ inla.rgeneric.Mmodel <-
       assign("cache.done", TRUE, envir = envir)
     }
     interpret.theta <- function() {
-      alpha <- alpha.min + (alpha.max - alpha.min)/(1 + exp(-theta[as.integer(1:k)]))
+      alpha <- 1/(1 + exp(-theta[as.integer(1:k)]))
       M <- matrix(theta[-as.integer(1:k)], ncol = k)
       return(list(alpha = alpha, M = M))
     }
@@ -1459,10 +1557,8 @@ inla.rgeneric.Mmodel <-
         }))
       } else if (Qmod == "BYM"){
         BlockIW <- Matrix::bdiag(lapply(1:k, function(i) {
-          solve(
-            sqrt(param$alpha[i])*Sigma.u+
-              sqrt(1-param$alpha[i]*Matrix::Diagonal(nrow(W), 1))
-          )
+          solve(param$alpha[i]*Sigma.u + 
+                  (1-param$alpha[i])*Matrix::Diagonal(nrow(W), 1))
         }))
       } else if(Qmod == "PCAR"){
         BlockIW <- Matrix::bdiag(lapply(1:k, function(i) {
@@ -1514,8 +1610,28 @@ inla.Mmodel <- function (...)    INLA::inla.rgeneric.define(inla.rgeneric.Mmodel
 
 cav_MmodPCAR_inla <- inla(
   N_ACC ~ 1 +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
-    f(ID, model = inla.Mmodel(k = 3, W = W_con, 
-                              alpha.min = 0, alpha.max = 1, Qmod = "PCAR")),
+    f(ID, model = inla.Mmodel(k = 3, W = W_con, Qmod = "PCAR")),
+  offset = log(nn),
+  family = rep("poisson", 3), data =dd_list,
+  #control.fixed = list(prec = list(Intercept1 = 0, Intercept2 = 0, Intercept3 = 0)),
+  #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T,  waic = T, config = T, dic = TRUE), 
+  verbose = T)
+
+cav_MmodPCAR_inla_panel <- inla(
+  N_ACC ~ 1 +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.Mmodel(k = 3, W = W_con, Qmod = "PCAR")),
+  offset = log(nn),
+  family = rep("poisson", 3), data =dd_list,
+  #control.fixed = list(prec = list(Intercept1 = 0, Intercept2 = 0, Intercept3 = 0)),
+  #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T,  waic = T, config = T), 
+  verbose = T)
+
+
+cav_MmodPCAR_inla_spatplus <- inla(
+  N_ACC ~ 1 +TEP_th + ELI+ PGR + UIS + ELL_nosp_resid  + PDI + ER_nosp_resid+ 
+    f(ID, model = inla.Mmodel(k = 3, W = W_con, Qmod = "PCAR")),
   offset = log(nn),
   family = rep("poisson", 3), data =dd_list,
   #control.fixed = list(prec = list(Intercept1 = 0, Intercept2 = 0, Intercept3 = 0)),
@@ -1525,14 +1641,39 @@ cav_MmodPCAR_inla <- inla(
 
 cav_MmodLCAR_inla <- inla(
   N_ACC ~ 1 +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
-    f(ID, model = inla.Mmodel(k = 3, W = W_con, 
-                              alpha.min = 0, alpha.max = 1, Qmod = "LCAR")),
+    f(ID, model = inla.Mmodel(k = 3, W = W_con,  Qmod = "LCAR")),
   offset = log(nn),
   family = rep("poisson", 3), data =dd_list,
   #control.fixed = list(prec = list(Intercept1 = 0, Intercept2 = 0, Intercept3 = 0)),
   #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
   num.threads = 1, control.compute = list(internal.opt = F, cpo = T,  waic = T, config = T), 
   verbose = T)
+
+cav_MmodBYM_inla <- inla(
+  N_ACC ~ 0 + Intercept + TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.Mmodel(k = 3, W = W_con, Qmod = "BYM"),
+      extraconstr = list(A = A_constr, e = rep(0, 3))),
+  offset = log(nn),
+  family = rep("poisson", 3), data =dd_list,
+  #control.fixed = list(prec = list(Intercept1 = 0, Intercept2 = 0, Intercept3 = 0)),
+  #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T,  waic = T, config = T), 
+  verbose = T)
+#' crashes and results have terrible metrics - waic 2914.96
+
+#' Extremely slow but at least it seems to work:
+cav_MmodBYM_inla_panel <- inla(
+  N_ACC ~ 0 +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(Year, model = "iid", hyper = list(prec = list(initial = 1e-3, fixed = TRUE))) +
+    f(ID_ym, model = inla.Mmodel(k = 3, W = W_con, Qmod = "BYM"),
+      extraconstr = list(A = A_constr, e = rep(0, 3))),
+  offset = log(nn),
+  family = "poisson", data =dd_long,
+  #control.fixed = list(prec = list(Intercept1 = 0, Intercept2 = 0, Intercept3 = 0)),
+  #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  verbose = T)
+
 
 
 ## TBD: Spatiotemporal attempt -------------------------------------------------
