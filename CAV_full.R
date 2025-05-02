@@ -387,11 +387,23 @@ dd_list <- list (
 #'  for all years (not so trustable indeed)
 #'  ID_m is the municipality ID; ID_ym is the unique ID
 
+TEP_unscaled_df <- dd[-singletons, ] %>% 
+  dplyr::left_join(dists_th_22, by = "PRO_COM") %>% 
+  dplyr::left_join(dists_th_23, by = "PRO_COM") %>% 
+  sf::st_drop_geometry() %>% 
+  dplyr::mutate(TEP_th_21 = .data$TEP_th_22) %>% 
+  dplyr::select(.data$TEP_th_21, .data$TEP_th_22, .data$TEP_th_23) 
+
+TEP_scaled <- as.vector(scale(c(TEP_unscaled_df$TEP_th_21,
+                                TEP_unscaled_df$TEP_th_22,
+                                TEP_unscaled_df$TEP_th_23)))
+  
+
 dd_long <- do.call(rbind, rep(list(
   dplyr::select(sf::st_drop_geometry(dd_con), 
                 colnames(X)[-c(1:3)])),3) )  %>% 
   dplyr::mutate(N_ACC = c(dd_con$N_ACC_21, dd_con$N_ACC_22, dd_con$N_ACC_23),
-                TEP_th = c(dd_con$TEP_th_22, dd_con$TEP_th_22, dd_con$TEP_th_23),
+                TEP_th = TEP_scaled,
                 nn = c(dd_con$nn21, dd_con$nn22, dd_con$nn23),
                 Intercept = rep(1, nrow(.)),
                 ID_ym = rep(dd_con$ID, 3) + rep(c(0, n, 2*n), each = n),
