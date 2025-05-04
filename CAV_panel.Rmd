@@ -31,12 +31,7 @@ This choice is driven by the need of avoiding duplicated records, since e.g. it 
 ```{r input mute, echo = FALSE, message = FALSE, warning = FALSE, output = FALSE}
 
 ## Input ----------------------------------------------------------------------
-
-#' NEVER forget calling magrittr and sf. Never --------------------------------#
-
-library(magrittr)
-library(sf)
-
+ 
 load("input/CAV_input_mun_2021.RData")
 load("input/CAV_input_mun_2022.RData")
 load("input/CAV_input_mun_2023.RData")
@@ -514,8 +509,8 @@ Since the joint distribution of $z$ is improper, a sum-to-zero constraint is req
 ```{r inla icar, echo = FALSE, message = FALSE, warning = FALSE}
 
 cav_IMCAR_inla <- inla(
-  N_ACC ~ 0 +TEP_th + ELI + PGR + UIS + ELL + PDI + ER + 
-    f(Year, model = "iid") + 
+  N_ACC ~ 0 + TEP_th + ELI + PGR + UIS + ELL + PDI + ER + 
+    f(Year, model = "iid", hyper = list(prec = list(initial = 1e-3, fixed = TRUE)))  + 
     f(ID, model = inla.IMCAR.model(k = 3, W = W_con), extraconstr = list(
       A = A_constr, e = c(rep(0, nrow(A_constr))))),
   offset = log(nn),
@@ -546,7 +541,7 @@ z_i \mid z_{-i} \sim N \left( \sum_{j=1}^n \rho \frac{w_{ij}}{d_i} z_j \,, \frac
 
 cav_PMCAR_inla <- inla(
   N_ACC ~ 1 +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
-    f(Area, model = inla.MCAR.model(k = 3, W = W_con, alpha.min = 0, alpha.max = 1)),
+    f(ID, model = inla.MCAR.model(k = 3, W = W_con, alpha.min = 0, alpha.max = 1)),
   offset = log(nn),
   family = "poisson", data =dd,
   #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
