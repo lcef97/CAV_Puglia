@@ -918,10 +918,10 @@ alphas.MBYM.inla   <- cav_MBYM_inla$summary.random$Year %>%
                 rownames(cav_MBYM_inla$summary.fixed))) %>% 
   dplyr::relocate(.data$Effect, .before = 1) %>%  
   dplyr::rename(Mean = .data$mean, Sd = .data$sd,
-                Q_0.05 = .data$`0.025quant`, Q_0.975 = .data$`0.975quant`)
+                Q_0.025 = .data$`0.025quant`, Q_0.975 = .data$`0.975quant`)
 
 
-print(xtable::xtable(alphas.MBYM.inla, num.digits = 3), include.rowname = FALSE)
+print(xtable::xtable(alphas.MBYM.inla, digits = 3), include.rowname = FALSE)
 
 ```
 
