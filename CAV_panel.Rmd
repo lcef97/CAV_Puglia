@@ -156,7 +156,69 @@ V_con <- eigen(Lapl_con)$vectors
 #dd$ID <- c(1:nrow(dd))
 
 
+zhat_plot <- function(mod){
+  
+  rr <- range(mod$summary.random$ID$mean)
+  
+  plot_map <- purrr::map(unique(dd$Year), function (t){
+  dd %>% dplyr::mutate(zhat = mod$summary.random$ID$mean) %>% 
+    dplyr::filter(.data$Year == t) %>% 
+    ggplot2::ggplot() +
+    ggplot2::geom_sf(ggplot2::aes(fill = .data$zhat))+
+    ggplot2::labs(title = paste("Year:", 2020+ t), 
+                  fill = expression(E * "[" * z * "]")) +
+    ggplot2::scale_fill_viridis_c(na.value = "white", direction = -1, limits = rr) +
+    ggplot2::theme_classic()
+})
+
+do.call(gridExtra::grid.arrange, c(plot_map, nrow = 1, ncol = 3))
+
+}
+
+yhat_plot <- function(mod ){
+  
+  yhat <- round(mod$summary.fitted.values$mean, 0)
+
+  rr <- c(0, max(yhat))
+  
+  plot_map <- purrr::map(unique(dd$Year), function (t){
+    dd %>% dplyr::mutate(yhat = yhat) %>% 
+      dplyr::filter(.data$Year == t) %>% 
+      ggplot2::ggplot() +
+      ggplot2::geom_sf(ggplot2::aes(fill = .data$yhat)) +
+      ggplot2::labs(title = paste("Year:", 2020+ t), 
+                    fill = expression(E * "[" * hat(y) * "]") )+
+      ggplot2::scale_fill_viridis_c(na.value = "white", direction = -1, limits = rr) +
+      ggplot2::theme_classic()
+  })
+  do.call(gridExtra::grid.arrange, c(plot_map, nrow = 1, ncol = 3))
+}
+
+etahat_plot <- function(mod, predictor = FALSE){
+  
+  etahat <- mod$summary.linear.predictor$mean
+  
+  rr <- range(etahat)
+  
+  plot_map <- purrr::map(unique(dd$Year), function (t){
+    dd %>% 
+      dplyr::mutate(etahat = etahat) %>% 
+      dplyr::filter(.data$Year == t) %>% 
+      ggplot2::ggplot() +
+      ggplot2::geom_sf(ggplot2::aes(fill =  .data$etahat )) +
+      ggplot2::labs(title = paste("Year:", 2020+ t),
+                    fill = expression(E * "[" * eta * "]")) + 
+      ggplot2::scale_fill_viridis_c(na.value = "white", direction = -1, limits = rr) +
+      ggplot2::theme_classic()
+})
+
+do.call(gridExtra::grid.arrange, c(plot_map, nrow = 1, ncol = 3))
+
+}
+
+
 ```
+
 
 ```{r check 1, echo = FALSE}
 if(!all( rep(Shp_con$PRO_COM, 3) == dd$PRO_COM)){
@@ -341,69 +403,6 @@ print(xtable::xtable(alphas.nosp.inla, digits = 3), include.rowname  = F)
 
 ## Spatial regression
 
-```{r zhat plot, echo = FALSE}
-zhat_plot <- function(mod){
-  
-  rr <- range(mod$summary.random$ID$mean)
-  
-  plot_map <- purrr::map(unique(dd$Year), function (t){
-  dd %>% dplyr::mutate(zhat = mod$summary.random$ID$mean) %>% 
-    dplyr::filter(.data$Year == t) %>% 
-    ggplot2::ggplot() +
-    ggplot2::geom_sf(ggplot2::aes(fill = .data$zhat))+
-    ggplot2::labs(title = paste("Year:", 2020+ t), 
-                  fill = expression(E * "[" * eta * "]")) +
-    ggplot2::scale_fill_viridis_c(na.value = "white", direction = -1, limits = rr) +
-    ggplot2::theme_classic()
-})
-
-do.call(gridExtra::grid.arrange, c(plot_map, nrow = 1, ncol = 3))
-
-}
-
-yhat_plot <- function(mod ){
-  
-  yhat <- round(mod$summary.fitted.values$mean, 0)
-
-  rr <- c(0, max(yhat))
-  
-  plot_map <- purrr::map(unique(dd$Year), function (t){
-    dd %>% dplyr::mutate(yhat = yhat) %>% 
-      dplyr::filter(.data$Year == t) %>% 
-      ggplot2::ggplot() +
-      ggplot2::geom_sf(ggplot2::aes(fill = .data$yhat)) +
-      ggplot2::labs(title = paste("Year:", 2020+ t), 
-                    fill = expression(E * "[" * hat(y) * "]") )+
-      ggplot2::scale_fill_viridis_c(na.value = "white", direction = -1, limits = rr) +
-      ggplot2::theme_classic()
-  })
-  do.call(gridExtra::grid.arrange, c(plot_map, nrow = 1, ncol = 3))
-}
-
-etahat_plot <- function(mod, predictor = FALSE){
-  
-  etahat <- mod$summary.linear.predictor$mean
-  
-  rr <- range(etahat)
-  
-  plot_map <- purrr::map(unique(dd$Year), function (t){
-    dd %>% 
-      dplyr::mutate(etahat = etahat) %>% 
-      dplyr::filter(.data$Year == t) %>% 
-      ggplot2::ggplot() +
-      ggplot2::geom_sf(ggplot2::aes(fill =  .data$etahat )) +
-      ggplot2::labs(title = paste("Year:", 2020+ t),
-                    fill = expression(E * "[" * eta * "]")) + 
-      ggplot2::scale_fill_viridis_c(na.value = "white", direction = -1, limits = rr) +
-      ggplot2::theme_classic()
-})
-
-do.call(gridExtra::grid.arrange, c(plot_map, nrow = 1, ncol = 3))
-
-}
-
-
-```
 
 #### Exploratory analysis of residuals
 We plot the log-residuals $\varepsilon$ of the GLM regression models, defined as $\varepsilon := \ln y_{it} - \ln \hat{y}_{it}$ being $\hat{\eta}_{it}$ the fitted value.
@@ -1131,16 +1130,13 @@ cmp_spatial <- function(spatial_expr, st_expr = NULL, t_expr = NULL) {
   
   spatial <- function(id, ...) INLA::f(id, ...)
   spatiotemporal <- function(id, ...) INLA::f(id, ...)
-  temporal <- function(id, ...) INLA::f(id, ...)
+  intercept <- function(id, ...) INLA::f(id, ...)
   
   f2 <- substitute(spatial_expr)
   f3 <- substitute(t_expr)
   f4 <- substitute(st_expr)
   f1 <- bquote(
     ~ 0 +
-      #alpha_0_2021(Intercept_2021) + 
-      #alpha_0_2022(Intercept_2022) +  
-      #alpha_0_2023(Intercept_2023) +  
       beta_0(main = 1,  model = "linear",
                   mean.linear = -2.2,
                   prec.linear = 1e+2) +
@@ -1164,24 +1160,40 @@ cmp_spatial <- function(spatial_expr, st_expr = NULL, t_expr = NULL) {
   return(final_formula)
 }
 
+cmp_nosp <- cmp_spatial(
+  spatial_expr = NULL,
+  intercept(1, model = "iid", hyper = list(prec = list(initial = 1e-3, fixed = TRUE))))
+
+cmp_IMCAR <- cmp_spatial(
+  spatial(ID, model = inla.IMCAR.model(k = 3, W = W_con), extraconstr = list(
+      A = A_constr, e = c(rep(0, nrow(A_constr))))),
+  intercept(Year, model = "iid", hyper = list(prec = list(initial = 1e-3, fixed = TRUE))))
+
+cmp_PMCAR <- cmp_spatial(
+  spatial(ID, model = inla.MCAR.model(k = 3, W = W_con, alpha.min = 0, alpha.max = 1)),
+  intercept(1, model = "iid", hyper = list(prec = list(initial = 1e-3, fixed = TRUE))))
+
+cmp_MLCAR <- cmp_spatial(
+  spatial(ID, model = inla.MLCAR.model(k = 3, W = W_con)),
+  intercept(1, model = "iid", hyper = list(prec = list(initial = 1e-3, fixed = TRUE))))
+
 cmp_BYM <- cmp_spatial(
   spatial(ID, model = inla.MBYM.dense(k = 3, W = W_con,  PC = FALSE),
           extraconstr = list(A = A_constr, e = rep(0, 3))),
-  temporal(Year, model = "iid", hyper = list(prec = list(initial = 1e-3, fixed = TRUE))))
+  intercept(Year, model = "iid", hyper = list(prec = list(initial = 1e-3, fixed = TRUE))))
 
 library(inlabru)
 
 cav_bru <- function(model_cmp, data = dd){
 
-  terms <- c("0", #"alpha_0_2021", "alpha_0_2022", "alpha_0_2023",
-             "myoffset", 
+  terms <- c("0", "myoffset", 
              "alpha_ELI",  "alpha_PGR",  "alpha_UIS", 
              "alpha_PDI", "alpha_ER", 
              paste0("logexpit(x = list(TEP_th, ELL),",
                     "beta = list(beta_0, beta_TEP, beta_ELL))"))
   
   if (any(grepl("spatial", as.character(model_cmp)))) terms <- c(terms, "spatial")
-  if (any(grepl("temporal", as.character(model_cmp)))) terms <- c(terms, "temporal")
+  if (any(grepl("intercept", as.character(model_cmp)))) terms <- c(terms, "intercept")
   if (any(grepl("spatiotemporal", as.character(model_cmp)))) terms <- c(terms, "spatiotemporal")
   
   formula <- as.formula(paste("N_ACC ~", paste(terms, collapse = " + ")))
@@ -1199,15 +1211,48 @@ cav_bru <- function(model_cmp, data = dd){
 ```
 
 
-```{r inlabru BYM run, message = F, output = F, warning = F}
+```{r inlabru nosp run, message = F, echo = F, output = F, warning = F}
+cav_nosp_inlabru <- cav_bru(cmp_nosp)
+```
+
+```{r inlabru ICAR run, message = F, echo = F, output = F, warning = F}
+cav_IMCAR_inlabru <- cav_bru(cmp_IMCAR)
+```
+
+```{r inlabru PCAR run, message = F, echo = F, output = F, warning = F}
+cav_PMCAR_inlabru <- cav_bru(cmp_PMCAR)
+```
+
+```{r inlabru LCAR run, message = F, echo = F, output = F, warning = F}
+cav_MLCAR_inlabru <- cav_bru(cmp_MLCAR)
+```
+
+```{r inlabru BYM run, message = F, echo = F, output = F, warning = F}
 cav_MBYM_inlabru <- cav_bru(cmp_BYM)
+```
+
+
+```{r WAICs table bru, echo = F, results = "asis", message = FALSE}
+
+WAICS_bru <- tibble::tibble(
+  Model = c("Null", "ICAR", "PCAR", "Leroux", "BYM"),
+  WAIC = round(c(
+    cav_nosp_inlabru$waic$waic,  cav_IMCAR_inlabru$waic$waic,  cav_PMCAR_inlabru$waic$waic, 
+    cav_MLCAR_inlabru$waic$waic, cav_MBYM_inlabru$waic$waic),3),
+  Eff_params = round(c(
+    cav_nosp_inlabru$waic$p.eff,   cav_IMCAR_inlabru$waic$p.eff,  cav_PMCAR_inlabru$waic$p.eff,
+     cav_MLCAR_inlabru$waic$p.eff, cav_MBYM_inlabru$waic$p.eff),3))
+
+print(xtable::xtable(WAICS),include.rowname = F)
 
 ```
 
-Here we show some posterior summaries for covariate effects.
+
+
+Here we show some posterior summaries for covariate effects, using the BYM model.
 ```{r alphas bym inlabru, echo = FALSE, results = "asis", message = FALSE}
 
-alphas.MBYM.inlabru <- cav_MBYM_inlabru$summary.random$temporal %>% 
+alphas.MBYM.inlabru <- cav_MBYM_inlabru$summary.random$intercept %>% 
   dplyr::bind_rows(cav_MBYM_inlabru$summary.fixed) %>% 
   dplyr::select(.data$mean, .data$sd, .data$`0.025quant`, .data$`0.975quant`) %>%
   dplyr::mutate(Effect = c("Int_2021", "Int_2022", "Int_2023",
