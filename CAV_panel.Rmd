@@ -232,7 +232,7 @@ if(!all( rep(Shp_con$PRO_COM, 3) == dd$PRO_COM)){
 ```
 
 
-In order to avoid singletons in the spatial structure of the dataset, the Tremiti Islands need to be removed from the list of municipalities included ($0$ accesses recorded so far).
+In order to avoid singletons, i.e. municipalities with no neighbours, in the spatial structure of the dataset, the Tremiti Islands need to be removed from the list of municipalities included ($0$ accesses recorded so far).
 
 Therefore, the municipality-level dataset in scope consists of $256$ observations. 
 
@@ -282,16 +282,16 @@ gridExtra::grid.arrange(ggy21, ggy22, ggy23, nrow = 3, ncol = 1)
 
 ## Covariates
 
-Our target is explaining the number of accesses to support centers, $y$, defined at the municipality level, on the basis of a set of candidate known variables. Unfortunately, these data are only available for year 2021. $y$ is modelled with simple Poisson regression.
+Our target is explaining the number of accesses to support centers, $y$, defined at the municipality level, on the basis of a set of candidate known variables. $y$ is modelled with simple Poisson regression.
 
-We have at disposal a number of candidate explanatory variables, which include the distance of a municipality from the closest support center and a set of variables measuring social vulnerability under different dimensions; these latter covariates are provided by the ISTAT.A more detailed description of these covariates is in [this excel metadata file](https://github.com/lcef97/CAV_Puglia/blob/main/Metadata/Indice_composito_fragilita_PUGLIA_2021.xlsx).
+We have at disposal a number of candidate explanatory variables, which include the distance of a municipality from the closest support center and a set of variables measuring social vulnerability under different dimensions; these latter covariates are provided by [the ISTAT](https://www.istat.it/comunicato-stampa/indice-di-fragilita-comunale-ifc/) and are among the components of the Municipality Frailty Index (MFI). A more detailed description of MFI components is in [this excel metadata file](https://github.com/lcef97/CAV_Puglia/blob/main/Metadata/Indice_composito_fragilita_PUGLIA_2021.xlsx).
 
-All covariates are scaled to have null mean and unit variance.
+All covariates are quantitative variables and to ease model interpretation are scaled to have null mean and unit variance.
 
   -  $\mathrm{TEP\_th}$, i.e. the distance of each municipality from the closest municipality hosting a support center. Distance is measured by road travel time in minutes (acronym TEP stays for Tempo Effettivo di Percorrenza, i.e. Actual Travel Time). Since to the best of our knowledge the list of active support centers changed between 2022 and 2023, we employ the list of centers active until 2022 for 2021-2022 data, and the list of centers active in 2023 for 2023 data.
 
-  -  $\mathrm{AES}$, the distance from the closest infrastructural pole, always measured in travel time.
-  -  $\mathrm{MFI}$, i.e. the decile of municipality vulnerability index.
+  -  $\mathrm{AES}$, the distance from the closest infrastructural pole, always measured in travel time. Infrastructural poles are defined as municipalities or clusters of neighbouring municipalities provided with a certain endowment in health, education and transport infrastructure (more details can be found, e.g., [here](https://www.istat.it/comunicato-stampa/la-geografia-delle-aree-interne-nel-2020-vasti-territori-tra-potenzialita-e-debolezze/)).
+  -  $\mathrm{MFI}$, i.e. the decile of municipality frailty index.
   -  $\mathrm{PDI}$, i.e. the dependency index, i.e. population either $\leq 20$ or $\geq 65$ years over population in $[20 - 64]$ years.
   -  $\mathrm{ELL}$, i.e. the proportion of people aged $[25-54]$ with low education.
   -  $\mathrm{ERR}$, i.e. employment rate among people aged $[20-64]$.
@@ -330,7 +330,7 @@ In the first case, we drop the distance from the nearest infrastructural pole. I
 
 ## Nonspatial regression
 
-We regress the counts of accesses $y$ to support centers on the aforementioned explanatory variables. To estimate regression coefficients, all covariates are scaled to zero mean an unit variance. 
+We regress the counts of accesses $y$ to support centers on the aforementioned explanatory variables. To interpret regression coefficients in an easier way, all covariates are scaled to zero mean an unit variance. 
 
 \begin{equation}
 y_{it} \mid \eta_{it} \sim \mathrm{Poisson}(E_{it} \, e^{\eta_{it}}) \quad \text{where} \quad
@@ -338,9 +338,9 @@ y_{it} \mid \eta_{it} \sim \mathrm{Poisson}(E_{it} \, e^{\eta_{it}}) \quad \text
 \label{eq:glm}
 \end{equation}
 
-Where $X$ are the covariate defined earlier, $\alpha$ are covariate effects, and $E_{it}$ is the female population aged $\geq 15$ in municipality $i$ and year $t$.
+Where $X$ are the covariates defined earlier, $\alpha$ are covariate effects, and $E_{it}$ is the female population aged $\geq 15$ in municipality $i$ and year $t$.
 
-To gain more insight on the role of all explanatory variables we show the posterior summaries of the regression model
+To gain more insight on the role of all explanatory variables we show the posterior summaries of the regression model; the posterior distribution is approximated with the INLA [@INLA].
  
 
 ```{r glm results, warning = FALSE, message = FALSE, echo = FALSE, results = "asis"}
@@ -387,11 +387,13 @@ print(xtable::xtable(alphas.nosp.inla, digits = 3), include.rowname  = F)
 
 
 
-  - `TEP_th_22`: The distance from the closest support center appears to play an important role. The easiest interpretation is that the physical distance represents a barrier to violence reporting. This is quite intuitive if we think of the material dynamics of reporting gender-based violence: one could reasonably expect violent men to prevent their partners to come out and report the violence suffered.
+  - `TEP_th_22`: The distance from the closest support center appears to play an important role. The easiest interpretation is that the physical distance represents a barrier to violence reporting. This is quite intuitive if we think of the material dynamics of reporting gender-based violence: one could reasonably expect violent men to prevent their partners to take a long rout and come out to report the violence suffered.
   
-  - `ELI`: The (ventile of the distribution of the) share of employees in low productivity economic units is a clear indicator of (relative) economic underdevelopment. The most naive interpretation wuld be that in underdeveloped areas reporting gender violence is somewhat harder than in developed ones.
+  - `ELI`: The (ventile of the distribution of the) share of employees in low productivity economic units is a clear indicator of (relative) economic underdevelopment. The most naive interpretation would be that in underdeveloped areas reporting gender violence is somewhat harder than in developed ones.
 
-  - `PGR`: The association with population growth rate is harder to interpret. This association is most likely influenced by several demographic instrumental variables we are not keeping into account and would indeed deserve a more dedicated focus. 
+  - `PGR`: The association with population growth rate does not appear to be significantly different from zero.
+  
+  <!-- is harder to interpret. This association is most likely influenced by several demographic instrumental variables we are not keeping into account and would indeed deserve a more dedicated focus. --> 
   
   - `UIS`: The (ventile of the distribution of the) density of production units does not appear to have a significantly $\neq 0$ association with VAW reporting.
 
@@ -405,7 +407,7 @@ print(xtable::xtable(alphas.nosp.inla, digits = 3), include.rowname  = F)
 
 
 #### Exploratory analysis of residuals
-We plot the log-residuals $\varepsilon$ of the GLM regression models, defined as $\varepsilon := \ln y_{it} - \ln \hat{y}_{it}$ being $\hat{\eta}_{it}$ the fitted value.
+We plot the log-residuals $\varepsilon$ of the nonspatial regression models, defined as $\varepsilon := \ln y_{it} - \ln \hat{y}_{it}$ being $\hat{y}_{it}$ the fitted value.
 
 ```{r glm residuals, echo = FALSE, warnings = FALSE, message = FALSE, output = FALSE}
 L_block <- kronecker(diag(1, 3), Lapl_con)
@@ -505,7 +507,7 @@ print(xtable::xtable(autocorrel.tests), include.rowname = F, n.digits = 3)
                
 ```
 
-We find evidence for spatial autocorrelation. However, we must stress out this result does not refer to all the regional territory, but only to a subset of all municipalities.
+We find evidence for spatial autocorrelation. However, we must stress out that this result does not refer to all the regional territory, but only to a subset of all municipalities.
 
 Based on the autocorrelation evidence, though it has only been assessed for a subset of all municipalities, we try implementing some simple spatial models by adding a conditionally autoregressive latent effect, say $z$, to the linear predictor
 
@@ -517,11 +519,11 @@ Based on the autocorrelation evidence, though it has only been assessed for a su
 
 We test a total of four models, all of which have a prior distribution depending on the spatial structure of the underlying graph, in this case the Apulia region. 
 
-In the following, the area-specific latent field is denoted as $z_i = (z_{i, 2021}^{\top}\, z_{i, 2022}^{\top}\, z_{i, 2023}^{\top})^{\top}$
+In the following, the area-specific latent field is denoted as $z_i = (z_{i, 2021} \, z_{i, 2022} \, z_{i, 2023} )^{\top}$
 
-We describe the spatial structure starting from municipalities neighbourhood, and introduce the neighbourhood matrix $W$, whose generic element $w_{ij}$ takes value $1$ if municipalities $i$ and $j$ are neighbours and $0$ otherwise. For each $i \in [1,n]$, $d_i:= \sum_{j=1}^n w_{ij}$ is the number of neigbours of $i$-th municipality. Plase notice we have have $n = 256$.
+We describe the spatial structure starting from municipalities neighbourhood, and introduce the neighbourhood matrix $W$, whose generic element $w_{ij}$ takes value $1$ if municipalities $i$ and $j$ are neighbours and $0$ otherwise. For each $i \in [1,n]$, $d_i:= \sum_{j=1}^n w_{ij}$ is the number of neigbours of $i$-th municipality. Please notice we have have $n = 256$.
 
-For all models, we define $\Lambda$ as the precision parameter of the latent effect, and assign it a Wishart prior.
+For all models, we define $\Lambda$ as the precision parameter of the latent effect, and assign it a Wishart prior. Additionally, $\Sigma = \Lambda^{-1}$ is the covariance matrix of $z$, and its off-diagonal entries describe dependence in $z$ between different years.
 
 Spatial models are computed by approximating the marginal posteriors of interest via the Integrated Nested Laplace Approximation (INLA), adopting the novel Variational Bayes Approach [@INLAVB].
 
@@ -539,11 +541,11 @@ z_i \mid z_{-i} \sim N \left( \sum_{j=1}^n \frac{w_{ij}}{d_i} z_j \,, \frac{1}{d
 And the joint prior distribution is:
 
 \begin{equation}
-z \mid \Sigma \left( 0, \Sigma \otimes (D - W)^{+} \right)
+z \mid \Sigma \sim N \left( 0, \Sigma \otimes (D - W)^{+} \right)
 \label{eq:icar_joint}
 \end{equation}
 
-Since the joint distribution of $z$ is improper, a sum-to-zero constraint is required for identifiability.
+Where $z$ is a $256 \times 3$ matrix. Since the joint distribution of $z$ is improper, a sum-to-zero constraint, i.e. $\sum_{i=1}^n z_{it} = 0$ for $t = 2021, 2022, 2023$ is required for identifiability.
 
  
 
@@ -564,7 +566,7 @@ cav_IMCAR_inla <- inla(
 #### PCAR model
 
 The intrinsic autoregressive model is relatively simple to interpret and to implement, 
-while also requiring the minimum number of additional parameter (either the scale or the precision).
+while also requiring the minimum number of additional parameters (either the scale or the precision).
 
 
 The drawback, however, is that we implicitly assume a deterministic spatial autocorrelation coefficient equal to 1.
@@ -573,7 +575,7 @@ When the autocorrelation is weak, setting an ICAR prior may be a form of misspec
 A generalisation of this model is the PCAR (proper CAR), which introduces an autocorrelation parameter $\rho$:
 
 \begin{equation}
-z_i \mid z_{-i} \sim N \left( \sum_{j=1}^n \rho \frac{w_{ij}}{d_i} z_j \,, \frac{}{d_i} \Lambda^{-1}\right)
+z_i \mid z_{-i} \sim N \left( \sum_{j=1}^n \rho \frac{w_{ij}}{d_i} z_j \,, \frac{1}{d_i} \Lambda^{-1}\right)
 \label{eq:pcar_loc}
 \end{equation}
 
@@ -591,7 +593,7 @@ cav_PMCAR_inla <- inla(
 
 ```
 
-We show the posterior summary for the autocorrelation coefficient. 
+We show the posterior summary for the autocorrelation coefficient, obtained with the data at hand. 
 
 ```{r rho pcar, echo = FALSE, fig.height = 3, fig.cap = "Posterior marginal of the PCAR autocorrelation parameter"}
 rho_marg_pcar <- inla.tmarginal(
@@ -609,14 +611,14 @@ unlist(inla.zmarginal(rho_marg_pcar, silent = TRUE))
 
 #### Leroux model
 
-As an alternative to take into account both structured and unstructured latent effects, we also test the Leroux autoregressive model [@Leroux]. In this case, the local prior for $z_i$ is
+As an alternative to take into account both structured and unstructured latent effects, we also test the Leroux autoregressive model [@Leroux]; throughout this report, this model will be referred to as the LCAR. In this case, the local prior for $z_i$ is
 
 \begin{equation}
 z_i \mid z_{-i} \sim N \left( \sum_{j=1}^n \frac{\xi w_{ij}}{1 - \xi + \xi d_i}   z_j \,, \Lambda^{-1} \frac{1}{1 - \xi + \xi d_i}\right)
 \label{eq:leroux_loc}
 \end{equation}
 
-Where $\xi \in [0, 1]$ is the mixing parameter. A more interesting representation of the Leroux model is the joint prior
+Where $\xi \in [0, 1]$ is labelled as the mixing parameter. A more interesting representation of the Leroux model is the joint prior
 $$
 z \mid \Lambda, \xi \sim N(0, [ \Lambda \otimes (\xi L + (1-\xi)I)]^{-1})
 $$
@@ -734,20 +736,22 @@ z = \sqrt{\phi} u M + \sqrt{1-\phi} v M
 
 
 Where: 
-  - $u \sim N(0, I_p \otimes L_\mathrm{scaled})$ is an independent multivariate ICAR process whose precision matrix is scaled in order that the geometric mean of marginal variances (i.e. the diagonal entries of $R^{+}$) is one
+
+  - $u \sim N(0, I_p \otimes L_\mathrm{scaled})$ is an independent multivariate ICAR process whose precision matrix is scaled in order that the geometric mean of marginal variances (i.e. the diagonal entries of $L^{+}$) is one
   - $v \sim N(0, I_p \otimes I_n)$ is a Standard Normal variable
   - $M$ is a positive definite matrix such that $M'M = \Lambda^{-1}$. It is not necessarily the Cholesky factor of the scale parameter; in fact, a convenient but not unique way to define it may be $M = D^{-\frac{1}{2}}E^{\top}$ where $E$ and $D$ are the eigenvector and eigenvalues matrices of $\Lambda$ [@Urdangarin]. 
 
   - $\phi \in [0,1]$ is the mixing parameter.
+  
+Please notice that in the case of our data, $p=3$ and $n = 256$.
 We assign a Uniform prior on $\phi$ (but the PC-prior would be a more rigorous choice) and the usual Wishart prior to $\Lambda$.
 
 
 
 The BYM model features a mixing parameter as the LCAR does, but improves its interpretability by allowing to scale the ICAR and IID components. 
 
-We use a rather primitive BYM definition here. It could be improved in many directions: either defining a PC prior on the mixing parameter and employing a more elegant parametrisation allowing for sparse precision [@BYM2], or relaxing the naive hypothesis of a unique mixing parameter implementing an M-model.
+We use a rather simplified BYM definition here. It could be improved in many directions: either defining a PC prior on the mixing parameter and employing a more elegant parametrisation allowing for sparse precision [@BYM2], or relaxing the naive hypothesis of a unique mixing parameter for all the $p=3$ years implementing an M-model.
 
-However, even this rudimentary formulation allows to interpret the mixing parameter more clearly.
 
 ```{r BYM, echo = FALSE, warning = FALSE, message = FALSE, output = FALSE}
 inla.rgeneric.MBYM.dense <- 
@@ -926,7 +930,7 @@ print(xtable::xtable(alphas.MBYM.inla, digits = 3), include.rowname = FALSE)
 ```
 
 
-Estimations of $\alpha$ differ slightly from the nonspatial model. For all variables, credibility intervals are wider due to increased uncertainty. 
+Estimations of $\alpha$ differ slightly from the nonspatial model and credibility intervals are generally wider due to increased uncertainty. 
 
   - `TEP_th_22` The effect of the distance from the closest support center remains similar in mean and the interpretation is not altered.
 
@@ -960,7 +964,7 @@ yhat_plot(cav_MBYM_inla)
 
 ```
 
-We show the posterior median of the marginal variances of $z$, i.e. $\Lambda^{-1}$:
+We show the posterior median of the marginal variances of $z$, i.e. the diagonal entries of $\Sigma$:
 
 ```{r Sigma BYM, echo = FALSE, eval = FALSE, message = FALSE, warning = FALSE}
 Sigma_diag_ls <- sapply(c(2,3,4), function(i){
@@ -1093,7 +1097,8 @@ If this does not provide a valid reason to model the under-reporting process exp
 
 More specifically, employment rate and low-education incidence have a very high negative correlation, as it is reasonable to expect. Notwithstanding this, both appear to have a negative impact on access counts. A possible explanation for this finding is that these two variables impact on two different processes, which we do not observe, but whose interaction yields to the observed response variable, namely accesses counts. 
 
-We therefore attempt at implementing a Poisson - logistic model to explicitly account for under-reporting [@Pogit].
+We therefore attempt at implementing a Poisson - logistic model [@Pogit] to explicitly account for under-reporting or, to be more precise, to model the propensity to report violence by turning to AVCs or not.
+
 Given the scarce information at our disposal, we can only guess which variable enter either of the two predictor components, i.e. the VAW reporting and the actual occurrence Specifically, we assign distance from closest AVC and low education incidence to the former component and all other variables plus the spatial effect to the latter. 
 
 The model is thus defined:
@@ -1101,12 +1106,12 @@ The model is thus defined:
 y_{i,t} \sim \mathrm{Poisson}(E_{it} \, \lambda_{it} \, \pi_{it}) \quad \forall i \in [1,256], t \in \lbrace 2021, 2022, 2023 \rbrace
 \end{equation}
 Where $E_{i,t}$ is the offset, $\lambda_{it}$ is the expected count of incidents $\pi_{it}$ is the expected reporting rate. 
-We will denote $\alpha$ as the $k+1$ covariate effects entering $\lambda_{it}$ and $\beta$ the $m+1$ covariate effects entering $\pi_{it}$ for two integers $p$ and $m$.
+We will denote $\alpha$ as the $k+1$ covariate effects entering $\lambda_{it}$ and $\beta$ the $m+1$ covariate effects entering $\pi_{it}$ for two integers $k$ and $m$.
 
 
 We would thus have, for each year $t$ and municipality $i$;
 $$
-\lambda_{it} = e^{\displaystyle{\alpha_{0t} + \alpha_{1} X_{i1,t} + ... + \alpha_{p} X_{ik,t}} + z_{it}}
+\lambda_{it} = e^{\displaystyle{\alpha_{0t} + \alpha_{1} X_{i1,t} + ... + \alpha_{k} X_{ik,t}} + z_{it}}
 $$
 And
 $$
@@ -1116,7 +1121,8 @@ Hence the predictor is not linear anymore.
 
 We approximate the predictor through first-order Taylor expansion, which is made possible by the \texttt{inlabru R} package [@lindgren2024inlabru]. To define the nonlinear predictor component, we follow [@Wollo].
 
-Here, we show the \texttt{R} code to achieve this. For computational reasons, we only employ the BYM model with a Uniform prior on the mixing parameter. The R function shown here can also be used for spatiotemporal models. 
+Here, we show the \texttt{R} code we propose to achieve this. 
+
 ```{r inlabru setting, message = FALSE, warning = FALSE, output = FALSE}
 logexpit <- function(x, beta){
   pred <- beta[[1]] +
