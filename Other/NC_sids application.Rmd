@@ -1,0 +1,529 @@
+---
+title: "Multivariate BYM"
+output: pdf_document
+bibliography: references.bib
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(magrittr)
+library(INLA)
+```
+
+## Proposal: sparse precision parametrisation for the multivariate BYM model.
+In this note, we attempt at providing a parametrisation for the multivariate BYM model resulting in a sparse precision matrix.
+
+#### Parametrisation for the univariate BYM 
+Before doing so, we start by illustrating the well-established sparse parametrisation of the univariate BYM:
+
+This model, proposed by [@BYM2] takes the form:
+$$
+y = \sigma\left( \sqrt{\phi} U + \sqrt{1-\phi}V\right)
+$$
+Where $U \sim N(0, L^{+})$, $V \sim N(0, I_{n})$, $L$ denotes the graph Laplacian matrix, already scaled in order that $\mathrm{diag}(L)$ has a geometric mean equal to 1; $n = \mathrm{card}(y)$. $\sigma^2$ is the scale parameter.
+
+Now, despite $\mathrm{Prec}[y \mid \phi, \sigma] =  \sigma^{-2}\left( \phi L + (1-\phi)I_n \right)^{-1}$ which has no reason at all to be a sparse matrix, the joint random vector $\begin{pmatrix} y \\ U\end{pmatrix}$ has indeed a sparse precision. This can be seen considering that $\ln \pi(y, U) = \ln \pi(y | U) + \ln \pi(U)$ and $y|U \sim N(\sigma\sqrt{\phi}U, \sigma^2(1-\phi) I_n)$ thus, with some passages [@BYM2], 
+\begin{equation}
+\mathrm{Prec}(y, U | \sigma, \phi) = \begin{pmatrix} 
+\frac{1}{\sigma^2 (1 - \phi)} I_n & - \frac{\sqrt{\phi}}{\sigma(1-\phi)} I_n \\
+- \frac{\sqrt{\phi}}{\sigma(1-\phi)} I_n  & \frac{\phi}{1-\phi}I_n + L
+\end{pmatrix}
+\label{eq:joint_sparse_uni}
+\end{equation}
+Which is made of four sparse blocks as long as $L$ is sparse as well. 
+
+Hence the univariate BYM model, other than being scalable and allowing for PC priors setting on hyperparameters, can also be fitted in an efficient way leveraging on precision sparsity. And this is indeed the model implemented in \texttt{R-INLA}, using the specification \texttt{INLA::f(..., model = "bym2", ...)}. 
+
+\textit{While this parametrisation is essential for computational reasons, only the first half of the random vector, i.e. $y$, does enter the linear predictor.}
+
+
+
+
+
+
+#### Parametrisation for the multivariate BYM
+A direct extension of the BYM to the case of $p$ variables ($p$ diseases) is the following.
+
+First let us consider the ICAR component. With no loss of generality, define $\mathbf{U} = (U_1, U_2, \dots U_p)$ and $\mathrm{vec}( \mathbf{U}) = (U_1^{\top} U_2^{\top} \dots U_p^{\top} )^{\top}$. We suppose all its component to have the same prior distribution, i.e. 
+$$U_j \sim N(0, L^{+}) \quad \forall j \in [1,p]$$
+We further assume independence among them, such that $\mathrm{vec}(\mathbf{U}) \sim N(0, I_p \otimes L^{+})$.
+The same assumption is made on the IID component, i.e. $\mathrm{vec}(\mathbf{V}) \sim N(0, I_p \otimes I_n)$.
+
+By doing so, we can use a unique scale parameter, say $\Sigma$, as in the univariate case. We define $M$ as a generic full-rank matrix such that $M^{\top}M = \Sigma$. Additionally, we define the precision parameter $\Lambda =: \Sigma^{-1}$.
+
+Please notice that $M$ does not have to be the Cholesky factor; in fact, a rather convenient yet not unique definition is $M = D^{\frac{1}{2}}E^{\top}$, where $D$ is the diagonal matrix of the eigenvalues of $\Sigma$ and $E$ are the eigenvectors of $\Sigma$.
+
+
+In the more general case of the M-model [@Mmodels], consider the matrix-valued mixing parameters $\tilde{\Phi}:=\mathrm{diag}(\sqrt{\phi_1},\sqrt{\phi_2}, \dots \sqrt{\phi_p})$ and $\tilde{\bar{\Phi}}:= \mathrm{diag} (\sqrt{1 - \phi_1}, \sqrt{1 - \phi_2}, \dots \sqrt{1 - \phi_p}) = (I_p - \tilde{\Phi})^{-1/2}$.
+
+The convolution model is generalised to:
+
+\begin{equation}
+\label{eq:Mmod_conv}
+\mathbf{Y} =     \mathbf{U}M\tilde{\Phi} + \mathbf{V}M \tilde{\bar{\Phi}}
+\end{equation}
+
+We then have
+$$
+\mathbb{E} [\mathrm{vec}(\mathbf{Y}) \mid U, \tilde{\Phi}, \Sigma] = \mathrm{vec}(\mathbf{U} M \tilde{\Phi}) =
+[(\tilde{\Phi} M^{\top}) \otimes I_n] \mathrm{vec}(\mathbf{U})
+$$
+
+and similarly
+
+$$
+\mathrm{VAR} [\mathrm{vec}(\mathbf{Y}) \mid \mathbf{U}, \tilde{\Phi}, \Sigma] =
+\left[(\tilde{{\hat\Phi}} M^{\top}) \otimes I_n \right] 
+\mathbb{E} \left[
+\mathrm{vec}(\mathbf{V})
+\mathrm{vec}(\mathbf{V})^\top \right]
+\left[(\tilde{\Phi} M^{\top}) \otimes I_n \right] = 
+\left(
+\tilde{\bar{\Phi}} \Sigma \tilde{\bar{\Phi}}
+\right) \otimes I_n
+$$
+
+
+The distribution of $\mathbf{Y} \mid \mathbf{U}, \Sigma, \tilde{\Phi}$ then reads:
+\begin{align*}
+-2 \ln \pi \left(\mathrm{vec}(\mathbf{Y}) \mid \mathbf{U}, \Sigma, \phi \right) = \\= \Big{ \{ }
+ \mathrm{vec}(\mathbf{Y}) - [(\tilde{\Phi} M^{\top}) \otimes I_n] \mathrm{vec}(\mathbf{U}) \Big{\} } ^{\top}
+\left[ \left(
+\tilde{\bar{\Phi}}^{-1} \Lambda \tilde{\bar{\Phi}}^{-1}
+\right) \otimes I_n \right] 
+\Big{ \{ } \mathrm{vec}(\mathbf{Y}) -[(\tilde{\Phi} M^{\top}) \otimes I_n] \mathrm{vec}(\mathbf{U}) \Big{\}} = \\ =
+\mathrm{vec}(\mathbf{Y})^{\top}
+\left[ \left(
+\tilde{\bar{\Phi}}^{-1} \Lambda \tilde{\bar{\Phi}}^{-1}
+\right) \otimes I_n \right] 
+\mathrm{vec}(\mathbf{Y}) + \\ 
+- 2\mathrm{vec}(\mathbf{Y})^{\top} 
+\left[ \left(
+\tilde{\bar{\Phi}}^{-1} \Lambda \tilde{\bar{\Phi}}^{-1} \right) \otimes I_n \right] 
+\left[ (\tilde{\Phi} M^{\top}) \otimes I_n \right] \,\mathrm{vec}(\mathbf{U})   + \\
++  \mathrm{vec}(\mathbf{U})^{\top}
+    \left[ (M \tilde{\Phi}) \otimes I_n \right]
+    \left[ \left( \tilde{\bar{\Phi}}^{-1} \Lambda \tilde{\bar{\Phi}}^{-1} \right) \otimes I_n \right]
+    \left[ (\tilde{\Phi} M^{\top}) \otimes I_n \right]
+   \mathrm{vec}(\mathbf{U}) = \\
+\mathrm{vec}(\mathbf{Y})^{\top}
+\left[ \left(
+\tilde{\bar{\Phi}}^{-1} \Lambda \tilde{\bar{\Phi}}^{-1}
+\right) \otimes I_n \right] 
+\mathrm{vec}(\mathbf{Y}) + \\ 
+- 2\mathrm{vec}(\mathbf{Y})^{\top} 
+\left[ \left( \tilde{\bar{\Phi}}^{-1} \Lambda \tilde{\bar{\Phi}}^{-1} \tilde{\Phi} M^{\top} \right)
+\otimes I_n \right]  \,\mathrm{vec}(\mathbf{U})   + \\
++  \mathrm{vec}(\mathbf{U})^{\top}
+    \left[ \left( M \tilde{\Phi}  \tilde{\bar{\Phi}}^{-1} \Lambda \tilde{\bar{\Phi}}^{-1}  \tilde{\Phi} M^{\top} \right) \otimes I_n \right]
+   \mathrm{vec}(\mathbf{U})
+\end{align*}
+
+Now, for brevity let us define the following $p \times p$ matrices:
+\begin{align*}
+q_{11} := \tilde{\bar{\Phi}}^{-1} \Lambda \tilde{\bar{\Phi}}^{-1} ; \quad
+q_{12}:= q_{11} \tilde{\Phi}M^\top; \quad
+q_{22}:= M \tilde{\Phi} q_{12}
+\end{align*}
+Hence 
+\begin{align*}
+-2 \ln \pi \left(\mathrm{vec}(\mathbf{Y}) \mid \mathbf{U}, \Sigma, \phi \right) = \\
+= \mathrm{vec}(\mathbf{Y})^{\top}
+\left(q_{11} \otimes I_n \right) 
+\mathrm{vec}(\mathbf{Y}) 
+- 2\mathrm{vec}(\mathbf{Y})^{\top} 
+\left(  q_{12} \otimes I_n \right)  \,\mathrm{vec}(\mathbf{U})  
++  \mathrm{vec}(\mathbf{U})^{\top}
+    \left(q_{12} \otimes I_n \right)
+   \mathrm{vec}(\mathbf{U})
+\end{align*}
+Then, we have 
+\begin{align*}
+-2 \ln \pi \left(\mathrm{vec}(\mathbf{Y}), \mathrm{vec}(\mathbf{U}) \mid \Sigma, \phi \right) = \\
+= \mathrm{vec}(\mathbf{Y})^{\top}
+\left(q_{11} \otimes I_n \right) 
+\mathrm{vec}(\mathbf{Y}) 
+- 2\mathrm{vec}(\mathbf{Y})^{\top} 
+\left(  q_{12} \otimes I_n \right)  \,\mathrm{vec}(\mathbf{U})  
++  \mathrm{vec}(\mathbf{U})^{\top}
+    \left(q_{12} \otimes I_n + I_p \otimes L\right)
+   \mathrm{vec}(\mathbf{U})
+\end{align*}
+Hence, with some straightforward algebra, it can be concluded that:
+
+\begin{equation} \label{eq:joint_bym_mmod}
+    \begin{pmatrix}
+        \mathrm{vec} (\mathbf{Y}) \\ \mathrm{vec} (\mathbf{U}) 
+    \end{pmatrix}
+    \sim N \left( 0, \begin{pmatrix}
+            q_{11} \otimes I_n \, & 
+            \, - q_{12} \otimes I_n \\
+            - q_{12} \otimes I_n \, & \,
+             q_{22} \otimes I_n + I_p \otimes L
+        \end{pmatrix}^{-1} \right)
+\end{equation}
+
+Which generalises to the multivariate case equation \ref{eq:joint_sparse_uni}. The sparse parametrisation is thus also possible for the multivariate BYM.
+
+ 
+
+
+
+## Application to SIDS data
+
+Here we attempt to an application to the well-known SIDS dataset. The model has the following structure:
+$$
+y_{i,t} \sim \mathrm{Poisson}(e^{\displaystyle{E_{i,t} + \eta_{i,t}}})
+$$
+Where $y_{i,t}$ are the sudden infant death cases for $i = 1 \dots 100$ and $t = 1974, 1979$; $E_{i,t}$ are the expected SIDS cases, i.e. the global fatality rate times the number of births, and $\eta_{i,t} := \beta_0 + \beta X_{i,t} + z_{i,t}$ is the linear predictor. Specifically, $\beta_0$ is the intercept, $X_{i,t}$ is the non-white birth proportion (NWBIR), $\beta$ is the effect of NWBIR, and $z_{i,t}$ is a spatially structure latent effect.
+```{r input spdep, warning = F, message = F}
+library(spdep)
+nc <- st_read(system.file("shapes/sids.gpkg", package="spData")[1], quiet=TRUE)
+
+# neighbouring/adjacency matrix
+W<- spdep::nb2mat(spdep::poly2nb(nc), style = "B")
+# Laplacian matrix and nullspace of the ICAR field
+Lapl <- diag(rowSums(W)) - W
+A_constr <- kronecker(diag(1,2), t(pracma::nullspace(Lapl)))
+
+ggplot2::ggplot() +
+  ggplot2::geom_sf(data = nc, 
+                   ggplot2::aes(fill = .data$SID79))+
+  ggplot2::labs(fill = "SIDS, 1979")+
+  ggplot2::scale_fill_viridis_c(na.value = "white", direction = -1)+
+  ggplot2::theme_classic()
+
+```
+Here, a long version of the dataframe is employed. Expected cases are computed as in [@INLAMSM]
+```{r nc long, warning = FALSE, message = FALSE}
+r74 <- sum(nc.sids$SID74) / sum(nc.sids$BIR74)
+r79 <- sum(nc.sids$SID79) / sum(nc.sids$BIR79)
+
+nc.long <- data.frame(NAME = c(nc$NAME, nc$NAME),
+                      SID = c(nc$SID74, nc$SID79),
+                      BIR = c(nc$BIR74, nc$BIR79),
+                      NWBIR = c(nc$NWBIR74, nc$NWBIR79),
+                      EXP = c(r74 * nc.sids$BIR74, r79 * nc.sids$BIR79),
+                      ID = c(1:2*nrow(nc))) %>% 
+  dplyr::mutate(NWPROP = as.vector(scale(.data$NWBIR/.data$BIR)))
+```
+
+
+As a baseline model, also for comparisons, we can fit a PCAR model for $Z$, namely:
+$$
+\mathrm{vec}(Z) \sim N(0, \Lambda \otimes(D - \alpha W)^{-1})
+$$
+Where $\Lambda$ is the marginal precision parameter, $D$ is the graph degree matrix, $W$ is the neighbourhood matrix, and $\alpha$ is a time-invariant autoregressive parameter. This model can be conveniently fitted using the \texttt{INLAMSM} R package; a Wishart prior is assigned to the precision and a Uniform prior on $[0,1]$ is assigned to $\alpha$.
+
+```{r pcar, message = FALSE}
+pcar.inla <- inla(
+  SID ~ 1 + NWPROP + 
+    f(ID, model = INLAMSM::inla.MCAR.model(k=2, W = W, alpha.min = 0, alpha.max = 1)),
+  data = nc.long, E = EXP, 
+  family = "poisson", num.threads = 1,
+  control.compute =list(waic = T, internal.opt =F),
+  verbose = T)
+```
+
+A more flexible yet more complex class of models is that of M-models, which allow to employ disease-specific hyperparameters. For the PCAR, we would thus have an autocorrelation parameter specific to each year. The prior distribution for $Z$ becomes thus, for $t = 1974, 1979$ and $n=100$:
+
+$$
+\mathrm{vec}(Z) \sim N \left( 0, (M^\top \otimes I_n) \,
+  \mathrm{Bdiag}(D - \alpha_t W) \, (M \otimes I_n)\right)
+$$
+Where $\mathrm{BDiag}$ denotes a block-diagonal matrix.
+
+
+
+In the following, we use the \texttt{bigDM} function from the \texttt{bigDM} R package [@vicente2023high] to fit the M-Model extension of the PCAR. This package has the advantage of automatically implementing models in which the Bartlett decomposition (see further) is used on the marginal scale parameter, which allows to specify a smaller number of parameters than direct parametrisation of $M$.
+
+```{r bym bigDM, message =FALSE}
+
+inla.PMMCAR.model <- function(...){
+  INLA::inla.rgeneric.define(bigDM::Mmodel_pcar, ...)
+}
+
+pcar.inla.mmod <- inla(
+  SID ~ 1 + NWPROP + 
+    f(ID, model = inla.PMMCAR.model(J=2, W = W, alpha.min = 0, alpha.max = 1,
+                                    initial.values = c(0,0,0))),
+  data = nc.long, E = EXP, 
+  family = "poisson", num.threads = 1,
+  control.compute =list(waic = T, internal.opt =F),
+  verbose = T)
+```
+
+
+Model results are quite similar; in both cases, computational time is relatively short (less than 10 seconds).
+```{r PCAR summaries}
+summary(pcar.inla)
+summary(pcar.inla.mmod)
+```
+
+
+The PCAR is flexible and computationally efficient due to its sparse precision. However, it is not scalable.
+The BYM, on the contrary, is scalable, but \textit{as it is}, it does not have sparse precision, which implies computational inefficiency.
+
+
+## Simplified BYM
+Here we provide a rather simple implementation of the BYM, loosely based on \texttt{bigDM} and \texttt{INLAMSM} codes:
+
+
+```{r dense BYM}
+inla.rgeneric.MMBYM.dense <- 
+  function (cmd = c("graph", "Q", "mu", "initial", "log.norm.const", 
+                    "log.prior", "quit"), theta = NULL) {
+    envir <- parent.env(environment())
+    #' Scaling the Laplacian matrix may be time-consuming,
+    #' so it is better to do it just once.
+    if(!exists("cache.done", envir=envir)){
+    #' Unscaled Laplacian matrix (marginal precision of u_1, u_2 ... u_k)
+      L_unscaled <- Matrix::Diagonal(nrow(W), rowSums(W)) -  W
+      L_unscaled_block <- kronecker(diag(1,k), L_unscaled)
+      A_constr <- t(pracma::nullspace(as.matrix(L_unscaled_block)))
+      scaleQ <- INLA:::inla.scale.model.internal(
+        L_unscaled_block, constr = list(A = A_constr, e = rep(0, nrow(A_constr))))
+        #' Block Laplacian, i.e. precision of U = I_k \otimes L
+      n <- nrow(W)
+      L <- scaleQ$Q[c(1:n), c(1:n)]
+      Sigma.u <- MASS::ginv(as.matrix(L))
+      endtime.scale <- Sys.time()
+      assign("Sigma.u", Sigma.u, envir = envir)
+      assign("cache.done", TRUE, envir = envir)
+    }
+    interpret.theta <- function() {
+      alpha <- 1/(1 + exp(-theta[as.integer(1:k)]))
+      #' Bartlett decomposition ==> First define Sigma, 
+      #' then use its eigendecomposition to define M ==> 
+      #' ==> the function employs k(k+1)/2 parameters, 
+      #' i.e. lower-triangular factor in the Bartlett decomposition indeed.
+      diag.N <- sapply(theta[as.integer(k + 1:k)], function(x) {
+        exp(x)
+      })
+      no.diag.N <- theta[as.integer(2 * k + 1:(k * (k - 1)/2))]
+      N <- diag(diag.N, k)
+      N[lower.tri(N, diag = FALSE)] <- no.diag.N
+      Sigma <- N %*% t(N)
+      e <- eigen(Sigma)
+      M <- t(e$vectors %*% diag(sqrt(e$values)))
+      return(list(alpha = alpha, M = M))
+    }
+    graph <- function() {
+      MI <- kronecker(Matrix::Matrix(1, ncol = k, nrow = k), 
+                      Matrix::Diagonal(nrow(W), 1))
+      IW <- Matrix::Diagonal(nrow(W), 1) + W
+      BlockIW <- Matrix::bdiag(replicate(k, IW, simplify = FALSE))
+      G <- (MI %*% BlockIW) %*% MI
+      return(G)
+    }
+    Q <- function() {
+      param <- interpret.theta()
+      M.inv <- solve(param$M)
+      MI <- kronecker(M.inv, Matrix::Diagonal(nrow(W), 1))
+      D <- as.vector(apply(W, 1, sum))
+      BlockIW <- Matrix::bdiag(lapply(1:k, function(i) {
+        solve(param$alpha[i]*Sigma.u + 
+                (1-param$alpha[i])*Matrix::Diagonal(nrow(W), 1))
+        }))
+      Q <- (MI %*% BlockIW) %*% kronecker(t(M.inv), Matrix::Diagonal(nrow(W),  1))
+      return(Q)
+    }
+    mu <- function() {
+      return(numeric(0))
+    }
+    log.norm.const <- function() {
+      val <- numeric(0)
+      return(val)
+    }
+    log.prior <- function() {
+      param <- interpret.theta()
+      val <- sum(-theta[as.integer(1:k)] - 2 * log(1 + exp(-theta[as.integer(1:k)])))
+      #' Diagonal entries of the lower-triangular
+      #' factor of Sigma: Chi-squared prior
+      val <- val + k * log(2) + 2 * sum(theta[k + 1:k]) + 
+        sum(dchisq(exp(2 * theta[k + 1:k]), 
+                   df = (k + 2) - 1:k + 1, log = TRUE))
+        #' Off-diagonal entries of the factor:
+        #' Normal prior
+        val <- val + sum(dnorm(theta[as.integer((2 * k) + 1:(k *  (k - 1)/2))],
+                               mean = 0, sd = 1, log = TRUE))
+      return(val)
+    }
+    initial <- function() {
+      return(c(rep(0, k * (k+3)/2)) )
+    }
+    quit <- function() {
+      return(invisible())
+    }
+    if (as.integer(R.version$major) > 3) {
+      if (!length(theta)) 
+        theta = initial()
+    }
+    else {
+      if (is.null(theta)) {
+        theta <- initial()
+      }
+    }
+    val <- do.call(match.arg(cmd), args = list())
+    return(val)
+  }
+
+inla.MMBYM.dense <- function (...)  INLA::inla.rgeneric.define(inla.rgeneric.MMBYM.dense, ...)
+
+```
+
+Specifically, we use a Uniform prior on the mixing parameters and we model the $M$ matrix through the Bartlett decomposition, namely we define $\Sigma = A A^\top$, where $A$ is a lower-triangular matrix whose squared diagonal elements are assigned a Chi-squared distribution and whose off-diagonal entries are assigned a Normal distribution. For more details on the Bartlett decomposition, see [@vicente2023high]
+
+```{r dense BYM run, message = FALSE, output = FALSE, warning = FALSE}
+bym.dense.inla.mmod <- inla(
+    SID ~ 1 + NWPROP + 
+    f(ID, model = inla.MMBYM.dense(k=2, W=W),
+      extraconstr = list(A = A_constr, e = c(0,0))),
+  data = nc.long, E = EXP, 
+  family = "poisson", num.threads = 1,
+  control.compute =list(waic = T, internal.opt =F),
+  verbose = T)
+
+```
+
+```{r}
+summary(bym.dense.inla.mmod)
+```
+
+
+We compare the posteriors of $\alpha$ for the PCAR and BYM model. Starting from the PCAR
+```{r alpha PCAR}
+# \alpha_{1974}
+inla.zmarginal(inla.tmarginal(fun = function(X) exp(X)/(1 + exp(X)), 
+               marginal = pcar.inla.mmod$marginals.hyperpar[[1]]))
+
+# \alpha_{1979}
+inla.zmarginal(inla.tmarginal(fun = function(X) exp(X)/(1 + exp(X)), 
+               marginal = pcar.inla.mmod$marginals.hyperpar[[2]]))
+  
+```
+Then for the BYM:
+```{r alpha BYM}
+# \alpha_{1974}
+inla.zmarginal(inla.tmarginal(fun = function(X) exp(X)/(1 + exp(X)), 
+               marginal = bym.dense.inla.mmod$marginals.hyperpar[[1]]))
+
+# \alpha_{1979}
+inla.zmarginal(inla.tmarginal(fun = function(X) exp(X)/(1 + exp(X)), 
+               marginal = bym.dense.inla.mmod$marginals.hyperpar[[2]]))
+  
+```
+
+Results are similar.
+
+Lastly here is the proposed code for the sparse BYM, still has to be tested:
+
+```{r sparse BYM}
+inla.rgeneric.MMBYM.sparse <- 
+  function (cmd = c("graph", "Q", "mu", "initial", "log.norm.const", 
+                    "log.prior", "quit"), theta = NULL) {
+    envir <- parent.env(environment())
+    #' Scaling the Laplacian matrix may be time-consuming,
+    #' so it is better to do it just once.
+    if(!exists("cache.done", envir=envir)){
+      #' Unscaled Laplacian matrix (marginal precision of u_1, u_2 ... u_k)
+      L_unscaled <- Matrix::Diagonal(nrow(W), rowSums(W)) -  W
+      L_unscaled_block <- kronecker(diag(1,k), L_unscaled)
+      A_constr <- t(pracma::nullspace(as.matrix(L_unscaled_block)))
+      scaleQ <- INLA:::inla.scale.model.internal(
+        L_unscaled_block, constr = list(A = A_constr, e = rep(0, nrow(A_constr))))
+      #' Block Laplacian, i.e. precision of U = I_k \otimes L
+      n <- nrow(W)
+      L <- scaleQ$Q[c(1:n), c(1:n)]
+      endtime.scale <- Sys.time()
+      assign("L", L, envir = envir)
+      assign("cache.done", TRUE, envir = envir)
+    }
+    interpret.theta <- function() {
+      phi.vector <- 1/(1 + exp(-theta[as.integer(1:k)]))
+      #' Bartlett decomposition ==> First define Sigma, 
+      #' then use its eigendecomposition to define M ==> 
+      #' ==> the function employs k(k+1)/2 parameters, 
+      #' i.e. lower-triangular factor in the Bartlett decomposition indeed.
+      diag.N <- sapply(theta[as.integer(k + 1:k)], function(x) {
+        exp(x)
+      })
+      no.diag.N <- theta[as.integer(2 * k + 1:(k * (k - 1)/2))]
+      N <- diag(diag.N, k)
+      N[lower.tri(N, diag = FALSE)] <- no.diag.N
+      Sigma <- N %*% t(N)
+      e <- eigen(Sigma)
+      M <- t(e$vectors %*% diag(sqrt(e$values)))
+      return(list(phi.vector = phi.vector, M = M))
+    }
+    graph <- function() {
+      MI <- kronecker(Matrix::Matrix(1, ncol = k, nrow = k), 
+                      Matrix::Diagonal(nrow(W), 1))
+      IW <- Matrix::Diagonal(nrow(W), 1) + W
+      BlockIW <- Matrix::bdiag(replicate(k, IW, simplify = FALSE))
+      G <- (MI %*% BlockIW) %*% MI
+      return(G)
+    }
+    Q <- function() {
+      param <- interpret.theta()
+      M.inv <- solve(param$M)
+      Phi <- Matrix::Diagonal(sqrt(param$phi.vector), n=k)
+      invPhihat <- Matrix::Diagonal(1/sqrt(1-param$phi.vector), n=k)
+      q11 <- invPhihat %*% M.inv %*% t(M.inv) %*% invPhihat
+      q12 <- q11 %*% Phi %*% t(param$M)
+      q22 <- param$M %*% Phi %*% q12
+      Q.11 <- kronecker(q11, Matrix::Diagonal(n=nrow(W), x = 1))
+      Q.12 <- kronecker(-q12, Matrix::Diagonal(n=nrow(W), x = 1))
+      Q.22 <- kronecker(q11, Matrix::Diagonal(n=nrow(W), x = 1)) +
+        kronecker(Matrix::Diagonal(n=k, x=1), L)
+      Q <- cbind(rbind(Q.11, Q.12), 
+                 rbind(Q.12, Q.22))
+      return(Q)
+    }
+    mu <- function() {
+      return(numeric(0))
+    }
+    log.norm.const <- function() {
+      val <- numeric(0)
+      return(val)
+    }
+    log.prior <- function() {
+      param <- interpret.theta()
+      val <- sum(-theta[as.integer(1:k)] - 2 * log(1 + exp(-theta[as.integer(1:k)])))
+      #' Diagonal entries of the lower-triangular
+      #' factor of Sigma: Chi-squared prior
+      val <- val + k * log(2) + 2 * sum(theta[k + 1:k]) + 
+        sum(dchisq(exp(2 * theta[k + 1:k]), 
+                   df = (k + 2) - 1:k + 1, log = TRUE))
+      #' Off-diagonal entries of the factor:
+      #' Normal prior
+      val <- val + sum(dnorm(theta[as.integer((2 * k) + 1:(k *  (k - 1)/2))],
+                             mean = 0, sd = 1, log = TRUE))
+      return(val)
+    }
+    initial <- function() {
+      return(c(rep(0, k * (k+3)/2)) )
+    }
+    quit <- function() {
+      return(invisible())
+    }
+    if (as.integer(R.version$major) > 3) {
+      if (!length(theta)) 
+        theta = initial()
+    }
+    else {
+      if (is.null(theta)) {
+        theta <- initial()
+      }
+    }
+    val <- do.call(match.arg(cmd), args = list())
+    return(val)
+  }
+
+inla.MMBYM.sparse<- function(...){
+  INLA::inla.rgeneric.define(inla.rgeneric.MMBYM.sparse, ...)}
+
+```
+
+
+

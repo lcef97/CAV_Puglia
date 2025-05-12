@@ -1,0 +1,897 @@
+% Options for packages loaded elsewhere
+\PassOptionsToPackage{unicode}{hyperref}
+\PassOptionsToPackage{hyphens}{url}
+%
+\documentclass[
+]{article}
+\usepackage{amsmath,amssymb}
+\usepackage{iftex}
+\ifPDFTeX
+  \usepackage[T1]{fontenc}
+  \usepackage[utf8]{inputenc}
+  \usepackage{textcomp} % provide euro and other symbols
+\else % if luatex or xetex
+  \usepackage{unicode-math} % this also loads fontspec
+  \defaultfontfeatures{Scale=MatchLowercase}
+  \defaultfontfeatures[\rmfamily]{Ligatures=TeX,Scale=1}
+\fi
+\usepackage{lmodern}
+\ifPDFTeX\else
+  % xetex/luatex font selection
+\fi
+% Use upquote if available, for straight quotes in verbatim environments
+\IfFileExists{upquote.sty}{\usepackage{upquote}}{}
+\IfFileExists{microtype.sty}{% use microtype if available
+  \usepackage[]{microtype}
+  \UseMicrotypeSet[protrusion]{basicmath} % disable protrusion for tt fonts
+}{}
+\makeatletter
+\@ifundefined{KOMAClassName}{% if non-KOMA class
+  \IfFileExists{parskip.sty}{%
+    \usepackage{parskip}
+  }{% else
+    \setlength{\parindent}{0pt}
+    \setlength{\parskip}{6pt plus 2pt minus 1pt}}
+}{% if KOMA class
+  \KOMAoptions{parskip=half}}
+\makeatother
+\usepackage{xcolor}
+\usepackage[margin=1in]{geometry}
+\usepackage{color}
+\usepackage{fancyvrb}
+\newcommand{\VerbBar}{|}
+\newcommand{\VERB}{\Verb[commandchars=\\\{\}]}
+\DefineVerbatimEnvironment{Highlighting}{Verbatim}{commandchars=\\\{\}}
+% Add ',fontsize=\small' for more characters per line
+\usepackage{framed}
+\definecolor{shadecolor}{RGB}{248,248,248}
+\newenvironment{Shaded}{\begin{snugshade}}{\end{snugshade}}
+\newcommand{\AlertTok}[1]{\textcolor[rgb]{0.94,0.16,0.16}{#1}}
+\newcommand{\AnnotationTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\newcommand{\AttributeTok}[1]{\textcolor[rgb]{0.13,0.29,0.53}{#1}}
+\newcommand{\BaseNTok}[1]{\textcolor[rgb]{0.00,0.00,0.81}{#1}}
+\newcommand{\BuiltInTok}[1]{#1}
+\newcommand{\CharTok}[1]{\textcolor[rgb]{0.31,0.60,0.02}{#1}}
+\newcommand{\CommentTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textit{#1}}}
+\newcommand{\CommentVarTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\newcommand{\ConstantTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{#1}}
+\newcommand{\ControlFlowTok}[1]{\textcolor[rgb]{0.13,0.29,0.53}{\textbf{#1}}}
+\newcommand{\DataTypeTok}[1]{\textcolor[rgb]{0.13,0.29,0.53}{#1}}
+\newcommand{\DecValTok}[1]{\textcolor[rgb]{0.00,0.00,0.81}{#1}}
+\newcommand{\DocumentationTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\newcommand{\ErrorTok}[1]{\textcolor[rgb]{0.64,0.00,0.00}{\textbf{#1}}}
+\newcommand{\ExtensionTok}[1]{#1}
+\newcommand{\FloatTok}[1]{\textcolor[rgb]{0.00,0.00,0.81}{#1}}
+\newcommand{\FunctionTok}[1]{\textcolor[rgb]{0.13,0.29,0.53}{\textbf{#1}}}
+\newcommand{\ImportTok}[1]{#1}
+\newcommand{\InformationTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\newcommand{\KeywordTok}[1]{\textcolor[rgb]{0.13,0.29,0.53}{\textbf{#1}}}
+\newcommand{\NormalTok}[1]{#1}
+\newcommand{\OperatorTok}[1]{\textcolor[rgb]{0.81,0.36,0.00}{\textbf{#1}}}
+\newcommand{\OtherTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{#1}}
+\newcommand{\PreprocessorTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textit{#1}}}
+\newcommand{\RegionMarkerTok}[1]{#1}
+\newcommand{\SpecialCharTok}[1]{\textcolor[rgb]{0.81,0.36,0.00}{\textbf{#1}}}
+\newcommand{\SpecialStringTok}[1]{\textcolor[rgb]{0.31,0.60,0.02}{#1}}
+\newcommand{\StringTok}[1]{\textcolor[rgb]{0.31,0.60,0.02}{#1}}
+\newcommand{\VariableTok}[1]{\textcolor[rgb]{0.00,0.00,0.00}{#1}}
+\newcommand{\VerbatimStringTok}[1]{\textcolor[rgb]{0.31,0.60,0.02}{#1}}
+\newcommand{\WarningTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\usepackage{graphicx}
+\makeatletter
+\def\maxwidth{\ifdim\Gin@nat@width>\linewidth\linewidth\else\Gin@nat@width\fi}
+\def\maxheight{\ifdim\Gin@nat@height>\textheight\textheight\else\Gin@nat@height\fi}
+\makeatother
+% Scale images if necessary, so that they will not overflow the page
+% margins by default, and it is still possible to overwrite the defaults
+% using explicit options in \includegraphics[width, height, ...]{}
+\setkeys{Gin}{width=\maxwidth,height=\maxheight,keepaspectratio}
+% Set default figure placement to htbp
+\makeatletter
+\def\fps@figure{htbp}
+\makeatother
+\setlength{\emergencystretch}{3em} % prevent overfull lines
+\providecommand{\tightlist}{%
+  \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+\setcounter{secnumdepth}{-\maxdimen} % remove section numbering
+% definitions for citeproc citations
+\NewDocumentCommand\citeproctext{}{}
+\NewDocumentCommand\citeproc{mm}{%
+  \begingroup\def\citeproctext{#2}\cite{#1}\endgroup}
+\makeatletter
+ % allow citations to break across lines
+ \let\@cite@ofmt\@firstofone
+ % avoid brackets around text for \cite:
+ \def\@biblabel#1{}
+ \def\@cite#1#2{{#1\if@tempswa , #2\fi}}
+\makeatother
+\newlength{\cslhangindent}
+\setlength{\cslhangindent}{1.5em}
+\newlength{\csllabelwidth}
+\setlength{\csllabelwidth}{3em}
+\newenvironment{CSLReferences}[2] % #1 hanging-indent, #2 entry-spacing
+ {\begin{list}{}{%
+  \setlength{\itemindent}{0pt}
+  \setlength{\leftmargin}{0pt}
+  \setlength{\parsep}{0pt}
+  % turn on hanging indent if param 1 is 1
+  \ifodd #1
+   \setlength{\leftmargin}{\cslhangindent}
+   \setlength{\itemindent}{-1\cslhangindent}
+  \fi
+  % set entry spacing
+  \setlength{\itemsep}{#2\baselineskip}}}
+ {\end{list}}
+\usepackage{calc}
+\newcommand{\CSLBlock}[1]{\hfill\break\parbox[t]{\linewidth}{\strut\ignorespaces#1\strut}}
+\newcommand{\CSLLeftMargin}[1]{\parbox[t]{\csllabelwidth}{\strut#1\strut}}
+\newcommand{\CSLRightInline}[1]{\parbox[t]{\linewidth - \csllabelwidth}{\strut#1\strut}}
+\newcommand{\CSLIndent}[1]{\hspace{\cslhangindent}#1}
+\ifLuaTeX
+  \usepackage{selnolig}  % disable illegal ligatures
+\fi
+\usepackage{bookmark}
+\IfFileExists{xurl.sty}{\usepackage{xurl}}{} % add URL line breaks if available
+\urlstyle{same}
+\hypersetup{
+  pdftitle={Multivariate BYM},
+  hidelinks,
+  pdfcreator={LaTeX via pandoc}}
+
+\title{Multivariate BYM}
+\author{}
+\date{\vspace{-2.5em}}
+
+\begin{document}
+\maketitle
+
+\subsection{Proposal: sparse precision parametrisation for the
+multivariate BYM
+model.}\label{proposal-sparse-precision-parametrisation-for-the-multivariate-bym-model.}
+
+In this note, we attempt at providing a parametrisation for the
+multivariate BYM model resulting in a sparse precision matrix.
+
+\paragraph{Parametrisation for the univariate
+BYM}\label{parametrisation-for-the-univariate-bym}
+
+Before doing so, we start by illustrating the well-established sparse
+parametrisation of the univariate BYM:
+
+This model, proposed by (Riebler et al. 2016) takes the form: \[
+y = \sigma\left( \sqrt{\phi} U + \sqrt{1-\phi}V\right)
+\] Where \(U \sim N(0, L^{+})\), \(V \sim N(0, I_{n})\), \(L\) denotes
+the graph Laplacian matrix, already scaled in order that
+\(\mathrm{diag}(L)\) has a geometric mean equal to 1;
+\(n = \mathrm{card}(y)\). \(\sigma^2\) is the scale parameter.
+
+Now, despite
+\(\mathrm{Prec}[y \mid \phi, \sigma] =  \sigma^{-2}\left( \phi L + (1-\phi)I_n \right)^{-1}\)
+which has no reason at all to be a sparse matrix, the joint random
+vector \(\begin{pmatrix} y \\ U\end{pmatrix}\) has indeed a sparse
+precision. This can be seen considering that
+\(\ln \pi(y, U) = \ln \pi(y | U) + \ln \pi(U)\) and
+\(y|U \sim N(\sigma\sqrt{\phi}U, \sigma^2(1-\phi) I_n)\) thus, with some
+passages (Riebler et al. 2016), \begin{equation}
+\mathrm{Prec}(y, U | \sigma, \phi) = \begin{pmatrix} 
+\frac{1}{\sigma^2 (1 - \phi)} I_n & - \frac{\sqrt{\phi}}{\sigma(1-\phi)} I_n \\
+- \frac{\sqrt{\phi}}{\sigma(1-\phi)} I_n  & \frac{\phi}{1-\phi}I_n + L
+\end{pmatrix}
+\label{eq:joint_sparse_uni}
+\end{equation} Which is made of four sparse blocks as long as \(L\) is
+sparse as well.
+
+Hence the univariate BYM model, other than being scalable and allowing
+for PC priors setting on hyperparameters, can also be fitted in an
+efficient way leveraging on precision sparsity. And this is indeed the
+model implemented in \texttt{R-INLA}, using the specification
+\texttt{INLA::f(..., model = "bym2", ...)}.
+
+\textit{While this parametrisation is essential for computational reasons, only the first half of the random vector, i.e. $y$, does enter the linear predictor.}
+
+\paragraph{Parametrisation for the multivariate
+BYM}\label{parametrisation-for-the-multivariate-bym}
+
+A direct extension of the BYM to the case of \(p\) variables (\(p\)
+diseases) is the following.
+
+First let us consider the ICAR component. With no loss of generality,
+define \(\mathbf{U} = (U_1, U_2, \dots U_p)\) and
+\(\mathrm{vec}( \mathbf{U}) = (U_1^{\top} U_2^{\top} \dots U_p^{\top} )^{\top}\).
+We suppose all its component to have the same prior distribution, i.e.~
+\[U_j \sim N(0, L^{+}) \quad \forall j \in [1,p]\] We further assume
+independence among them, such that
+\(\mathrm{vec}(\mathbf{U}) \sim N(0, I_p \otimes L^{+})\). The same
+assumption is made on the IID component,
+i.e.~\(\mathrm{vec}(\mathbf{V}) \sim N(0, I_p \otimes I_n)\).
+
+By doing so, we can use a unique scale parameter, say \(\Sigma\), as in
+the univariate case. We define \(M\) as a generic full-rank matrix such
+that \(M^{\top}M = \Sigma\). Additionally, we define the precision
+parameter \(\Lambda =: \Sigma^{-1}\).
+
+Please notice that \(M\) does not have to be the Cholesky factor; in
+fact, a rather convenient yet not unique definition is
+\(M = D^{\frac{1}{2}}E^{\top}\), where \(D\) is the diagonal matrix of
+the eigenvalues of \(\Sigma\) and \(E\) are the eigenvectors of
+\(\Sigma\).
+
+In the more general case of the M-model (Botella-Rocamora,
+Martinez-Beneito, and Banerjee 2015), consider the matrix-valued mixing
+parameters
+\(\tilde{\Phi}:=\mathrm{diag}(\sqrt{\phi_1},\sqrt{\phi_2}, \dots \sqrt{\phi_p})\)
+and
+\(\tilde{\bar{\Phi}}:= \mathrm{diag} (\sqrt{1 - \phi_1}, \sqrt{1 - \phi_2}, \dots \sqrt{1 - \phi_p}) = (I_p - \tilde{\Phi})^{-1/2}\).
+
+The convolution model is generalised to:
+
+\begin{equation}
+\label{eq:Mmod_conv}
+\mathbf{Y} =     \mathbf{U}M\tilde{\Phi} + \mathbf{V}M \tilde{\bar{\Phi}}
+\end{equation}
+
+We then have \[
+\mathbb{E} [\mathrm{vec}(\mathbf{Y}) \mid U, \tilde{\Phi}, \Sigma] = \mathrm{vec}(\mathbf{U} M \tilde{\Phi}) =
+[(\tilde{\Phi} M^{\top}) \otimes I_n] \mathrm{vec}(\mathbf{U})
+\]
+
+and similarly
+
+\[
+\mathrm{VAR} [\mathrm{vec}(\mathbf{Y}) \mid \mathbf{U}, \tilde{\Phi}, \Sigma] =
+\left[(\tilde{{\hat\Phi}} M^{\top}) \otimes I_n \right] 
+\mathbb{E} \left[
+\mathrm{vec}(\mathbf{V})
+\mathrm{vec}(\mathbf{V})^\top \right]
+\left[(\tilde{\Phi} M^{\top}) \otimes I_n \right] = 
+\left(
+\tilde{\bar{\Phi}} \Sigma \tilde{\bar{\Phi}}
+\right) \otimes I_n
+\]
+
+The distribution of \(\mathbf{Y} \mid \mathbf{U}, \Sigma, \tilde{\Phi}\)
+then reads: \begin{align*}
+-2 \ln \pi \left(\mathrm{vec}(\mathbf{Y}) \mid \mathbf{U}, \Sigma, \phi \right) = \\= \Big{ \{ }
+ \mathrm{vec}(\mathbf{Y}) - [(\tilde{\Phi} M^{\top}) \otimes I_n] \mathrm{vec}(\mathbf{U}) \Big{\} } ^{\top}
+\left[ \left(
+\tilde{\bar{\Phi}}^{-1} \Lambda \tilde{\bar{\Phi}}^{-1}
+\right) \otimes I_n \right] 
+\Big{ \{ } \mathrm{vec}(\mathbf{Y}) -[(\tilde{\Phi} M^{\top}) \otimes I_n] \mathrm{vec}(\mathbf{U}) \Big{\}} = \\ =
+\mathrm{vec}(\mathbf{Y})^{\top}
+\left[ \left(
+\tilde{\bar{\Phi}}^{-1} \Lambda \tilde{\bar{\Phi}}^{-1}
+\right) \otimes I_n \right] 
+\mathrm{vec}(\mathbf{Y}) + \\ 
+- 2\mathrm{vec}(\mathbf{Y})^{\top} 
+\left[ \left(
+\tilde{\bar{\Phi}}^{-1} \Lambda \tilde{\bar{\Phi}}^{-1} \right) \otimes I_n \right] 
+\left[ (\tilde{\Phi} M^{\top}) \otimes I_n \right] \,\mathrm{vec}(\mathbf{U})   + \\
++  \mathrm{vec}(\mathbf{U})^{\top}
+    \left[ (M \tilde{\Phi}) \otimes I_n \right]
+    \left[ \left( \tilde{\bar{\Phi}}^{-1} \Lambda \tilde{\bar{\Phi}}^{-1} \right) \otimes I_n \right]
+    \left[ (\tilde{\Phi} M^{\top}) \otimes I_n \right]
+   \mathrm{vec}(\mathbf{U}) = \\
+\mathrm{vec}(\mathbf{Y})^{\top}
+\left[ \left(
+\tilde{\bar{\Phi}}^{-1} \Lambda \tilde{\bar{\Phi}}^{-1}
+\right) \otimes I_n \right] 
+\mathrm{vec}(\mathbf{Y}) + \\ 
+- 2\mathrm{vec}(\mathbf{Y})^{\top} 
+\left[ \left( \tilde{\bar{\Phi}}^{-1} \Lambda \tilde{\bar{\Phi}}^{-1} \tilde{\Phi} M^{\top} \right)
+\otimes I_n \right]  \,\mathrm{vec}(\mathbf{U})   + \\
++  \mathrm{vec}(\mathbf{U})^{\top}
+    \left[ \left( M \tilde{\Phi}  \tilde{\bar{\Phi}}^{-1} \Lambda \tilde{\bar{\Phi}}^{-1}  \tilde{\Phi} M^{\top} \right) \otimes I_n \right]
+   \mathrm{vec}(\mathbf{U})
+\end{align*}
+
+Now, for brevity let us define the following \(p \times p\) matrices:
+\begin{align*}
+q_{11} := \tilde{\bar{\Phi}}^{-1} \Lambda \tilde{\bar{\Phi}}^{-1} ; \quad
+q_{12}:= q_{11} \tilde{\Phi}M^\top; \quad
+q_{22}:= M \tilde{\Phi} q_{12}
+\end{align*} Hence \begin{align*}
+-2 \ln \pi \left(\mathrm{vec}(\mathbf{Y}) \mid \mathbf{U}, \Sigma, \phi \right) = \\
+= \mathrm{vec}(\mathbf{Y})^{\top}
+\left(q_{11} \otimes I_n \right) 
+\mathrm{vec}(\mathbf{Y}) 
+- 2\mathrm{vec}(\mathbf{Y})^{\top} 
+\left(  q_{12} \otimes I_n \right)  \,\mathrm{vec}(\mathbf{U})  
++  \mathrm{vec}(\mathbf{U})^{\top}
+    \left(q_{12} \otimes I_n \right)
+   \mathrm{vec}(\mathbf{U})
+\end{align*} Then, we have \begin{align*}
+-2 \ln \pi \left(\mathrm{vec}(\mathbf{Y}), \mathrm{vec}(\mathbf{U}) \mid \Sigma, \phi \right) = \\
+= \mathrm{vec}(\mathbf{Y})^{\top}
+\left(q_{11} \otimes I_n \right) 
+\mathrm{vec}(\mathbf{Y}) 
+- 2\mathrm{vec}(\mathbf{Y})^{\top} 
+\left(  q_{12} \otimes I_n \right)  \,\mathrm{vec}(\mathbf{U})  
++  \mathrm{vec}(\mathbf{U})^{\top}
+    \left(q_{12} \otimes I_n + I_p \otimes L\right)
+   \mathrm{vec}(\mathbf{U})
+\end{align*} Hence, with some straightforward algebra, it can be
+concluded that:
+
+\begin{equation} \label{eq:joint_bym_mmod}
+    \begin{pmatrix}
+        \mathrm{vec} (\mathbf{Y}) \\ \mathrm{vec} (\mathbf{U}) 
+    \end{pmatrix}
+    \sim N \left( 0, \begin{pmatrix}
+            q_{11} \otimes I_n \, & 
+            \, - q_{12} \otimes I_n \\
+            - q_{12} \otimes I_n \, & \,
+             q_{22} \otimes I_n + I_p \otimes L
+        \end{pmatrix}^{-1} \right)
+\end{equation}
+
+Which generalises to the multivariate case equation
+\ref{eq:joint_sparse_uni}. The sparse parametrisation is thus also
+possible for the multivariate BYM.
+
+\subsection{Application to SIDS data}\label{application-to-sids-data}
+
+Here we attempt to an application to the well-known SIDS dataset. The
+model has the following structure: \[
+y_{i,t} \sim \mathrm{Poisson}(e^{\displaystyle{E_{i,t} + \eta_{i,t}}})
+\] Where \(y_{i,t}\) are the sudden infant death cases for
+\(i = 1 \dots 100\) and \(t = 1974, 1979\); \(E_{i,t}\) are the expected
+SIDS cases, i.e.~the global fatality rate times the number of births,
+and \(\eta_{i,t} := \beta_0 + \beta X_{i,t} + z_{i,t}\) is the linear
+predictor. Specifically, \(\beta_0\) is the intercept, \(X_{i,t}\) is
+the non-white birth proportion (NWBIR), \(\beta\) is the effect of
+NWBIR, and \(z_{i,t}\) is a spatially structure latent effect.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{library}\NormalTok{(spdep)}
+\NormalTok{nc }\OtherTok{\textless{}{-}} \FunctionTok{st\_read}\NormalTok{(}\FunctionTok{system.file}\NormalTok{(}\StringTok{"shapes/sids.gpkg"}\NormalTok{, }\AttributeTok{package=}\StringTok{"spData"}\NormalTok{)[}\DecValTok{1}\NormalTok{], }\AttributeTok{quiet=}\ConstantTok{TRUE}\NormalTok{)}
+
+\CommentTok{\# neighbouring/adjacency matrix}
+\NormalTok{W}\OtherTok{\textless{}{-}}\NormalTok{ spdep}\SpecialCharTok{::}\FunctionTok{nb2mat}\NormalTok{(spdep}\SpecialCharTok{::}\FunctionTok{poly2nb}\NormalTok{(nc), }\AttributeTok{style =} \StringTok{"B"}\NormalTok{)}
+\CommentTok{\# Laplacian matrix and nullspace of the ICAR field}
+\NormalTok{Lapl }\OtherTok{\textless{}{-}} \FunctionTok{diag}\NormalTok{(}\FunctionTok{rowSums}\NormalTok{(W)) }\SpecialCharTok{{-}}\NormalTok{ W}
+\NormalTok{A\_constr }\OtherTok{\textless{}{-}} \FunctionTok{kronecker}\NormalTok{(}\FunctionTok{diag}\NormalTok{(}\DecValTok{1}\NormalTok{,}\DecValTok{2}\NormalTok{), }\FunctionTok{t}\NormalTok{(pracma}\SpecialCharTok{::}\FunctionTok{nullspace}\NormalTok{(Lapl)))}
+
+\NormalTok{ggplot2}\SpecialCharTok{::}\FunctionTok{ggplot}\NormalTok{() }\SpecialCharTok{+}
+\NormalTok{  ggplot2}\SpecialCharTok{::}\FunctionTok{geom\_sf}\NormalTok{(}\AttributeTok{data =}\NormalTok{ nc, }
+\NormalTok{                   ggplot2}\SpecialCharTok{::}\FunctionTok{aes}\NormalTok{(}\AttributeTok{fill =}\NormalTok{ .data}\SpecialCharTok{$}\NormalTok{SID79))}\SpecialCharTok{+}
+\NormalTok{  ggplot2}\SpecialCharTok{::}\FunctionTok{labs}\NormalTok{(}\AttributeTok{fill =} \StringTok{"SIDS, 1979"}\NormalTok{)}\SpecialCharTok{+}
+\NormalTok{  ggplot2}\SpecialCharTok{::}\FunctionTok{scale\_fill\_viridis\_c}\NormalTok{(}\AttributeTok{na.value =} \StringTok{"white"}\NormalTok{, }\AttributeTok{direction =} \SpecialCharTok{{-}}\DecValTok{1}\NormalTok{)}\SpecialCharTok{+}
+\NormalTok{  ggplot2}\SpecialCharTok{::}\FunctionTok{theme\_classic}\NormalTok{()}
+\end{Highlighting}
+\end{Shaded}
+
+\includegraphics{NC_sids-application_files/figure-latex/input spdep-1.pdf}
+Here, a long version of the dataframe is employed. Expected cases are
+computed as in (Palmí-Perales, Gómez-Rubio, and Martinez-Beneito 2021)
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{r74 }\OtherTok{\textless{}{-}} \FunctionTok{sum}\NormalTok{(nc.sids}\SpecialCharTok{$}\NormalTok{SID74) }\SpecialCharTok{/} \FunctionTok{sum}\NormalTok{(nc.sids}\SpecialCharTok{$}\NormalTok{BIR74)}
+\NormalTok{r79 }\OtherTok{\textless{}{-}} \FunctionTok{sum}\NormalTok{(nc.sids}\SpecialCharTok{$}\NormalTok{SID79) }\SpecialCharTok{/} \FunctionTok{sum}\NormalTok{(nc.sids}\SpecialCharTok{$}\NormalTok{BIR79)}
+
+\NormalTok{nc.long }\OtherTok{\textless{}{-}} \FunctionTok{data.frame}\NormalTok{(}\AttributeTok{NAME =} \FunctionTok{c}\NormalTok{(nc}\SpecialCharTok{$}\NormalTok{NAME, nc}\SpecialCharTok{$}\NormalTok{NAME),}
+                      \AttributeTok{SID =} \FunctionTok{c}\NormalTok{(nc}\SpecialCharTok{$}\NormalTok{SID74, nc}\SpecialCharTok{$}\NormalTok{SID79),}
+                      \AttributeTok{BIR =} \FunctionTok{c}\NormalTok{(nc}\SpecialCharTok{$}\NormalTok{BIR74, nc}\SpecialCharTok{$}\NormalTok{BIR79),}
+                      \AttributeTok{NWBIR =} \FunctionTok{c}\NormalTok{(nc}\SpecialCharTok{$}\NormalTok{NWBIR74, nc}\SpecialCharTok{$}\NormalTok{NWBIR79),}
+                      \AttributeTok{EXP =} \FunctionTok{c}\NormalTok{(r74 }\SpecialCharTok{*}\NormalTok{ nc.sids}\SpecialCharTok{$}\NormalTok{BIR74, r79 }\SpecialCharTok{*}\NormalTok{ nc.sids}\SpecialCharTok{$}\NormalTok{BIR79),}
+                      \AttributeTok{ID =} \FunctionTok{c}\NormalTok{(}\DecValTok{1}\SpecialCharTok{:}\DecValTok{2}\SpecialCharTok{*}\FunctionTok{nrow}\NormalTok{(nc))) }\SpecialCharTok{\%\textgreater{}\%} 
+\NormalTok{  dplyr}\SpecialCharTok{::}\FunctionTok{mutate}\NormalTok{(}\AttributeTok{NWPROP =} \FunctionTok{as.vector}\NormalTok{(}\FunctionTok{scale}\NormalTok{(.data}\SpecialCharTok{$}\NormalTok{NWBIR}\SpecialCharTok{/}\NormalTok{.data}\SpecialCharTok{$}\NormalTok{BIR)))}
+\end{Highlighting}
+\end{Shaded}
+
+As a baseline model, also for comparisons, we can fit a PCAR model for
+\(Z\), namely: \[
+\mathrm{vec}(Z) \sim N(0, \Lambda \otimes(D - \alpha W)^{-1})
+\] Where \(\Lambda\) is the marginal precision parameter, \(D\) is the
+graph degree matrix, \(W\) is the neighbourhood matrix, and \(\alpha\)
+is a time-invariant autoregressive parameter. This model can be
+conveniently fitted using the \texttt{INLAMSM} R package; a Wishart
+prior is assigned to the precision and a Uniform prior on \([0,1]\) is
+assigned to \(\alpha\).
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{pcar.inla }\OtherTok{\textless{}{-}} \FunctionTok{inla}\NormalTok{(}
+\NormalTok{  SID }\SpecialCharTok{\textasciitilde{}} \DecValTok{1} \SpecialCharTok{+}\NormalTok{ NWPROP }\SpecialCharTok{+} 
+    \FunctionTok{f}\NormalTok{(ID, }\AttributeTok{model =}\NormalTok{ INLAMSM}\SpecialCharTok{::}\FunctionTok{inla.MCAR.model}\NormalTok{(}\AttributeTok{k=}\DecValTok{2}\NormalTok{, }\AttributeTok{W =}\NormalTok{ W, }\AttributeTok{alpha.min =} \DecValTok{0}\NormalTok{, }\AttributeTok{alpha.max =} \DecValTok{1}\NormalTok{)),}
+  \AttributeTok{data =}\NormalTok{ nc.long, }\AttributeTok{E =}\NormalTok{ EXP, }
+  \AttributeTok{family =} \StringTok{"poisson"}\NormalTok{, }\AttributeTok{num.threads =} \DecValTok{1}\NormalTok{,}
+  \AttributeTok{control.compute =}\FunctionTok{list}\NormalTok{(}\AttributeTok{waic =}\NormalTok{ T, }\AttributeTok{internal.opt =}\NormalTok{F),}
+  \AttributeTok{verbose =}\NormalTok{ T)}
+\end{Highlighting}
+\end{Shaded}
+
+A more flexible yet more complex class of models is that of M-models,
+which allow to employ disease-specific hyperparameters. For the PCAR, we
+would thus have an autocorrelation parameter specific to each year. The
+prior distribution for \(Z\) becomes thus, for \(t = 1974, 1979\) and
+\(n=100\):
+
+\[
+\mathrm{vec}(Z) \sim N \left( 0, (M^\top \otimes I_n) \,
+  \mathrm{Bdiag}(D - \alpha_t W) \, (M \otimes I_n)\right)
+\] Where \(\mathrm{BDiag}\) denotes a block-diagonal matrix.
+
+In the following, we use the \texttt{bigDM} function from the
+\texttt{bigDM} R package (Vicente et al. 2023) to fit the M-Model
+extension of the PCAR. This package has the advantage of automatically
+implementing models in which the Bartlett decomposition (see further) is
+used on the marginal scale parameter, which allows to specify a smaller
+number of parameters than direct parametrisation of \(M\).
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{inla.PMMCAR.model }\OtherTok{\textless{}{-}} \ControlFlowTok{function}\NormalTok{(...)\{}
+\NormalTok{  INLA}\SpecialCharTok{::}\FunctionTok{inla.rgeneric.define}\NormalTok{(bigDM}\SpecialCharTok{::}\NormalTok{Mmodel\_pcar, ...)}
+\NormalTok{\}}
+
+\NormalTok{pcar.inla.mmod }\OtherTok{\textless{}{-}} \FunctionTok{inla}\NormalTok{(}
+\NormalTok{  SID }\SpecialCharTok{\textasciitilde{}} \DecValTok{1} \SpecialCharTok{+}\NormalTok{ NWPROP }\SpecialCharTok{+} 
+    \FunctionTok{f}\NormalTok{(ID, }\AttributeTok{model =} \FunctionTok{inla.PMMCAR.model}\NormalTok{(}\AttributeTok{J=}\DecValTok{2}\NormalTok{, }\AttributeTok{W =}\NormalTok{ W, }\AttributeTok{alpha.min =} \DecValTok{0}\NormalTok{, }\AttributeTok{alpha.max =} \DecValTok{1}\NormalTok{,}
+                                    \AttributeTok{initial.values =} \FunctionTok{c}\NormalTok{(}\DecValTok{0}\NormalTok{,}\DecValTok{0}\NormalTok{,}\DecValTok{0}\NormalTok{))),}
+  \AttributeTok{data =}\NormalTok{ nc.long, }\AttributeTok{E =}\NormalTok{ EXP, }
+  \AttributeTok{family =} \StringTok{"poisson"}\NormalTok{, }\AttributeTok{num.threads =} \DecValTok{1}\NormalTok{,}
+  \AttributeTok{control.compute =}\FunctionTok{list}\NormalTok{(}\AttributeTok{waic =}\NormalTok{ T, }\AttributeTok{internal.opt =}\NormalTok{F),}
+  \AttributeTok{verbose =}\NormalTok{ T)}
+\end{Highlighting}
+\end{Shaded}
+
+Model results are quite similar; in both cases, computational time is
+relatively short (less than 10 seconds).
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{summary}\NormalTok{(pcar.inla)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## Time used:
+##     Pre = 0.993, Running = 4.44, Post = 0.0791, Total = 5.52 
+## Fixed effects:
+##               mean    sd 0.025quant 0.5quant 0.975quant   mode   kld
+## (Intercept) -0.032 0.494     -1.045   -0.032      0.980 -0.032 0.001
+## NWPROP       0.229 0.032      0.167    0.229      0.291  0.229 0.000
+## 
+## Random effects:
+##   Name     Model
+##     ID RGeneric2
+## 
+## Model hyperparameters:
+##                 mean    sd 0.025quant 0.5quant 0.975quant   mode
+## Theta1 for ID -0.131 1.360      -2.83   -0.125       2.53 -0.099
+## Theta2 for ID  0.199 1.080      -2.02    0.231       2.23  0.374
+## Theta3 for ID  0.199 1.080      -2.02    0.231       2.23  0.374
+## Theta4 for ID  0.124 0.855      -1.59    0.133       1.78  0.174
+## 
+## Watanabe-Akaike information criterion (WAIC) ...: 959.05
+## Effective number of parameters .................: 6.09
+## 
+## Marginal log-Likelihood:  -488.84 
+##  is computed 
+## Posterior summaries for the linear predictor and the fitted values are computed
+## (Posterior marginals needs also 'control.compute=list(return.marginals.predictor=TRUE)')
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{summary}\NormalTok{(pcar.inla.mmod)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## Time used:
+##     Pre = 0.681, Running = 6.07, Post = 0.0781, Total = 6.83 
+## Fixed effects:
+##               mean    sd 0.025quant 0.5quant 0.975quant   mode kld
+## (Intercept) -0.031 0.673     -1.428   -0.031      1.368 -0.031   0
+## NWPROP       0.229 0.032      0.167    0.229      0.291  0.229   0
+## 
+## Random effects:
+##   Name     Model
+##     ID RGeneric2
+## 
+## Model hyperparameters:
+##                 mean    sd 0.025quant 0.5quant 0.975quant   mode
+## Theta1 for ID -0.082 1.382     -2.812   -0.079       2.63 -0.065
+## Theta2 for ID -0.060 1.388     -2.800   -0.058       2.66 -0.048
+## Theta3 for ID  0.531 0.375     -0.249    0.545       1.22  0.611
+## Theta4 for ID  0.363 0.429     -0.533    0.380       1.15  0.462
+## Theta5 for ID  0.000 1.132     -2.228    0.000       2.23  0.001
+## 
+## Watanabe-Akaike information criterion (WAIC) ...: 959.06
+## Effective number of parameters .................: 6.10
+## 
+## Marginal log-Likelihood:  -488.09 
+##  is computed 
+## Posterior summaries for the linear predictor and the fitted values are computed
+## (Posterior marginals needs also 'control.compute=list(return.marginals.predictor=TRUE)')
+\end{verbatim}
+
+The PCAR is flexible and computationally efficient due to its sparse
+precision. However, it is not scalable. The BYM, on the contrary, is
+scalable, but \textit{as it is}, it does not have sparse precision,
+which implies computational inefficiency.
+
+\subsection{Simplified BYM}\label{simplified-bym}
+
+Here we provide a rather simple implementation of the BYM, loosely based
+on \texttt{bigDM} and \texttt{INLAMSM} codes:
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{inla.rgeneric.MMBYM.dense }\OtherTok{\textless{}{-}} 
+  \ControlFlowTok{function}\NormalTok{ (}\AttributeTok{cmd =} \FunctionTok{c}\NormalTok{(}\StringTok{"graph"}\NormalTok{, }\StringTok{"Q"}\NormalTok{, }\StringTok{"mu"}\NormalTok{, }\StringTok{"initial"}\NormalTok{, }\StringTok{"log.norm.const"}\NormalTok{, }
+                    \StringTok{"log.prior"}\NormalTok{, }\StringTok{"quit"}\NormalTok{), }\AttributeTok{theta =} \ConstantTok{NULL}\NormalTok{) \{}
+\NormalTok{    envir }\OtherTok{\textless{}{-}} \FunctionTok{parent.env}\NormalTok{(}\FunctionTok{environment}\NormalTok{())}
+    \CommentTok{\#\textquotesingle{} Scaling the Laplacian matrix may be time{-}consuming,}
+    \CommentTok{\#\textquotesingle{} so it is better to do it just once.}
+    \ControlFlowTok{if}\NormalTok{(}\SpecialCharTok{!}\FunctionTok{exists}\NormalTok{(}\StringTok{"cache.done"}\NormalTok{, }\AttributeTok{envir=}\NormalTok{envir))\{}
+    \CommentTok{\#\textquotesingle{} Unscaled Laplacian matrix (marginal precision of u\_1, u\_2 ... u\_k)}
+\NormalTok{      L\_unscaled }\OtherTok{\textless{}{-}}\NormalTok{ Matrix}\SpecialCharTok{::}\FunctionTok{Diagonal}\NormalTok{(}\FunctionTok{nrow}\NormalTok{(W), }\FunctionTok{rowSums}\NormalTok{(W)) }\SpecialCharTok{{-}}\NormalTok{  W}
+\NormalTok{      L\_unscaled\_block }\OtherTok{\textless{}{-}} \FunctionTok{kronecker}\NormalTok{(}\FunctionTok{diag}\NormalTok{(}\DecValTok{1}\NormalTok{,k), L\_unscaled)}
+\NormalTok{      A\_constr }\OtherTok{\textless{}{-}} \FunctionTok{t}\NormalTok{(pracma}\SpecialCharTok{::}\FunctionTok{nullspace}\NormalTok{(}\FunctionTok{as.matrix}\NormalTok{(L\_unscaled\_block)))}
+\NormalTok{      scaleQ }\OtherTok{\textless{}{-}}\NormalTok{ INLA}\SpecialCharTok{:::}\FunctionTok{inla.scale.model.internal}\NormalTok{(}
+\NormalTok{        L\_unscaled\_block, }\AttributeTok{constr =} \FunctionTok{list}\NormalTok{(}\AttributeTok{A =}\NormalTok{ A\_constr, }\AttributeTok{e =} \FunctionTok{rep}\NormalTok{(}\DecValTok{0}\NormalTok{, }\FunctionTok{nrow}\NormalTok{(A\_constr))))}
+        \CommentTok{\#\textquotesingle{} Block Laplacian, i.e. precision of U = I\_k \textbackslash{}otimes L}
+\NormalTok{      n }\OtherTok{\textless{}{-}} \FunctionTok{nrow}\NormalTok{(W)}
+\NormalTok{      L }\OtherTok{\textless{}{-}}\NormalTok{ scaleQ}\SpecialCharTok{$}\NormalTok{Q[}\FunctionTok{c}\NormalTok{(}\DecValTok{1}\SpecialCharTok{:}\NormalTok{n), }\FunctionTok{c}\NormalTok{(}\DecValTok{1}\SpecialCharTok{:}\NormalTok{n)]}
+\NormalTok{      Sigma.u }\OtherTok{\textless{}{-}}\NormalTok{ MASS}\SpecialCharTok{::}\FunctionTok{ginv}\NormalTok{(}\FunctionTok{as.matrix}\NormalTok{(L))}
+\NormalTok{      endtime.scale }\OtherTok{\textless{}{-}} \FunctionTok{Sys.time}\NormalTok{()}
+      \FunctionTok{assign}\NormalTok{(}\StringTok{"Sigma.u"}\NormalTok{, Sigma.u, }\AttributeTok{envir =}\NormalTok{ envir)}
+      \FunctionTok{assign}\NormalTok{(}\StringTok{"cache.done"}\NormalTok{, }\ConstantTok{TRUE}\NormalTok{, }\AttributeTok{envir =}\NormalTok{ envir)}
+\NormalTok{    \}}
+\NormalTok{    interpret.theta }\OtherTok{\textless{}{-}} \ControlFlowTok{function}\NormalTok{() \{}
+\NormalTok{      alpha }\OtherTok{\textless{}{-}} \DecValTok{1}\SpecialCharTok{/}\NormalTok{(}\DecValTok{1} \SpecialCharTok{+} \FunctionTok{exp}\NormalTok{(}\SpecialCharTok{{-}}\NormalTok{theta[}\FunctionTok{as.integer}\NormalTok{(}\DecValTok{1}\SpecialCharTok{:}\NormalTok{k)]))}
+      \CommentTok{\#\textquotesingle{} Bartlett decomposition ==\textgreater{} First define Sigma, }
+      \CommentTok{\#\textquotesingle{} then use its eigendecomposition to define M ==\textgreater{} }
+      \CommentTok{\#\textquotesingle{} ==\textgreater{} the function employs k(k+1)/2 parameters, }
+      \CommentTok{\#\textquotesingle{} i.e. lower{-}triangular factor in the Bartlett decomposition indeed.}
+\NormalTok{      diag.N }\OtherTok{\textless{}{-}} \FunctionTok{sapply}\NormalTok{(theta[}\FunctionTok{as.integer}\NormalTok{(k }\SpecialCharTok{+} \DecValTok{1}\SpecialCharTok{:}\NormalTok{k)], }\ControlFlowTok{function}\NormalTok{(x) \{}
+        \FunctionTok{exp}\NormalTok{(x)}
+\NormalTok{      \})}
+\NormalTok{      no.diag.N }\OtherTok{\textless{}{-}}\NormalTok{ theta[}\FunctionTok{as.integer}\NormalTok{(}\DecValTok{2} \SpecialCharTok{*}\NormalTok{ k }\SpecialCharTok{+} \DecValTok{1}\SpecialCharTok{:}\NormalTok{(k }\SpecialCharTok{*}\NormalTok{ (k }\SpecialCharTok{{-}} \DecValTok{1}\NormalTok{)}\SpecialCharTok{/}\DecValTok{2}\NormalTok{))]}
+\NormalTok{      N }\OtherTok{\textless{}{-}} \FunctionTok{diag}\NormalTok{(diag.N, k)}
+\NormalTok{      N[}\FunctionTok{lower.tri}\NormalTok{(N, }\AttributeTok{diag =} \ConstantTok{FALSE}\NormalTok{)] }\OtherTok{\textless{}{-}}\NormalTok{ no.diag.N}
+\NormalTok{      Sigma }\OtherTok{\textless{}{-}}\NormalTok{ N }\SpecialCharTok{\%*\%} \FunctionTok{t}\NormalTok{(N)}
+\NormalTok{      e }\OtherTok{\textless{}{-}} \FunctionTok{eigen}\NormalTok{(Sigma)}
+\NormalTok{      M }\OtherTok{\textless{}{-}} \FunctionTok{t}\NormalTok{(e}\SpecialCharTok{$}\NormalTok{vectors }\SpecialCharTok{\%*\%} \FunctionTok{diag}\NormalTok{(}\FunctionTok{sqrt}\NormalTok{(e}\SpecialCharTok{$}\NormalTok{values)))}
+      \FunctionTok{return}\NormalTok{(}\FunctionTok{list}\NormalTok{(}\AttributeTok{alpha =}\NormalTok{ alpha, }\AttributeTok{M =}\NormalTok{ M))}
+\NormalTok{    \}}
+\NormalTok{    graph }\OtherTok{\textless{}{-}} \ControlFlowTok{function}\NormalTok{() \{}
+\NormalTok{      MI }\OtherTok{\textless{}{-}} \FunctionTok{kronecker}\NormalTok{(Matrix}\SpecialCharTok{::}\FunctionTok{Matrix}\NormalTok{(}\DecValTok{1}\NormalTok{, }\AttributeTok{ncol =}\NormalTok{ k, }\AttributeTok{nrow =}\NormalTok{ k), }
+\NormalTok{                      Matrix}\SpecialCharTok{::}\FunctionTok{Diagonal}\NormalTok{(}\FunctionTok{nrow}\NormalTok{(W), }\DecValTok{1}\NormalTok{))}
+\NormalTok{      IW }\OtherTok{\textless{}{-}}\NormalTok{ Matrix}\SpecialCharTok{::}\FunctionTok{Diagonal}\NormalTok{(}\FunctionTok{nrow}\NormalTok{(W), }\DecValTok{1}\NormalTok{) }\SpecialCharTok{+}\NormalTok{ W}
+\NormalTok{      BlockIW }\OtherTok{\textless{}{-}}\NormalTok{ Matrix}\SpecialCharTok{::}\FunctionTok{bdiag}\NormalTok{(}\FunctionTok{replicate}\NormalTok{(k, IW, }\AttributeTok{simplify =} \ConstantTok{FALSE}\NormalTok{))}
+\NormalTok{      G }\OtherTok{\textless{}{-}}\NormalTok{ (MI }\SpecialCharTok{\%*\%}\NormalTok{ BlockIW) }\SpecialCharTok{\%*\%}\NormalTok{ MI}
+      \FunctionTok{return}\NormalTok{(G)}
+\NormalTok{    \}}
+\NormalTok{    Q }\OtherTok{\textless{}{-}} \ControlFlowTok{function}\NormalTok{() \{}
+\NormalTok{      param }\OtherTok{\textless{}{-}} \FunctionTok{interpret.theta}\NormalTok{()}
+\NormalTok{      M.inv }\OtherTok{\textless{}{-}} \FunctionTok{solve}\NormalTok{(param}\SpecialCharTok{$}\NormalTok{M)}
+\NormalTok{      MI }\OtherTok{\textless{}{-}} \FunctionTok{kronecker}\NormalTok{(M.inv, Matrix}\SpecialCharTok{::}\FunctionTok{Diagonal}\NormalTok{(}\FunctionTok{nrow}\NormalTok{(W), }\DecValTok{1}\NormalTok{))}
+\NormalTok{      D }\OtherTok{\textless{}{-}} \FunctionTok{as.vector}\NormalTok{(}\FunctionTok{apply}\NormalTok{(W, }\DecValTok{1}\NormalTok{, sum))}
+\NormalTok{      BlockIW }\OtherTok{\textless{}{-}}\NormalTok{ Matrix}\SpecialCharTok{::}\FunctionTok{bdiag}\NormalTok{(}\FunctionTok{lapply}\NormalTok{(}\DecValTok{1}\SpecialCharTok{:}\NormalTok{k, }\ControlFlowTok{function}\NormalTok{(i) \{}
+        \FunctionTok{solve}\NormalTok{(param}\SpecialCharTok{$}\NormalTok{alpha[i]}\SpecialCharTok{*}\NormalTok{Sigma.u }\SpecialCharTok{+} 
+\NormalTok{                (}\DecValTok{1}\SpecialCharTok{{-}}\NormalTok{param}\SpecialCharTok{$}\NormalTok{alpha[i])}\SpecialCharTok{*}\NormalTok{Matrix}\SpecialCharTok{::}\FunctionTok{Diagonal}\NormalTok{(}\FunctionTok{nrow}\NormalTok{(W), }\DecValTok{1}\NormalTok{))}
+\NormalTok{        \}))}
+\NormalTok{      Q }\OtherTok{\textless{}{-}}\NormalTok{ (MI }\SpecialCharTok{\%*\%}\NormalTok{ BlockIW) }\SpecialCharTok{\%*\%} \FunctionTok{kronecker}\NormalTok{(}\FunctionTok{t}\NormalTok{(M.inv), Matrix}\SpecialCharTok{::}\FunctionTok{Diagonal}\NormalTok{(}\FunctionTok{nrow}\NormalTok{(W),  }\DecValTok{1}\NormalTok{))}
+      \FunctionTok{return}\NormalTok{(Q)}
+\NormalTok{    \}}
+\NormalTok{    mu }\OtherTok{\textless{}{-}} \ControlFlowTok{function}\NormalTok{() \{}
+      \FunctionTok{return}\NormalTok{(}\FunctionTok{numeric}\NormalTok{(}\DecValTok{0}\NormalTok{))}
+\NormalTok{    \}}
+\NormalTok{    log.norm.const }\OtherTok{\textless{}{-}} \ControlFlowTok{function}\NormalTok{() \{}
+\NormalTok{      val }\OtherTok{\textless{}{-}} \FunctionTok{numeric}\NormalTok{(}\DecValTok{0}\NormalTok{)}
+      \FunctionTok{return}\NormalTok{(val)}
+\NormalTok{    \}}
+\NormalTok{    log.prior }\OtherTok{\textless{}{-}} \ControlFlowTok{function}\NormalTok{() \{}
+\NormalTok{      param }\OtherTok{\textless{}{-}} \FunctionTok{interpret.theta}\NormalTok{()}
+\NormalTok{      val }\OtherTok{\textless{}{-}} \FunctionTok{sum}\NormalTok{(}\SpecialCharTok{{-}}\NormalTok{theta[}\FunctionTok{as.integer}\NormalTok{(}\DecValTok{1}\SpecialCharTok{:}\NormalTok{k)] }\SpecialCharTok{{-}} \DecValTok{2} \SpecialCharTok{*} \FunctionTok{log}\NormalTok{(}\DecValTok{1} \SpecialCharTok{+} \FunctionTok{exp}\NormalTok{(}\SpecialCharTok{{-}}\NormalTok{theta[}\FunctionTok{as.integer}\NormalTok{(}\DecValTok{1}\SpecialCharTok{:}\NormalTok{k)])))}
+      \CommentTok{\#\textquotesingle{} Diagonal entries of the lower{-}triangular}
+      \CommentTok{\#\textquotesingle{} factor of Sigma: Chi{-}squared prior}
+\NormalTok{      val }\OtherTok{\textless{}{-}}\NormalTok{ val }\SpecialCharTok{+}\NormalTok{ k }\SpecialCharTok{*} \FunctionTok{log}\NormalTok{(}\DecValTok{2}\NormalTok{) }\SpecialCharTok{+} \DecValTok{2} \SpecialCharTok{*} \FunctionTok{sum}\NormalTok{(theta[k }\SpecialCharTok{+} \DecValTok{1}\SpecialCharTok{:}\NormalTok{k]) }\SpecialCharTok{+} 
+        \FunctionTok{sum}\NormalTok{(}\FunctionTok{dchisq}\NormalTok{(}\FunctionTok{exp}\NormalTok{(}\DecValTok{2} \SpecialCharTok{*}\NormalTok{ theta[k }\SpecialCharTok{+} \DecValTok{1}\SpecialCharTok{:}\NormalTok{k]), }
+                   \AttributeTok{df =}\NormalTok{ (k }\SpecialCharTok{+} \DecValTok{2}\NormalTok{) }\SpecialCharTok{{-}} \DecValTok{1}\SpecialCharTok{:}\NormalTok{k }\SpecialCharTok{+} \DecValTok{1}\NormalTok{, }\AttributeTok{log =} \ConstantTok{TRUE}\NormalTok{))}
+        \CommentTok{\#\textquotesingle{} Off{-}diagonal entries of the factor:}
+        \CommentTok{\#\textquotesingle{} Normal prior}
+\NormalTok{        val }\OtherTok{\textless{}{-}}\NormalTok{ val }\SpecialCharTok{+} \FunctionTok{sum}\NormalTok{(}\FunctionTok{dnorm}\NormalTok{(theta[}\FunctionTok{as.integer}\NormalTok{((}\DecValTok{2} \SpecialCharTok{*}\NormalTok{ k) }\SpecialCharTok{+} \DecValTok{1}\SpecialCharTok{:}\NormalTok{(k }\SpecialCharTok{*}\NormalTok{  (k }\SpecialCharTok{{-}} \DecValTok{1}\NormalTok{)}\SpecialCharTok{/}\DecValTok{2}\NormalTok{))],}
+                               \AttributeTok{mean =} \DecValTok{0}\NormalTok{, }\AttributeTok{sd =} \DecValTok{1}\NormalTok{, }\AttributeTok{log =} \ConstantTok{TRUE}\NormalTok{))}
+      \FunctionTok{return}\NormalTok{(val)}
+\NormalTok{    \}}
+\NormalTok{    initial }\OtherTok{\textless{}{-}} \ControlFlowTok{function}\NormalTok{() \{}
+      \FunctionTok{return}\NormalTok{(}\FunctionTok{c}\NormalTok{(}\FunctionTok{rep}\NormalTok{(}\DecValTok{0}\NormalTok{, k }\SpecialCharTok{*}\NormalTok{ (k}\SpecialCharTok{+}\DecValTok{3}\NormalTok{)}\SpecialCharTok{/}\DecValTok{2}\NormalTok{)) )}
+\NormalTok{    \}}
+\NormalTok{    quit }\OtherTok{\textless{}{-}} \ControlFlowTok{function}\NormalTok{() \{}
+      \FunctionTok{return}\NormalTok{(}\FunctionTok{invisible}\NormalTok{())}
+\NormalTok{    \}}
+    \ControlFlowTok{if}\NormalTok{ (}\FunctionTok{as.integer}\NormalTok{(R.version}\SpecialCharTok{$}\NormalTok{major) }\SpecialCharTok{\textgreater{}} \DecValTok{3}\NormalTok{) \{}
+      \ControlFlowTok{if}\NormalTok{ (}\SpecialCharTok{!}\FunctionTok{length}\NormalTok{(theta)) }
+\NormalTok{        theta }\OtherTok{=} \FunctionTok{initial}\NormalTok{()}
+\NormalTok{    \}}
+    \ControlFlowTok{else}\NormalTok{ \{}
+      \ControlFlowTok{if}\NormalTok{ (}\FunctionTok{is.null}\NormalTok{(theta)) \{}
+\NormalTok{        theta }\OtherTok{\textless{}{-}} \FunctionTok{initial}\NormalTok{()}
+\NormalTok{      \}}
+\NormalTok{    \}}
+\NormalTok{    val }\OtherTok{\textless{}{-}} \FunctionTok{do.call}\NormalTok{(}\FunctionTok{match.arg}\NormalTok{(cmd), }\AttributeTok{args =} \FunctionTok{list}\NormalTok{())}
+    \FunctionTok{return}\NormalTok{(val)}
+\NormalTok{  \}}
+
+\NormalTok{inla.MMBYM.dense }\OtherTok{\textless{}{-}} \ControlFlowTok{function}\NormalTok{ (...)  INLA}\SpecialCharTok{::}\FunctionTok{inla.rgeneric.define}\NormalTok{(inla.rgeneric.MMBYM.dense, ...)}
+\end{Highlighting}
+\end{Shaded}
+
+Specifically, we use a Uniform prior on the mixing parameters and we
+model the \(M\) matrix through the Bartlett decomposition, namely we
+define \(\Sigma = A A^\top\), where \(A\) is a lower-triangular matrix
+whose squared diagonal elements are assigned a Chi-squared distribution
+and whose off-diagonal entries are assigned a Normal distribution. For
+more details on the Bartlett decomposition, see (Vicente et al. 2023)
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{bym.dense.inla.mmod }\OtherTok{\textless{}{-}} \FunctionTok{inla}\NormalTok{(}
+\NormalTok{    SID }\SpecialCharTok{\textasciitilde{}} \DecValTok{1} \SpecialCharTok{+}\NormalTok{ NWPROP }\SpecialCharTok{+} 
+    \FunctionTok{f}\NormalTok{(ID, }\AttributeTok{model =} \FunctionTok{inla.MMBYM.dense}\NormalTok{(}\AttributeTok{k=}\DecValTok{2}\NormalTok{, }\AttributeTok{W=}\NormalTok{W),}
+      \AttributeTok{extraconstr =} \FunctionTok{list}\NormalTok{(}\AttributeTok{A =}\NormalTok{ A\_constr, }\AttributeTok{e =} \FunctionTok{c}\NormalTok{(}\DecValTok{0}\NormalTok{,}\DecValTok{0}\NormalTok{))),}
+  \AttributeTok{data =}\NormalTok{ nc.long, }\AttributeTok{E =}\NormalTok{ EXP, }
+  \AttributeTok{family =} \StringTok{"poisson"}\NormalTok{, }\AttributeTok{num.threads =} \DecValTok{1}\NormalTok{,}
+  \AttributeTok{control.compute =}\FunctionTok{list}\NormalTok{(}\AttributeTok{waic =}\NormalTok{ T, }\AttributeTok{internal.opt =}\NormalTok{F),}
+  \AttributeTok{verbose =}\NormalTok{ T)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{summary}\NormalTok{(bym.dense.inla.mmod)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## Time used:
+##     Pre = 1.04, Running = 11.4, Post = 0.0692, Total = 12.5 
+## Fixed effects:
+##               mean    sd 0.025quant 0.5quant 0.975quant   mode kld
+## (Intercept) -0.028 1.227     -2.548   -0.029      2.505 -0.028   0
+## NWPROP       0.229 0.032      0.167    0.229      0.291  0.229   0
+## 
+## Random effects:
+##   Name     Model
+##     ID RGeneric2
+## 
+## Model hyperparameters:
+##                mean    sd 0.025quant 0.5quant 0.975quant  mode
+## Theta1 for ID 0.021 1.422     -2.772    0.018       2.83 0.009
+## Theta2 for ID 0.093 1.450     -2.731    0.082       2.98 0.037
+## Theta3 for ID 0.531 0.374     -0.245    0.544       1.22 0.607
+## Theta4 for ID 0.350 0.440     -0.564    0.367       1.16 0.442
+## Theta5 for ID 0.270 1.010     -1.730    0.274       2.25 0.291
+## 
+## Watanabe-Akaike information criterion (WAIC) ...: 959.07
+## Effective number of parameters .................: 6.10
+## 
+## Marginal log-Likelihood:  -488.55 
+##  is computed 
+## Posterior summaries for the linear predictor and the fitted values are computed
+## (Posterior marginals needs also 'control.compute=list(return.marginals.predictor=TRUE)')
+\end{verbatim}
+
+We compare the posteriors of \(\alpha\) for the PCAR and BYM model.
+Starting from the PCAR
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{\# \textbackslash{}alpha\_\{1974\}}
+\FunctionTok{inla.zmarginal}\NormalTok{(}\FunctionTok{inla.tmarginal}\NormalTok{(}\AttributeTok{fun =} \ControlFlowTok{function}\NormalTok{(X) }\FunctionTok{exp}\NormalTok{(X)}\SpecialCharTok{/}\NormalTok{(}\DecValTok{1} \SpecialCharTok{+} \FunctionTok{exp}\NormalTok{(X)), }
+               \AttributeTok{marginal =}\NormalTok{ pcar.inla.mmod}\SpecialCharTok{$}\NormalTok{marginals.hyperpar[[}\DecValTok{1}\NormalTok{]]))}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## Mean            0.485252 
+## Stdev           0.257423 
+## Quantile  0.025 0.0577171 
+## Quantile  0.25  0.266514 
+## Quantile  0.5   0.480312 
+## Quantile  0.75  0.700483 
+## Quantile  0.975 0.931046
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{\# \textbackslash{}alpha\_\{1979\}}
+\FunctionTok{inla.zmarginal}\NormalTok{(}\FunctionTok{inla.tmarginal}\NormalTok{(}\AttributeTok{fun =} \ControlFlowTok{function}\NormalTok{(X) }\FunctionTok{exp}\NormalTok{(X)}\SpecialCharTok{/}\NormalTok{(}\DecValTok{1} \SpecialCharTok{+} \FunctionTok{exp}\NormalTok{(X)), }
+               \AttributeTok{marginal =}\NormalTok{ pcar.inla.mmod}\SpecialCharTok{$}\NormalTok{marginals.hyperpar[[}\DecValTok{2}\NormalTok{]]))}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## Mean            0.489134 
+## Stdev           0.258192 
+## Quantile  0.025 0.058376 
+## Quantile  0.25  0.269832 
+## Quantile  0.5   0.485394 
+## Quantile  0.75  0.705724 
+## Quantile  0.975 0.933306
+\end{verbatim}
+
+Then for the BYM:
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{\# \textbackslash{}alpha\_\{1974\}}
+\FunctionTok{inla.zmarginal}\NormalTok{(}\FunctionTok{inla.tmarginal}\NormalTok{(}\AttributeTok{fun =} \ControlFlowTok{function}\NormalTok{(X) }\FunctionTok{exp}\NormalTok{(X)}\SpecialCharTok{/}\NormalTok{(}\DecValTok{1} \SpecialCharTok{+} \FunctionTok{exp}\NormalTok{(X)), }
+               \AttributeTok{marginal =}\NormalTok{ bym.dense.inla.mmod}\SpecialCharTok{$}\NormalTok{marginals.hyperpar[[}\DecValTok{1}\NormalTok{]]))}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## Mean            0.503559 
+## Stdev           0.262013 
+## Quantile  0.025 0.0599417 
+## Quantile  0.25  0.281032 
+## Quantile  0.5   0.504251 
+## Quantile  0.75  0.726357 
+## Quantile  0.975 0.942563
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{\# \textbackslash{}alpha\_\{1979\}}
+\FunctionTok{inla.zmarginal}\NormalTok{(}\FunctionTok{inla.tmarginal}\NormalTok{(}\AttributeTok{fun =} \ControlFlowTok{function}\NormalTok{(X) }\FunctionTok{exp}\NormalTok{(X)}\SpecialCharTok{/}\NormalTok{(}\DecValTok{1} \SpecialCharTok{+} \FunctionTok{exp}\NormalTok{(X)), }
+               \AttributeTok{marginal =}\NormalTok{ bym.dense.inla.mmod}\SpecialCharTok{$}\NormalTok{marginals.hyperpar[[}\DecValTok{2}\NormalTok{]]))}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## Mean            0.515696 
+## Stdev           0.264819 
+## Quantile  0.025 0.0622566 
+## Quantile  0.25  0.290955 
+## Quantile  0.5   0.519624 
+## Quantile  0.75  0.743267 
+## Quantile  0.975 0.950154
+\end{verbatim}
+
+Results are similar.
+
+Lastly here is the proposed code for the sparse BYM, still has to be
+tested:
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{inla.rgeneric.MMBYM.sparse }\OtherTok{\textless{}{-}} 
+  \ControlFlowTok{function}\NormalTok{ (}\AttributeTok{cmd =} \FunctionTok{c}\NormalTok{(}\StringTok{"graph"}\NormalTok{, }\StringTok{"Q"}\NormalTok{, }\StringTok{"mu"}\NormalTok{, }\StringTok{"initial"}\NormalTok{, }\StringTok{"log.norm.const"}\NormalTok{, }
+                    \StringTok{"log.prior"}\NormalTok{, }\StringTok{"quit"}\NormalTok{), }\AttributeTok{theta =} \ConstantTok{NULL}\NormalTok{) \{}
+\NormalTok{    envir }\OtherTok{\textless{}{-}} \FunctionTok{parent.env}\NormalTok{(}\FunctionTok{environment}\NormalTok{())}
+    \CommentTok{\#\textquotesingle{} Scaling the Laplacian matrix may be time{-}consuming,}
+    \CommentTok{\#\textquotesingle{} so it is better to do it just once.}
+    \ControlFlowTok{if}\NormalTok{(}\SpecialCharTok{!}\FunctionTok{exists}\NormalTok{(}\StringTok{"cache.done"}\NormalTok{, }\AttributeTok{envir=}\NormalTok{envir))\{}
+      \CommentTok{\#\textquotesingle{} Unscaled Laplacian matrix (marginal precision of u\_1, u\_2 ... u\_k)}
+\NormalTok{      L\_unscaled }\OtherTok{\textless{}{-}}\NormalTok{ Matrix}\SpecialCharTok{::}\FunctionTok{Diagonal}\NormalTok{(}\FunctionTok{nrow}\NormalTok{(W), }\FunctionTok{rowSums}\NormalTok{(W)) }\SpecialCharTok{{-}}\NormalTok{  W}
+\NormalTok{      L\_unscaled\_block }\OtherTok{\textless{}{-}} \FunctionTok{kronecker}\NormalTok{(}\FunctionTok{diag}\NormalTok{(}\DecValTok{1}\NormalTok{,k), L\_unscaled)}
+\NormalTok{      A\_constr }\OtherTok{\textless{}{-}} \FunctionTok{t}\NormalTok{(pracma}\SpecialCharTok{::}\FunctionTok{nullspace}\NormalTok{(}\FunctionTok{as.matrix}\NormalTok{(L\_unscaled\_block)))}
+\NormalTok{      scaleQ }\OtherTok{\textless{}{-}}\NormalTok{ INLA}\SpecialCharTok{:::}\FunctionTok{inla.scale.model.internal}\NormalTok{(}
+\NormalTok{        L\_unscaled\_block, }\AttributeTok{constr =} \FunctionTok{list}\NormalTok{(}\AttributeTok{A =}\NormalTok{ A\_constr, }\AttributeTok{e =} \FunctionTok{rep}\NormalTok{(}\DecValTok{0}\NormalTok{, }\FunctionTok{nrow}\NormalTok{(A\_constr))))}
+      \CommentTok{\#\textquotesingle{} Block Laplacian, i.e. precision of U = I\_k \textbackslash{}otimes L}
+\NormalTok{      n }\OtherTok{\textless{}{-}} \FunctionTok{nrow}\NormalTok{(W)}
+\NormalTok{      L }\OtherTok{\textless{}{-}}\NormalTok{ scaleQ}\SpecialCharTok{$}\NormalTok{Q[}\FunctionTok{c}\NormalTok{(}\DecValTok{1}\SpecialCharTok{:}\NormalTok{n), }\FunctionTok{c}\NormalTok{(}\DecValTok{1}\SpecialCharTok{:}\NormalTok{n)]}
+\NormalTok{      endtime.scale }\OtherTok{\textless{}{-}} \FunctionTok{Sys.time}\NormalTok{()}
+      \FunctionTok{assign}\NormalTok{(}\StringTok{"L"}\NormalTok{, L, }\AttributeTok{envir =}\NormalTok{ envir)}
+      \FunctionTok{assign}\NormalTok{(}\StringTok{"cache.done"}\NormalTok{, }\ConstantTok{TRUE}\NormalTok{, }\AttributeTok{envir =}\NormalTok{ envir)}
+\NormalTok{    \}}
+\NormalTok{    interpret.theta }\OtherTok{\textless{}{-}} \ControlFlowTok{function}\NormalTok{() \{}
+\NormalTok{      phi.vector }\OtherTok{\textless{}{-}} \DecValTok{1}\SpecialCharTok{/}\NormalTok{(}\DecValTok{1} \SpecialCharTok{+} \FunctionTok{exp}\NormalTok{(}\SpecialCharTok{{-}}\NormalTok{theta[}\FunctionTok{as.integer}\NormalTok{(}\DecValTok{1}\SpecialCharTok{:}\NormalTok{k)]))}
+      \CommentTok{\#\textquotesingle{} Bartlett decomposition ==\textgreater{} First define Sigma, }
+      \CommentTok{\#\textquotesingle{} then use its eigendecomposition to define M ==\textgreater{} }
+      \CommentTok{\#\textquotesingle{} ==\textgreater{} the function employs k(k+1)/2 parameters, }
+      \CommentTok{\#\textquotesingle{} i.e. lower{-}triangular factor in the Bartlett decomposition indeed.}
+\NormalTok{      diag.N }\OtherTok{\textless{}{-}} \FunctionTok{sapply}\NormalTok{(theta[}\FunctionTok{as.integer}\NormalTok{(k }\SpecialCharTok{+} \DecValTok{1}\SpecialCharTok{:}\NormalTok{k)], }\ControlFlowTok{function}\NormalTok{(x) \{}
+        \FunctionTok{exp}\NormalTok{(x)}
+\NormalTok{      \})}
+\NormalTok{      no.diag.N }\OtherTok{\textless{}{-}}\NormalTok{ theta[}\FunctionTok{as.integer}\NormalTok{(}\DecValTok{2} \SpecialCharTok{*}\NormalTok{ k }\SpecialCharTok{+} \DecValTok{1}\SpecialCharTok{:}\NormalTok{(k }\SpecialCharTok{*}\NormalTok{ (k }\SpecialCharTok{{-}} \DecValTok{1}\NormalTok{)}\SpecialCharTok{/}\DecValTok{2}\NormalTok{))]}
+\NormalTok{      N }\OtherTok{\textless{}{-}} \FunctionTok{diag}\NormalTok{(diag.N, k)}
+\NormalTok{      N[}\FunctionTok{lower.tri}\NormalTok{(N, }\AttributeTok{diag =} \ConstantTok{FALSE}\NormalTok{)] }\OtherTok{\textless{}{-}}\NormalTok{ no.diag.N}
+\NormalTok{      Sigma }\OtherTok{\textless{}{-}}\NormalTok{ N }\SpecialCharTok{\%*\%} \FunctionTok{t}\NormalTok{(N)}
+\NormalTok{      e }\OtherTok{\textless{}{-}} \FunctionTok{eigen}\NormalTok{(Sigma)}
+\NormalTok{      M }\OtherTok{\textless{}{-}} \FunctionTok{t}\NormalTok{(e}\SpecialCharTok{$}\NormalTok{vectors }\SpecialCharTok{\%*\%} \FunctionTok{diag}\NormalTok{(}\FunctionTok{sqrt}\NormalTok{(e}\SpecialCharTok{$}\NormalTok{values)))}
+      \FunctionTok{return}\NormalTok{(}\FunctionTok{list}\NormalTok{(}\AttributeTok{phi.vector =}\NormalTok{ phi.vector, }\AttributeTok{M =}\NormalTok{ M))}
+\NormalTok{    \}}
+\NormalTok{    graph }\OtherTok{\textless{}{-}} \ControlFlowTok{function}\NormalTok{() \{}
+\NormalTok{      MI }\OtherTok{\textless{}{-}} \FunctionTok{kronecker}\NormalTok{(Matrix}\SpecialCharTok{::}\FunctionTok{Matrix}\NormalTok{(}\DecValTok{1}\NormalTok{, }\AttributeTok{ncol =}\NormalTok{ k, }\AttributeTok{nrow =}\NormalTok{ k), }
+\NormalTok{                      Matrix}\SpecialCharTok{::}\FunctionTok{Diagonal}\NormalTok{(}\FunctionTok{nrow}\NormalTok{(W), }\DecValTok{1}\NormalTok{))}
+\NormalTok{      IW }\OtherTok{\textless{}{-}}\NormalTok{ Matrix}\SpecialCharTok{::}\FunctionTok{Diagonal}\NormalTok{(}\FunctionTok{nrow}\NormalTok{(W), }\DecValTok{1}\NormalTok{) }\SpecialCharTok{+}\NormalTok{ W}
+\NormalTok{      BlockIW }\OtherTok{\textless{}{-}}\NormalTok{ Matrix}\SpecialCharTok{::}\FunctionTok{bdiag}\NormalTok{(}\FunctionTok{replicate}\NormalTok{(k, IW, }\AttributeTok{simplify =} \ConstantTok{FALSE}\NormalTok{))}
+\NormalTok{      G }\OtherTok{\textless{}{-}}\NormalTok{ (MI }\SpecialCharTok{\%*\%}\NormalTok{ BlockIW) }\SpecialCharTok{\%*\%}\NormalTok{ MI}
+      \FunctionTok{return}\NormalTok{(G)}
+\NormalTok{    \}}
+\NormalTok{    Q }\OtherTok{\textless{}{-}} \ControlFlowTok{function}\NormalTok{() \{}
+\NormalTok{      param }\OtherTok{\textless{}{-}} \FunctionTok{interpret.theta}\NormalTok{()}
+\NormalTok{      M.inv }\OtherTok{\textless{}{-}} \FunctionTok{solve}\NormalTok{(param}\SpecialCharTok{$}\NormalTok{M)}
+\NormalTok{      Phi }\OtherTok{\textless{}{-}}\NormalTok{ Matrix}\SpecialCharTok{::}\FunctionTok{Diagonal}\NormalTok{(}\FunctionTok{sqrt}\NormalTok{(param}\SpecialCharTok{$}\NormalTok{phi.vector), }\AttributeTok{n=}\NormalTok{k)}
+\NormalTok{      invPhihat }\OtherTok{\textless{}{-}}\NormalTok{ Matrix}\SpecialCharTok{::}\FunctionTok{Diagonal}\NormalTok{(}\DecValTok{1}\SpecialCharTok{/}\FunctionTok{sqrt}\NormalTok{(}\DecValTok{1}\SpecialCharTok{{-}}\NormalTok{param}\SpecialCharTok{$}\NormalTok{phi.vector), }\AttributeTok{n=}\NormalTok{k)}
+\NormalTok{      q11 }\OtherTok{\textless{}{-}}\NormalTok{ invPhihat }\SpecialCharTok{\%*\%}\NormalTok{ M.inv }\SpecialCharTok{\%*\%} \FunctionTok{t}\NormalTok{(M.inv) }\SpecialCharTok{\%*\%}\NormalTok{ invPhihat}
+\NormalTok{      q12 }\OtherTok{\textless{}{-}}\NormalTok{ q11 }\SpecialCharTok{\%*\%}\NormalTok{ Phi }\SpecialCharTok{\%*\%} \FunctionTok{t}\NormalTok{(param}\SpecialCharTok{$}\NormalTok{M)}
+\NormalTok{      q22 }\OtherTok{\textless{}{-}}\NormalTok{ param}\SpecialCharTok{$}\NormalTok{M }\SpecialCharTok{\%*\%}\NormalTok{ Phi }\SpecialCharTok{\%*\%}\NormalTok{ q12}
+\NormalTok{      Q}\FloatTok{.11} \OtherTok{\textless{}{-}} \FunctionTok{kronecker}\NormalTok{(q11, Matrix}\SpecialCharTok{::}\FunctionTok{Diagonal}\NormalTok{(}\AttributeTok{n=}\FunctionTok{nrow}\NormalTok{(W), }\AttributeTok{x =} \DecValTok{1}\NormalTok{))}
+\NormalTok{      Q}\FloatTok{.12} \OtherTok{\textless{}{-}} \FunctionTok{kronecker}\NormalTok{(}\SpecialCharTok{{-}}\NormalTok{q12, Matrix}\SpecialCharTok{::}\FunctionTok{Diagonal}\NormalTok{(}\AttributeTok{n=}\FunctionTok{nrow}\NormalTok{(W), }\AttributeTok{x =} \DecValTok{1}\NormalTok{))}
+\NormalTok{      Q}\FloatTok{.22} \OtherTok{\textless{}{-}} \FunctionTok{kronecker}\NormalTok{(q11, Matrix}\SpecialCharTok{::}\FunctionTok{Diagonal}\NormalTok{(}\AttributeTok{n=}\FunctionTok{nrow}\NormalTok{(W), }\AttributeTok{x =} \DecValTok{1}\NormalTok{)) }\SpecialCharTok{+}
+        \FunctionTok{kronecker}\NormalTok{(Matrix}\SpecialCharTok{::}\FunctionTok{Diagonal}\NormalTok{(}\AttributeTok{n=}\NormalTok{k, }\AttributeTok{x=}\DecValTok{1}\NormalTok{), L)}
+\NormalTok{      Q }\OtherTok{\textless{}{-}} \FunctionTok{cbind}\NormalTok{(}\FunctionTok{rbind}\NormalTok{(Q}\FloatTok{.11}\NormalTok{, Q}\FloatTok{.12}\NormalTok{), }
+                 \FunctionTok{rbind}\NormalTok{(Q}\FloatTok{.12}\NormalTok{, Q}\FloatTok{.22}\NormalTok{))}
+      \FunctionTok{return}\NormalTok{(Q)}
+\NormalTok{    \}}
+\NormalTok{    mu }\OtherTok{\textless{}{-}} \ControlFlowTok{function}\NormalTok{() \{}
+      \FunctionTok{return}\NormalTok{(}\FunctionTok{numeric}\NormalTok{(}\DecValTok{0}\NormalTok{))}
+\NormalTok{    \}}
+\NormalTok{    log.norm.const }\OtherTok{\textless{}{-}} \ControlFlowTok{function}\NormalTok{() \{}
+\NormalTok{      val }\OtherTok{\textless{}{-}} \FunctionTok{numeric}\NormalTok{(}\DecValTok{0}\NormalTok{)}
+      \FunctionTok{return}\NormalTok{(val)}
+\NormalTok{    \}}
+\NormalTok{    log.prior }\OtherTok{\textless{}{-}} \ControlFlowTok{function}\NormalTok{() \{}
+\NormalTok{      param }\OtherTok{\textless{}{-}} \FunctionTok{interpret.theta}\NormalTok{()}
+\NormalTok{      val }\OtherTok{\textless{}{-}} \FunctionTok{sum}\NormalTok{(}\SpecialCharTok{{-}}\NormalTok{theta[}\FunctionTok{as.integer}\NormalTok{(}\DecValTok{1}\SpecialCharTok{:}\NormalTok{k)] }\SpecialCharTok{{-}} \DecValTok{2} \SpecialCharTok{*} \FunctionTok{log}\NormalTok{(}\DecValTok{1} \SpecialCharTok{+} \FunctionTok{exp}\NormalTok{(}\SpecialCharTok{{-}}\NormalTok{theta[}\FunctionTok{as.integer}\NormalTok{(}\DecValTok{1}\SpecialCharTok{:}\NormalTok{k)])))}
+      \CommentTok{\#\textquotesingle{} Diagonal entries of the lower{-}triangular}
+      \CommentTok{\#\textquotesingle{} factor of Sigma: Chi{-}squared prior}
+\NormalTok{      val }\OtherTok{\textless{}{-}}\NormalTok{ val }\SpecialCharTok{+}\NormalTok{ k }\SpecialCharTok{*} \FunctionTok{log}\NormalTok{(}\DecValTok{2}\NormalTok{) }\SpecialCharTok{+} \DecValTok{2} \SpecialCharTok{*} \FunctionTok{sum}\NormalTok{(theta[k }\SpecialCharTok{+} \DecValTok{1}\SpecialCharTok{:}\NormalTok{k]) }\SpecialCharTok{+} 
+        \FunctionTok{sum}\NormalTok{(}\FunctionTok{dchisq}\NormalTok{(}\FunctionTok{exp}\NormalTok{(}\DecValTok{2} \SpecialCharTok{*}\NormalTok{ theta[k }\SpecialCharTok{+} \DecValTok{1}\SpecialCharTok{:}\NormalTok{k]), }
+                   \AttributeTok{df =}\NormalTok{ (k }\SpecialCharTok{+} \DecValTok{2}\NormalTok{) }\SpecialCharTok{{-}} \DecValTok{1}\SpecialCharTok{:}\NormalTok{k }\SpecialCharTok{+} \DecValTok{1}\NormalTok{, }\AttributeTok{log =} \ConstantTok{TRUE}\NormalTok{))}
+      \CommentTok{\#\textquotesingle{} Off{-}diagonal entries of the factor:}
+      \CommentTok{\#\textquotesingle{} Normal prior}
+\NormalTok{      val }\OtherTok{\textless{}{-}}\NormalTok{ val }\SpecialCharTok{+} \FunctionTok{sum}\NormalTok{(}\FunctionTok{dnorm}\NormalTok{(theta[}\FunctionTok{as.integer}\NormalTok{((}\DecValTok{2} \SpecialCharTok{*}\NormalTok{ k) }\SpecialCharTok{+} \DecValTok{1}\SpecialCharTok{:}\NormalTok{(k }\SpecialCharTok{*}\NormalTok{  (k }\SpecialCharTok{{-}} \DecValTok{1}\NormalTok{)}\SpecialCharTok{/}\DecValTok{2}\NormalTok{))],}
+                             \AttributeTok{mean =} \DecValTok{0}\NormalTok{, }\AttributeTok{sd =} \DecValTok{1}\NormalTok{, }\AttributeTok{log =} \ConstantTok{TRUE}\NormalTok{))}
+      \FunctionTok{return}\NormalTok{(val)}
+\NormalTok{    \}}
+\NormalTok{    initial }\OtherTok{\textless{}{-}} \ControlFlowTok{function}\NormalTok{() \{}
+      \FunctionTok{return}\NormalTok{(}\FunctionTok{c}\NormalTok{(}\FunctionTok{rep}\NormalTok{(}\DecValTok{0}\NormalTok{, k }\SpecialCharTok{*}\NormalTok{ (k}\SpecialCharTok{+}\DecValTok{3}\NormalTok{)}\SpecialCharTok{/}\DecValTok{2}\NormalTok{)) )}
+\NormalTok{    \}}
+\NormalTok{    quit }\OtherTok{\textless{}{-}} \ControlFlowTok{function}\NormalTok{() \{}
+      \FunctionTok{return}\NormalTok{(}\FunctionTok{invisible}\NormalTok{())}
+\NormalTok{    \}}
+    \ControlFlowTok{if}\NormalTok{ (}\FunctionTok{as.integer}\NormalTok{(R.version}\SpecialCharTok{$}\NormalTok{major) }\SpecialCharTok{\textgreater{}} \DecValTok{3}\NormalTok{) \{}
+      \ControlFlowTok{if}\NormalTok{ (}\SpecialCharTok{!}\FunctionTok{length}\NormalTok{(theta)) }
+\NormalTok{        theta }\OtherTok{=} \FunctionTok{initial}\NormalTok{()}
+\NormalTok{    \}}
+    \ControlFlowTok{else}\NormalTok{ \{}
+      \ControlFlowTok{if}\NormalTok{ (}\FunctionTok{is.null}\NormalTok{(theta)) \{}
+\NormalTok{        theta }\OtherTok{\textless{}{-}} \FunctionTok{initial}\NormalTok{()}
+\NormalTok{      \}}
+\NormalTok{    \}}
+\NormalTok{    val }\OtherTok{\textless{}{-}} \FunctionTok{do.call}\NormalTok{(}\FunctionTok{match.arg}\NormalTok{(cmd), }\AttributeTok{args =} \FunctionTok{list}\NormalTok{())}
+    \FunctionTok{return}\NormalTok{(val)}
+\NormalTok{  \}}
+
+\NormalTok{inla.MMBYM.sparse}\OtherTok{\textless{}{-}} \ControlFlowTok{function}\NormalTok{(...)\{}
+\NormalTok{  INLA}\SpecialCharTok{::}\FunctionTok{inla.rgeneric.define}\NormalTok{(inla.rgeneric.MMBYM.sparse, ...)\}}
+\end{Highlighting}
+\end{Shaded}
+
+\phantomsection\label{refs}
+\begin{CSLReferences}{1}{0}
+\bibitem[\citeproctext]{ref-Mmodels}
+Botella-Rocamora, Paloma, Miguel A Martinez-Beneito, and Sudipto
+Banerjee. 2015. {``A Unifying Modeling Framework for Highly Multivariate
+Disease Mapping.''} \emph{Statistics in Medicine} 34 (9): 1548--59.
+
+\bibitem[\citeproctext]{ref-INLAMSM}
+Palmí-Perales, Francisco, Virgilio Gómez-Rubio, and Miguel A.
+Martinez-Beneito. 2021. {``Bayesian Multivariate Spatial Models for
+Lattice Data with INLA.''} \emph{Journal of Statistical Software} 98
+(2): 1--29. \url{https://doi.org/10.18637/jss.v098.i02}.
+
+\bibitem[\citeproctext]{ref-BYM2}
+Riebler, Andrea, Sigrunn H Sørbye, Daniel Simpson, and Håvard Rue. 2016.
+{``An Intuitive Bayesian Spatial Model for Disease Mapping That Accounts
+for Scaling.''} \emph{Statistical Methods in Medical Research} 25 (4):
+1145--65.
+
+\bibitem[\citeproctext]{ref-vicente2023high}
+Vicente, Gonzalo, Aritz Adin, Tomás Goicoa, and Marı́a Dolores Ugarte.
+2023. {``High-Dimensional Order-Free Multivariate Spatial Disease
+Mapping.''} \emph{Statistics and Computing} 33 (5): 104.
+
+\end{CSLReferences}
+
+\end{document}

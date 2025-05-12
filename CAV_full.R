@@ -1488,6 +1488,7 @@ inla.rgeneric.Mmodel.man <- function (cmd = c("graph", "Q", "mu", "initial", "lo
   return(val)
 }
 
+
 cav_PMMCAR_inla <- inla(
   N_ACC ~ 1 +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
     f(ID, model = inla.Mmodel.man(k = 3, W = W_con,  alpha.min = 0,alpha.max = 1)),
@@ -1510,12 +1511,21 @@ rho_summary_pcar <- data.frame(do.call(rbind, lapply(
 #' Basically, 2021 and 2022 data have no spatial structure,
 #' according to the M-model posteriors. 
 #'
-#'
-#'
-#'
 
+#' M-model defined using the bidDM package
 
+inla.PMMCAR.bigDM <- function(...) INLA::inla.rgeneric.define(bigDM::Mmodel_pcar, ... )
 
+cav_PMMCAR_bigDM <- inla(
+  N_ACC ~ 1 +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.PMMCAR.bigDM(J = 3, W = W_con,  alpha.min = 0,alpha.max = 1,
+                                    initial.values = rep(0, 6))),
+  offset = log(nn),
+  family = rep("poisson", 3), data =dd_list,
+  #control.fixed = list(prec = list(Intercept1 = 0, Intercept2 = 0, Intercept3 = 0)),
+  #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  verbose = T)
 
 
 #' More general version covering also LCAR and sparse BYM:
@@ -1544,9 +1554,31 @@ inla.rgeneric.Mmodel <-
       }
       assign("cache.done", TRUE, envir = envir)
     }
+    if(!exists("Bartlett", envir = envir)){
+      assign("Bartlett", FALSE, envir = envir)
+    }
     interpret.theta <- function() {
       alpha <- 1/(1 + exp(-theta[as.integer(1:k)]))
-      M <- matrix(theta[-as.integer(1:k)], ncol = k)
+      if(!Bartlett){
+        #' No Bartlett decomposition ==> M is modelled directly 
+        #' AND the function employs k^2 parameters, i.e. the 
+        #' entries of M
+        M <- matrix(theta[-as.integer(1:k)], ncol = k)
+      } else{
+        #' Bartlett decomposition ==> First define Sigma, 
+        #' then use its eigendecomposition to define M ==> 
+        #' ==> the function employs k(k+1)/2 parameters, 
+        #' i.e. lower-triangular factor in the Bartlett decomposition indeed.
+        diag.N <- sapply(theta[as.integer(k + 1:k)], function(x) {
+          exp(x)
+        })
+        no.diag.N <- theta[as.integer(2 * k + 1:(k * (k - 1)/2))]
+        N <- diag(diag.N, k)
+        N[lower.tri(N, diag = FALSE)] <- no.diag.N
+        Sigma <- N %*% t(N)
+        e <- eigen(Sigma)
+        M <- t(e$vectors %*% diag(sqrt(e$values)))
+      }
       return(list(alpha = alpha, M = M))
     }
     graph <- function() {
@@ -1594,13 +1626,32 @@ inla.rgeneric.Mmodel <-
     log.prior <- function() {
       param <- interpret.theta()
       val <- sum(-theta[as.integer(1:k)] - 2 * log(1 + exp(-theta[as.integer(1:k)])))
-      sigma2 <- 1000
-      val = val + log(MCMCpack::dwish(W = crossprod(param$M), 
-                                      v = k, S = diag(rep(sigma2, k))))
+      if(!Bartlett){
+        #' Direct parametrisation ==> Wishart prior
+        #' directly assigned to Sigma
+        sigma2 <- 1 
+        val = val + log(MCMCpack::dwish(W = crossprod(param$M), 
+                                        v = k, S = diag(rep(sigma2, k))))
+      } else {
+        #' Diagonal entries of the lower-triangular
+        #' factor of Sigma: Chi-squared prior
+        val <- val + k * log(2) + 2 * sum(theta[k + 1:k]) + 
+          sum(dchisq(exp(2 * theta[k + 1:k]), df = (k + 2) - 
+                       1:k + 1, log = TRUE))
+        #' Off-diagonal entries of the factor:
+        #' Normal prior
+        val <- val + sum(dnorm(theta[as.integer((2 * k) + 1:(k *  (k - 1)/2))],
+                               mean = 0, sd = 1, log = TRUE))
+      }
+      
       return(val)
     }
     initial <- function() {
-      return(c(rep(0, k), as.vector(diag(rep(1, k)))))
+      if(!Bartlett){
+        return(c(rep(0, k), as.vector(diag(rep(1, k)))))
+      } else{
+        return(c(rep(0, k * (k+3)/2)) )
+      }
     }
     quit <- function() {
       return(invisible())
