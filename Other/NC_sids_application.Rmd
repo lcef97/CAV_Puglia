@@ -10,7 +10,7 @@ library(magrittr)
 library(INLA)
 ```
 
-## Proposal: sparse precision parametrisation for the multivariate BYM model.
+## Proposal: sparse precision parametrisation for the multivariate BYM model
 In this note, we attempt at providing a parametrisation for the multivariate BYM model resulting in a sparse precision matrix.
 
 #### Parametrisation for the univariate BYM 
@@ -20,7 +20,7 @@ This model, proposed by [@BYM2] takes the form:
 $$
 y = \sigma\left( \sqrt{\phi} U + \sqrt{1-\phi}V\right)
 $$
-Where $U \sim N(0, L^{+})$, $V \sim N(0, I_{n})$, $L$ denotes the graph Laplacian matrix, already scaled in order that $\mathrm{diag}(L)$ has a geometric mean equal to 1; $n = \mathrm{card}(y)$. $\sigma^2$ is the scale parameter.
+Where $U \sim N(0, L^{+})$, $V \sim N(0, I_{n})$, $L$ denotes the graph Laplacian matrix, already scaled in order that $\mathrm{diag}(L)$ has a geometric mean equal to 1; $n = \mathrm{card}(y)$. $\sigma^2$ is the scale parameter and $\phi \in [0,1]$ is a mixing parameter controlling in which proportion the variability in $y$ is attributable to spatial structure. The limit case $\phi=1$ is the intrinsic CAR model, while $\phi = 0$ is the case of an iid white noise.
 
 Now, despite $\mathrm{Prec}[y \mid \phi, \sigma] =  \sigma^{-2}\left( \phi L + (1-\phi)I_n \right)^{-1}$ which has no reason at all to be a sparse matrix, the joint random vector $\begin{pmatrix} y \\ U\end{pmatrix}$ has indeed a sparse precision. This can be seen considering that $\ln \pi(y, U) = \ln \pi(y | U) + \ln \pi(U)$ and $y|U \sim N(\sigma\sqrt{\phi}U, \sigma^2(1-\phi) I_n)$ thus, with some passages [@BYM2], 
 \begin{equation}
@@ -73,11 +73,11 @@ and similarly
 
 $$
 \mathrm{VAR} [\mathrm{vec}(\mathbf{Y}) \mid \mathbf{U}, \tilde{\Phi}, \Sigma] =
-\left[(\tilde{{\hat\Phi}} M^{\top}) \otimes I_n \right] 
+\left[(\tilde{{\bar\Phi}} M^{\top}) \otimes I_n \right] 
 \mathbb{E} \left[
 \mathrm{vec}(\mathbf{V})
 \mathrm{vec}(\mathbf{V})^\top \right]
-\left[(\tilde{\Phi} M^{\top}) \otimes I_n \right] = 
+\left[(M \tilde{\Phi}) \otimes I_n \right] = 
 \left(
 \tilde{\bar{\Phi}} \Sigma \tilde{\bar{\Phi}}
 \right) \otimes I_n
