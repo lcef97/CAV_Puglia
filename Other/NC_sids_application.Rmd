@@ -165,7 +165,6 @@ Hence, with some straightforward algebra, it can be concluded that:
 
 Which generalises to the multivariate case equation \ref{eq:joint_sparse_uni}. The sparse parametrisation is thus also possible for the multivariate BYM.
 
- 
 
 
 
@@ -182,16 +181,6 @@ nc <- st_read(system.file("shapes/sids.gpkg", package="spData")[1], quiet=TRUE)
 
 # neighbouring/adjacency matrix
 W<- spdep::nb2mat(spdep::poly2nb(nc), style = "B")
-# Laplacian matrix and nullspace of the ICAR field
-Lapl <- diag(rowSums(W)) - W
-A_constr <- kronecker(diag(1,2), t(pracma::nullspace(Lapl)))
-
-ggplot2::ggplot() +
-  ggplot2::geom_sf(data = nc, 
-                   ggplot2::aes(fill = .data$SID79))+
-  ggplot2::labs(fill = "SIDS, 1979")+
-  ggplot2::scale_fill_viridis_c(na.value = "white", direction = -1)+
-  ggplot2::theme_classic()
 
 ```
 Here, a long version of the dataframe is employed. Expected cases are computed as in [@INLAMSM]
@@ -208,14 +197,34 @@ nc.long <- data.frame(NAME = c(nc$NAME, nc$NAME),
   dplyr::mutate(NWPROP = as.vector(scale(.data$NWBIR/.data$BIR)))
 ```
 
+```{r sids plot, warning = FALSE, message = FALSE, echo = FALSE}
+# Laplacian matrix and nullspace of the ICAR field
+Lapl <- diag(rowSums(W)) - W
+A_constr <- kronecker(diag(1,2), t(pracma::nullspace(Lapl)))
 
-As a baseline model, also for comparisons, we can fit a PCAR model for $Z$, namely:
-$$
-\mathrm{vec}(Z) \sim N(0, \Lambda \otimes(D - \alpha W)^{-1})
-$$
-Where $\Lambda$ is the marginal precision parameter, $D$ is the graph degree matrix, $W$ is the neighbourhood matrix, and $\alpha$ is a time-invariant autoregressive parameter. This model can be conveniently fitted using the \texttt{INLAMSM} R package; a Wishart prior is assigned to the precision and a Uniform prior on $[0,1]$ is assigned to $\alpha$.
+ggplot2::ggplot() +
+  ggplot2::geom_sf(data = nc, 
+                   ggplot2::aes(fill = .data$SID79))+
+  ggplot2::labs(fill = "SIDS, 1979")+
+  ggplot2::scale_fill_viridis_c(na.value = "white", direction = -1)+
+  ggplot2::theme_classic()
 
-```{r pcar, message = FALSE}
+```
+
+
+
+A flexible class of models for the latent effect $Z$ is that of M-models, which allow to employ disease-specific hyperparameters. As a baseline model one could think of the PCAR; which takes this form for $t = 1974, 1979$ and $n=100$:
+
+
+$$
+\mathrm{vec}(Z) \sim N \left( 0, (M^\top \otimes I_n) \,
+  \mathrm{Bdiag}(D - \alpha_t W) \, (M \otimes I_n)\right)
+$$
+Where $D$ is the graph degree matrix, $W$ is the neighbourhood matrix, $\mathrm{BDiag}$ denotes a block-diagonal matrix, and $\alpha_t$ is the autoregressive parameter for year $t$. The matrix $M$ is as defined in the previos section. 
+
+We use the \texttt{bigDM} function from the \texttt{bigDM} R package [@vicente2023high] to fit the M-Model extension of the PCAR. This package has the advantage of automatically implementing models in which the Bartlett decomposition (see further) is used on the marginal scale parameter $\Sigma$, which allows to specify a smaller number of parameters than direct parametrisation of $M$; in brief, the marginal scale parameter can be decomposed as $\Sigma = A A^\top$, where $A$ is a lower-triangular matrix. A $\chi^2$ prior is assigned to the diagonal entries of $A$ and a $N(0,1)$ prior is assigned to its off-diagonal entries; this implies that $\Sigma$ follows a Wishart distribution [@Kabe]; lastly a Uniform prior on $[0,1]$ is assigned to each $\alpha_t$.
+
+```{r pcar, message = FALSE, echo = FALSE, eval = FALSE}
 pcar.inla <- inla(
   SID ~ 1 + NWPROP + 
     f(ID, model = INLAMSM::inla.MCAR.model(k=2, W = W, alpha.min = 0, alpha.max = 1)),
@@ -225,19 +234,10 @@ pcar.inla <- inla(
   verbose = T)
 ```
 
-A more flexible yet more complex class of models is that of M-models, which allow to employ disease-specific hyperparameters. For the PCAR, we would thus have an autocorrelation parameter specific to each year. The prior distribution for $Z$ becomes thus, for $t = 1974, 1979$ and $n=100$:
-
-$$
-\mathrm{vec}(Z) \sim N \left( 0, (M^\top \otimes I_n) \,
-  \mathrm{Bdiag}(D - \alpha_t W) \, (M \otimes I_n)\right)
-$$
-Where $\mathrm{BDiag}$ denotes a block-diagonal matrix.
 
 
 
-In the following, we use the \texttt{bigDM} function from the \texttt{bigDM} R package [@vicente2023high] to fit the M-Model extension of the PCAR. This package has the advantage of automatically implementing models in which the Bartlett decomposition (see further) is used on the marginal scale parameter, which allows to specify a smaller number of parameters than direct parametrisation of $M$.
-
-```{r bym bigDM, message =FALSE}
+```{r pcar bigDM, message =FALSE}
 
 inla.PMMCAR.model <- function(...){
   INLA::inla.rgeneric.define(bigDM::Mmodel_pcar, ...)
@@ -254,19 +254,14 @@ pcar.inla.mmod <- inla(
 ```
 
 
-Model results are quite similar; in both cases, computational time is relatively short (less than 10 seconds).
-```{r PCAR summaries}
-summary(pcar.inla)
-summary(pcar.inla.mmod)
-```
 
 
-The PCAR is flexible and computationally efficient due to its sparse precision. However, it is not scalable.
-The BYM, on the contrary, is scalable, but \textit{as it is}, it does not have sparse precision, which implies computational inefficiency.
+## BYM model implementation in INLA
 
 
-## Simplified BYM
-Here we provide a rather simple implementation of the BYM, loosely based on \texttt{bigDM} and \texttt{INLAMSM} codes:
+
+Now, the PCAR is flexible and computationally efficient due to its sparse precision. However, it is not scalable. A flexible \textit{and} scalable model, instead, is the Besag - York - Molliee convolution model, hereinafter referred to as BYM [@BYM2]. The drawback of the BYM model is that it does not have a sparse precision, which implies computational inefficiency.
+Here we provide an implementation of the BYM, loosely based on \texttt{bigDM} and \texttt{INLAMSM} codes:
 
 
 ```{r dense BYM}
@@ -372,13 +367,16 @@ inla.MMBYM.dense <- function (...)  INLA::inla.rgeneric.define(inla.rgeneric.MMB
 
 ```
 
-Specifically, we use a Uniform prior on the mixing parameters and we model the $M$ matrix through the Bartlett decomposition, namely we define $\Sigma = A A^\top$, where $A$ is a lower-triangular matrix whose squared diagonal elements are assigned a Chi-squared distribution and whose off-diagonal entries are assigned a Normal distribution. For more details on the Bartlett decomposition, see [@vicente2023high]
+Specifically, we use a Uniform prior on the mixing parameters and we model the $M$ matrix through the Bartlett decomposition, namely we define $\Sigma = A A^\top$, where $A$ is a lower-triangular matrix whose squared diagonal elements are assigned a Chi-squared distribution and whose off-diagonal entries are assigned a Normal distribution. For more details on the Bartlett decomposition, see [@vicente2023high].
+
+Since the prior distribution of $Z$ is proper, we do not set sum-to-zero constraints.
 
 ```{r dense BYM run, message = FALSE, output = FALSE, warning = FALSE}
 bym.dense.inla.mmod <- inla(
     SID ~ 1 + NWPROP + 
-    f(ID, model = inla.MMBYM.dense(k=2, W=W),
-      extraconstr = list(A = A_constr, e = c(0,0))),
+    f(ID, model = inla.MMBYM.dense(k=2, W=W)#,
+      #extraconstr = list(A = A_constr, e = c(0,0))
+      ),
   data = nc.long, E = EXP, 
   family = "poisson", num.threads = 1,
   control.compute =list(waic = T, internal.opt =F),
@@ -386,12 +384,12 @@ bym.dense.inla.mmod <- inla(
 
 ```
 
-```{r}
+```{r summary bym}
 summary(bym.dense.inla.mmod)
 ```
 
 
-We compare the posteriors of $\alpha$ for the PCAR and BYM model. Starting from the PCAR
+We compare the posteriors of $\alpha$ for the PCAR and BYM models. Starting from the PCAR
 ```{r alpha PCAR}
 # \alpha_{1974}
 inla.zmarginal(inla.tmarginal(fun = function(X) exp(X)/(1 + exp(X)), 
@@ -416,7 +414,22 @@ inla.zmarginal(inla.tmarginal(fun = function(X) exp(X)/(1 + exp(X)),
 
 Results are similar.
 
-Lastly here is the proposed code for the sparse BYM, still has to be tested:
+#### Proposal - sparse precision multivariate BYM
+Here is the proposed code for the sparse BYM. Recall equation \ref{eq:joint_bym_mmod}. Whereas $\pi(Y \mid \Sigma, \tilde{\Phi})$ is proper, the precision matrix of the joint model has rank deficiency $p$ times the rank deficiency of $L$, hence the sum-to-zero constraint is necessary. This can be seen by computing its determinant, starting from the lemma
+$$
+\begin{vmatrix}
+A &  B \\ C & D
+\end{vmatrix}
+= \mid A \mid \cdot \mid D - CA^{-1}B| \propto \mid D - CA^{-1}B|
+$$
+
+For the determinant of the augmented BYM precision we would therefore have: $A = q_{11} \otimes I_n$; $B= q_{11} \tilde{\Phi} M^\top \otimes I_n$, $C = M \tilde{\Phi} q_11 \otimes I_n$ and $D = M \tilde{\Phi} q_{11}\tilde{\Phi}M^\top + I_p \otimes L$, hence 
+$$
+\mid D - CA^{-1}B \mid \, = \,
+\mid M \tilde{\Phi} q_{11}\tilde{\Phi}M^\top + I_p \otimes L 
+     -  M \tilde{\Phi} q_{11}\tilde{\Phi}M^\top \mid = \mid I_p \otimes L\mid = 0
+$$
+
 
 ```{r sparse BYM}
 inla.rgeneric.MMBYM.sparse <- 
@@ -450,33 +463,38 @@ inla.rgeneric.MMBYM.sparse <-
       no.diag.N <- theta[as.integer(2 * k + 1:(k * (k - 1)/2))]
       N <- diag(diag.N, k)
       N[lower.tri(N, diag = FALSE)] <- no.diag.N
+      #' Marginal variance/scale:
       Sigma <- N %*% t(N)
+      #' Eigendecomposition of Sigma ==> M
       e <- eigen(Sigma)
       M <- t(e$vectors %*% diag(sqrt(e$values)))
       return(list(phi.vector = phi.vector, M = M))
     }
     graph <- function() {
-      MI <- kronecker(Matrix::Matrix(1, ncol = k, nrow = k), 
-                      Matrix::Diagonal(nrow(W), 1))
-      IW <- Matrix::Diagonal(nrow(W), 1) + W
-      BlockIW <- Matrix::bdiag(replicate(k, IW, simplify = FALSE))
-      G <- (MI %*% BlockIW) %*% MI
+      #' Adapted from INLAMSM;
+      #'  here dimensions of the G matrix are doubled.
+      BPrec <- matrix(1, ncol = 2*k, nrow = 2*k)
+      G <- kronecker(BPrec, Matrix::Diagonal(nrow(W), 1) + 
+                       W)
       return(G)
     }
     Q <- function() {
       param <- interpret.theta()
       M.inv <- solve(param$M)
+      #' Matrix-valued mixing parameter, diagonal = sqrt(phi_1) ... sqrt(phi_k)
       Phi <- Matrix::Diagonal(sqrt(param$phi.vector), n=k)
+      #' Diagonal of: 1/sqrt(1-phi_1), ... 1/sqrt(1-phi_k)
       invPhihat <- Matrix::Diagonal(1/sqrt(1-param$phi.vector), n=k)
+      #' Precision blocks, defined as in equation 3
       q11 <- invPhihat %*% M.inv %*% t(M.inv) %*% invPhihat
       q12 <- q11 %*% Phi %*% t(param$M)
       q22 <- param$M %*% Phi %*% q12
       Q.11 <- kronecker(q11, Matrix::Diagonal(n=nrow(W), x = 1))
       Q.12 <- kronecker(-q12, Matrix::Diagonal(n=nrow(W), x = 1))
-      Q.22 <- kronecker(q11, Matrix::Diagonal(n=nrow(W), x = 1)) +
+      Q.22 <- kronecker(q22, Matrix::Diagonal(n=nrow(W), x = 1)) +
         kronecker(Matrix::Diagonal(n=k, x=1), L)
-      Q <- cbind(rbind(Q.11, Q.12), 
-                 rbind(t(Q.12), Q.22))
+      Q <- cbind(rbind(Q.11, Matrix::t(Q.12)), 
+                 rbind(Q.12, Q.22))
       return(Q)
     }
     mu <- function() {
@@ -486,15 +504,17 @@ inla.rgeneric.MMBYM.sparse <-
       val <- numeric(0)
       return(val)
     }
+    #' Equivalent to bigDM::Mmodel_pcar or Mmodel_lcar
     log.prior <- function() {
       param <- interpret.theta()
+      #' Uniform prior on the mixing parameter
       val <- sum(-theta[as.integer(1:k)] - 2 * log(1 + exp(-theta[as.integer(1:k)])))
       #' Diagonal entries of the lower-triangular
-      #' factor of Sigma: Chi-squared prior
+      #' Bartlett factor of Sigma: Chi-squared prior
       val <- val + k * log(2) + 2 * sum(theta[k + 1:k]) + 
         sum(dchisq(exp(2 * theta[k + 1:k]), 
                    df = (k + 2) - 1:k + 1, log = TRUE))
-      #' Off-diagonal entries of the factor:
+      #' Off-diagonal entries of the Bartlett factor:
       #' Normal prior
       val <- val + sum(dnorm(theta[as.integer((2 * k) + 1:(k *  (k - 1)/2))],
                              mean = 0, sd = 1, log = TRUE))
@@ -522,7 +542,37 @@ inla.rgeneric.MMBYM.sparse <-
 inla.MMBYM.sparse<- function(...){
   INLA::inla.rgeneric.define(inla.rgeneric.MMBYM.sparse, ...)}
 
+bym.sparse.inla.mmod <- inla(
+    SID ~ 1 + NWPROP + 
+    f(ID, model = inla.MMBYM.sparse(k=2, W=W),
+      extraconstr = list(A = cbind(matrix(0, nrow(A_constr), ncol = ncol(A_constr)), A_constr), 
+                         e = c(0, 0)),
+      values = c(1:(2*nrow(nc.long)))),
+  data = nc.long, E = EXP, 
+  family = "poisson", num.threads = 1,
+  control.compute =list(waic = T, internal.opt =F),
+  verbose = T)
+
 ```
+
+The posterior distribution of the mixing parameter, here, is still flat. 
+
+```{r alpha sparse BYM}
+# \alpha_{1974}
+inla.zmarginal(inla.tmarginal(fun = function(X) exp(X)/(1 + exp(X)), 
+               marginal = bym.sparse.inla.mmod$marginals.hyperpar[[1]]))
+
+# \alpha_{1979}
+inla.zmarginal(inla.tmarginal(fun = function(X) exp(X)/(1 + exp(X)), 
+               marginal = bym.sparse.inla.mmod$marginals.hyperpar[[2]]))
+  
+```
+
+
+
+
+
+
 
 
 
