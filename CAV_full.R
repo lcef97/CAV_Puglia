@@ -951,7 +951,8 @@ inla.rgeneric.MBYM.sparse <-
     Q <- function() {
       param <- interpret.theta()
       Q11 <- 1/(1 - param$phi) * kronecker(param$PREC, Matrix::Diagonal(n = nrow(W), x  = 1))
-      Q12 <- Q21 <- -sqrt(param$phi)/(1 - param$phi) * kronecker(param$invM, Matrix::Diagonal(n = nrow(W), x  = 1))
+      Q12 <- -sqrt(param$phi)/(1 - param$phi) * kronecker(param$invM, Matrix::Diagonal(n = nrow(W), x  = 1))
+      Q21 <- Matrix::t(Q12)
       Q22 <- kronecker(Matrix::Diagonal(n = k, x = 1),
                        ((param$phi/(1-param$phi))* Matrix::Diagonal(n = nrow(W), x = 1) + L))
       Q <- rbind(cbind(Q11, Q12), cbind(Q21, Q22))
@@ -1016,8 +1017,9 @@ inla.MBYM.sparse <- function(...) INLA::inla.rgeneric.define(inla.rgeneric.MBYM.
 cav_MBYM_inla <- inla(
   N_ACC ~ 0 + Intercept +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
     f(ID, model = inla.MBYM.dense(k = 3, W = W_con, 
-                                  PC = FALSE),
-      extraconstr = list(A = A_constr, e = rep(0, 3))) ,
+                                  PC = FALSE)#,
+      #extraconstr = list(A = A_constr, e = rep(0, 3))
+      ) ,
   offset = log(nn),
   family = rep("poisson", 3), data =dd_list,
   #control.fixed = list(prec = list(Intercept1 = 0, Intercept2 = 0, Intercept3 = 0)),
@@ -1029,8 +1031,9 @@ cav_MBYM_inla <- inla(
 cav_MBYM_inla_panel <- inla(
   N_ACC ~ 0 +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
     f(Year, model = "iid", hyper = list(prec = list(initial = 1e-3, fixed = TRUE))) +
-    f(ID_ym, model = inla.MBYM.dense(k = 3, W = W_con, PC = FALSE),
-      extraconstr = list(A = A_constr, e = rep(0, 3))) ,
+    f(ID_ym, model = inla.MBYM.dense(k = 3, W = W_con, PC = FALSE)#,
+      #extraconstr = list(A = A_constr, e = rep(0, 3))
+      ) ,
   offset = log(nn),
   family = "poisson", data =dd_long,
   #control.fixed = list(prec = list(Intercept1 = 0, Intercept2 = 0, Intercept3 = 0)),
@@ -1048,6 +1051,19 @@ cav_MBYM_inla_sparse <- inla(
     f(ID, model = inla.MBYM.sparse(k = 3, W = W_con, 
                                    PC = FALSE),
       extraconstr = list(A = kronecker(diag(1,2), A_constr), e = rep(0, 6)),
+      values = dd_list$ID2 ) ,
+  offset = log(nn),
+  family = rep("poisson", 3), data =dd_list,
+  #control.fixed = list(prec = list(Intercept1 = 0, Intercept2 = 0, Intercept3 = 0)),
+  #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  verbose = T)
+
+cav_MBYM_inla_sparse_v1 <- inla(
+  N_ACC ~ 0 + Intercept +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.MBYM.sparse(k = 3, W = W_con, 
+                                   PC = FALSE),
+      extraconstr = list(A = cbind(matrix(0, nrow=3, ncol=3*n), A_constr), e = rep(0, 3)),
       values = dd_list$ID2 ) ,
   offset = log(nn),
   family = rep("poisson", 3), data =dd_list,
@@ -1078,9 +1094,9 @@ cav_MBYM_inla_I1 <- inla(
 cav_MBYM_inla_I1_pc <- inla(
   N_ACC ~ 0 + Intercept +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
     f(ID, model = inla.MBYM.dense(k = 3, W = W_con, 
-                                  init = c(-3, rep(0,3), rep(0,3)),
+                                  #init = c(-3, rep(0,3), rep(0,3)),
                                   PC = TRUE),
-      extraconstr = list(A = A_constr, e = rep(0, 3))
+      #extraconstr = list(A = A_constr, e = rep(0, 3))
       #values = dd_list$ID2
     ) ,
   offset = log(nn),
