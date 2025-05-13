@@ -287,7 +287,7 @@ inla.rgeneric.MMBYM.dense <-
       assign("cache.done", TRUE, envir = envir)
     }
     interpret.theta <- function() {
-      alpha <- 1/(1 + exp(-theta[as.integer(1:k)]))
+      phi <- 1/(1 + exp(-theta[as.integer(1:k)]))
       #' Bartlett decomposition ==> First define Sigma, 
       #' then use its eigendecomposition to define M ==> 
       #' ==> the function employs k(k+1)/2 parameters, 
@@ -301,7 +301,7 @@ inla.rgeneric.MMBYM.dense <-
       Sigma <- N %*% t(N)
       e <- eigen(Sigma)
       M <- t(e$vectors %*% diag(sqrt(e$values)))
-      return(list(alpha = alpha, M = M))
+      return(list(phi = phi, M = M))
     }
     graph <- function() {
       MI <- kronecker(Matrix::Matrix(1, ncol = k, nrow = k), 
@@ -317,8 +317,8 @@ inla.rgeneric.MMBYM.dense <-
       MI <- kronecker(M.inv, Matrix::Diagonal(nrow(W), 1))
       D <- as.vector(apply(W, 1, sum))
       BlockIW <- Matrix::bdiag(lapply(1:k, function(i) {
-        solve(param$alpha[i]*Sigma.u + 
-                (1-param$alpha[i])*Matrix::Diagonal(nrow(W), 1))
+        solve(param$phi[i]*Sigma.u + 
+                (1-param$phi[i])*Matrix::Diagonal(nrow(W), 1))
         }))
       Q <- (MI %*% BlockIW) %*% kronecker(t(M.inv), Matrix::Diagonal(nrow(W),  1))
       return(Q)
@@ -389,7 +389,7 @@ summary(bym.dense.inla.mmod)
 ```
 
 
-We compare the posteriors of $\alpha$ for the PCAR and BYM models. Starting from the PCAR
+We compare the posteriors of $\alpha$ in the PCAR (autocorrelation) and $\phi$ in the BYM (mixing) models. Starting from the PCAR
 ```{r alpha PCAR}
 # \alpha_{1974}
 inla.zmarginal(inla.tmarginal(fun = function(X) exp(X)/(1 + exp(X)), 
