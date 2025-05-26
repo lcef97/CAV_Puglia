@@ -1,6 +1,9 @@
 ---
 title: "Multivariate BYM"
-output: pdf_document
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
 bibliography: references.bib
 ---
 
@@ -54,13 +57,13 @@ By doing so, we can use a unique scale parameter, say $\Sigma$, as in the univar
 Please notice that $M$ does not have to be the Cholesky factor; in fact, a rather convenient yet not unique definition is $M = D^{\frac{1}{2}}E^{\top}$, where $D$ is the diagonal matrix of the eigenvalues of $\Sigma$ and $E$ are the eigenvectors of $\Sigma$.
 
 
-In the more general case of the M-model [@Mmodels], consider the matrix-valued mixing parameters $\tilde{\Phi}:=\mathrm{diag}(\sqrt{\phi_1},\sqrt{\phi_2}, \dots \sqrt{\phi_p})$ and $\tilde{\bar{\Phi}}:= \mathrm{diag} (\sqrt{1 - \phi_1}, \sqrt{1 - \phi_2}, \dots \sqrt{1 - \phi_p}) = (I_p - \tilde{\Phi})^{-1/2}$.
+In the more general case of the M-model [@Mmodels],  consider the matrix-valued mixing parameters $\Phi:=\mathrm{diag}( \phi_1, \phi_2, \dots  \phi_p )$ and $\bar{\Phi}:= \mathrm{diag} ( 1 - \phi_1,  1 - \phi_2 , \dots  1 - \phi_p) = (I_p -  \Phi )$.
 
 The convolution model is generalised to:
 
 \begin{equation}
 \label{eq:Mmod_conv}
-\mathbf{Y} =     \mathbf{U}M\tilde{\Phi} + \mathbf{V}M \tilde{\bar{\Phi}}
+\mathbf{Y} =     \mathbf{U} \Phi^{\frac{1}{2}} M  + \mathbf{V} \bar{\Phi}^{\frac{1}{2}}M
 \end{equation}
 
 We then have
@@ -84,47 +87,50 @@ $$
 $$
 
 
-The distribution of $\mathbf{Y} \mid \mathbf{U}, \Sigma, \tilde{\Phi}$ then reads:
+
+
+The distribution of $\mathbf{Y} \mid \mathbf{U}, \Sigma, \Phi$ then reads:
 \begin{align*}
--2 \ln \pi \left(\mathrm{vec}(\mathbf{Y}) \mid \mathbf{U}, \Sigma, \phi \right) = \\= \Big{ \{ }
- \mathrm{vec}(\mathbf{Y}) - [(\tilde{\Phi} M^{\top}) \otimes I_n] \mathrm{vec}(\mathbf{U}) \Big{\} } ^{\top}
+-2 \ln \pi \left(\mathrm{vec}(\mathbf{Y}) \mid \mathbf{U}, \Sigma, \phi \right) = \\= C+ \Big{ \{ }
+ \mathrm{vec}(\mathbf{Y}) - \left[ \left( M^\top \Phi^{\frac{1}{2}} \right) \otimes I_n \right] \mathrm{vec}(\mathbf{U}) \Big{\} } ^{\top}
 \left[ \left(
-\tilde{\bar{\Phi}}^{-1} \Lambda \tilde{\bar{\Phi}}^{-1}
+ M^{-1} \bar{\Phi}^{-1}{M^{-1}}^\top
 \right) \otimes I_n \right] 
-\Big{ \{ } \mathrm{vec}(\mathbf{Y}) -[(\tilde{\Phi} M^{\top}) \otimes I_n] \mathrm{vec}(\mathbf{U}) \Big{\}} = \\ =
+\Big{ \{ } \mathrm{vec}(\mathbf{Y}) -\left[ \left( M^\top \Phi^{\frac{1}{2}} \right) \otimes I_n \right] \mathrm{vec}(\mathbf{U}) \Big{\}} = \\ =
 \mathrm{vec}(\mathbf{Y})^{\top}
 \left[ \left(
-\tilde{\bar{\Phi}}^{-1} \Lambda \tilde{\bar{\Phi}}^{-1}
+ M^{-1} \bar{\Phi}^{-1}{M^{-1}}^\top
 \right) \otimes I_n \right] 
 \mathrm{vec}(\mathbf{Y}) + \\ 
 - 2\mathrm{vec}(\mathbf{Y})^{\top} 
-\left[ \left(
-\tilde{\bar{\Phi}}^{-1} \Lambda \tilde{\bar{\Phi}}^{-1} \right) \otimes I_n \right] 
-\left[ (\tilde{\Phi} M^{\top}) \otimes I_n \right] \,\mathrm{vec}(\mathbf{U})   + \\
+\left[ \left( 
+ M^{-1} \bar{\Phi}^{-1}{M^{-1}}^\top\right) \otimes I_n \right] 
+\left[ \left( M^\top \Phi^{\frac{1}{2}} \right) \otimes I_n \right] \,\mathrm{vec}(\mathbf{U})   + \\
 +  \mathrm{vec}(\mathbf{U})^{\top}
-    \left[ (M \tilde{\Phi}) \otimes I_n \right]
-    \left[ \left( \tilde{\bar{\Phi}}^{-1} \Lambda \tilde{\bar{\Phi}}^{-1} \right) \otimes I_n \right]
-    \left[ (\tilde{\Phi} M^{\top}) \otimes I_n \right]
+    \left[ \left(\Phi^{\frac{1}{2}} M \right) \otimes I_n \right]
+    \left[ \left(  M^{-1} \bar{\Phi}^{-1}{M^{-1}}^\top\right) \otimes I_n \right]
+    \left[ (M^\top\Phi^{\frac{1}{2}} ) \otimes I_n \right]
    \mathrm{vec}(\mathbf{U}) = \\
 \mathrm{vec}(\mathbf{Y})^{\top}
 \left[ \left(
-\tilde{\bar{\Phi}}^{-1} \Lambda \tilde{\bar{\Phi}}^{-1}
+ M^{-1} \bar{\Phi}^{-1}{M^{-1}}^\top
 \right) \otimes I_n \right] 
 \mathrm{vec}(\mathbf{Y}) + \\ 
 - 2\mathrm{vec}(\mathbf{Y})^{\top} 
-\left[ \left( \tilde{\bar{\Phi}}^{-1} \Lambda \tilde{\bar{\Phi}}^{-1} \tilde{\Phi} M^{\top} \right)
+\left[ \left(  M^{-1} \bar{\Phi}^{-1} \Phi^{\frac{1}{2}} M^{\top} \right)
 \otimes I_n \right]  \,\mathrm{vec}(\mathbf{U})   + \\
 +  \mathrm{vec}(\mathbf{U})^{\top}
-    \left[ \left( M \tilde{\Phi}  \tilde{\bar{\Phi}}^{-1} \Lambda \tilde{\bar{\Phi}}^{-1}  \tilde{\Phi} M^{\top} \right) \otimes I_n \right]
+    \left[ \left(  \Phi  \bar{\Phi}^{-1}  \right) \otimes I_n \right]
    \mathrm{vec}(\mathbf{U})
 \end{align*}
 
 Now, for brevity let us define the following $p \times p$ matrices:
 \begin{align*}
-q_{11} := \tilde{\bar{\Phi}}^{-1} \Lambda \tilde{\bar{\Phi}}^{-1} ; \quad
-q_{12}:= q_{11} \tilde{\Phi}M^\top; \quad
-q_{22}:= M \tilde{\Phi} q_{12}
+q_{11} :=  M^{-1} \bar{\Phi}^{-1}{M^{-1}}^\top; \quad
+q_{12} :=  M^{-1} \bar{\phi}^{-1} \Phi^{\frac{1}{2}}; \quad
+q_{22} := \Phi \bar{\Phi}^{-1}
 \end{align*}
+
 Hence 
 \begin{align*}
 -2 \ln \pi \left(\mathrm{vec}(\mathbf{Y}) \mid \mathbf{U}, \Sigma, \phi \right) = \\
@@ -137,6 +143,8 @@ Hence
     \left(q_{12} \otimes I_n \right)
    \mathrm{vec}(\mathbf{U})
 \end{align*}
+
+
 Then, we have 
 \begin{align*}
 -2 \ln \pi \left(\mathrm{vec}(\mathbf{Y}), \mathrm{vec}(\mathbf{U}) \mid \Sigma, \phi \right) = \\
@@ -151,7 +159,8 @@ Then, we have
 \end{align*}
 Hence, with some straightforward algebra, it can be concluded that:
 
-\begin{equation} \label{eq:joint_bym_mmod}
+\begin{equation}
+\label{eq:joint_bym_mmod}
     \begin{pmatrix}
         \mathrm{vec} (\mathbf{Y}) \\ \mathrm{vec} (\mathbf{U}) 
     \end{pmatrix}
@@ -423,11 +432,16 @@ A &  B \\ C & D
 = \mid A \mid \cdot \mid D - CA^{-1}B| \propto \mid D - CA^{-1}B|
 $$
 
-For the determinant of the augmented BYM precision we would therefore have: $A = q_{11} \otimes I_n$; $B= q_{11} \tilde{\Phi} M^\top \otimes I_n$, $C = M \tilde{\Phi} q_11 \otimes I_n$ and $D = M \tilde{\Phi} q_{11}\tilde{\Phi}M^\top + I_p \otimes L$, hence 
+For the determinant of the augmented BYM precision we would therefore have:
+$A = \left(M^{-1} \bar{\Phi}^{-1} {M^{-1}}^\top\right) \otimes I_n$; 
+$B= \left( M^{-1}\bar{\Phi}^{-1} \Phi^{\frac{1}{2}} \right) \otimes I_n$, $C =  B^\top$ and $D = \Phi \bar{\Phi}^{-1} \otimes I_n + I_p \otimes L$, hence 
 $$
 \mid D - CA^{-1}B \mid \, = \,
-\mid M \tilde{\Phi} q_{11}\tilde{\Phi}M^\top + I_p \otimes L 
-     -  M \tilde{\Phi} q_{11}\tilde{\Phi}M^\top \mid = \mid I_p \otimes L\mid = 0
+ | \Phi \bar{\Phi}^{-1} \otimes I_n + I_p \otimes L +
+ \left(
+ \bar{\Phi}^{-1} \Phi^{\frac{1}{2}} {M^{-1}}^\top M^\top \bar{\Phi} M \, M^{-1}
+ \bar{\Phi}^{-1} \Phi^{\frac{1}{2}} 
+ \right) \otimes I_n  | = \mid I_p \otimes L\mid = 0
 $$
 
 
@@ -481,14 +495,16 @@ inla.rgeneric.MMBYM.sparse <-
     Q <- function() {
       param <- interpret.theta()
       M.inv <- solve(param$M)
-      #' Matrix-valued mixing parameter, diagonal = sqrt(phi_1) ... sqrt(phi_k)
-      Phi <- Matrix::Diagonal(sqrt(param$phi.vector), n=k)
-      #' Diagonal of: 1/sqrt(1-phi_1), ... 1/sqrt(1-phi_k)
-      invPhihat <- Matrix::Diagonal(1/sqrt(1-param$phi.vector), n=k)
+      #' Matrix-valued mixing parameter, diagonal = phi_1 ... phi_k
+      Phi <- Matrix::Diagonal(param$phi.vector, n=k)
+      #' Matrix of square roots of \phi:
+      Phi.sqrt <- Matrix::Diagonal(sqrt(param$phi.vector), n=k)
+      #' Diagonal of: 1/(1-phi_1), ... 1/(1-phi_k)
+      invPhihat <- Matrix::Diagonal(1/(1-param$phi.vector), n=k)
       #' Precision blocks, defined as in equation 3
-      q11 <- invPhihat %*% M.inv %*% t(M.inv) %*% invPhihat
-      q12 <- q11 %*% Phi %*% t(param$M)
-      q22 <- param$M %*% Phi %*% q12
+      q11 <- M.inv %*% invPhihat %*% t(M.inv)
+      q12 <- M.inv %*% invPhihat %*% Phi.sqrt
+      q22 <- Phi %*% invPhihat
       Q.11 <- kronecker(q11, Matrix::Diagonal(n=nrow(W), x = 1))
       Q.12 <- kronecker(-q12, Matrix::Diagonal(n=nrow(W), x = 1))
       Q.22 <- kronecker(q22, Matrix::Diagonal(n=nrow(W), x = 1)) +
