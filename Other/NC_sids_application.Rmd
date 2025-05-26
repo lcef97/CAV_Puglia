@@ -68,8 +68,8 @@ The convolution model is generalised to:
 
 We then have
 $$
-\mathbb{E} [\mathrm{vec}(\mathbf{Y}) \mid U, \tilde{\Phi}, \Sigma] = \mathrm{vec}(\mathbf{U} M \tilde{\Phi}) =
-[(\tilde{\Phi} M^{\top}) \otimes I_n] \mathrm{vec}(\mathbf{U})
+\mathbb{E} [\mathrm{vec}(\mathbf{Y}) \mid U, \tilde{\Phi}, \Sigma] = \mathrm{vec}(\mathbf{U}\Phi^{\frac{1}{2}}M) =
+[(  M^{\top} \Phi^{\frac{1}{2}}) \otimes I_n] \mathrm{vec}(\mathbf{U})
 $$
 
 and similarly

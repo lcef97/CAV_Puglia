@@ -552,11 +552,146 @@ summary(cav_bym_zip_INLA)
 #' the CPOs improves greatly.
 
 
+## Spatial regression, BYM: INLA  ----------------------------------------------
+
+#' -----------------------------------------------------------------------------
+#' 
+#' Sparse parametrisation of the BYM, should replicate the ready-made INLA function.
+
+inla.rgeneric.BYM.sparse <-   function (cmd = c("graph", "Q", "mu", "initial", "log.norm.const", 
+                                                "log.prior", "quit"), theta = NULL) {
+  
+  envir <- parent.env(environment())
+  if(!exists("cache.done", envir=envir)){
+    starttime.scale <- Sys.time()
+    #' Unscaled Laplacian matrix (marginal precision of u_1, u_2 ... u_k)
+    L_unscaled <- Matrix::Diagonal(nrow(W), rowSums(W)) -  W
+    A_constr <- t(pracma::nullspace(as.matrix(L_unscaled)))
+    scaleQ <- INLA:::inla.scale.model.internal(
+      L_unscaled, constr = list(A = A_constr, e = rep(0, nrow(A_constr))))
+    #n <- nrow(W)
+    L <- scaleQ$Q
+    endtime.scale <- Sys.time()
+    cat("Time needed for scaling Laplacian matrix: ",
+        round(difftime(endtime.scale, starttime.scale), 3), " seconds \n")
+    #' Eigenvalues of the SCALED Laplacian, sufficient for trace and determinant entering the KLD
+    L_eigen_scaled <- eigen(L)$values
+    #' PC prior on mixing parameter - definition should be fine.
+    log.dpc.phi.bym <- INLA:::inla.pc.bym.phi(eigenvalues = L_eigen_scaled, 
+                                              marginal.variances = scaleQ$var,
+                                              rankdef = nrow(A_constr),
+                                              u = 0.5, alpha = 2/3)
+    assign("L", L, envir = envir)
+    assign("log.dpc.phi.bym", log.dpc.phi.bym, envir = envir)
+    assign("cache.done", TRUE, envir = envir)
+  }
+  
+  #' Standard: mapping parameters from internal scale
+  interpret.theta <- function() {
+    #' Mixing parameter, defined on [0, 1]: expit transform
+    phi <-  1/(1 + exp(-theta[1L]))
+    #' Precision parameter, internally modelled on the log scale
+    tau <- exp(theta[2L])
+    return(list(phi = phi, tau = tau))
+  }
+  graph <- function() {
+    G <- kronecker(matrix(1, nrow = 2, ncol = 2), Matrix::Diagonal(nrow(W), 1) + W)
+    return(G)
+  }
+  #' Precision matrix. I use the BYM2 parametrisation
+  #' to have sparse precision. 
+  #' Problem: Riebler et al. define a random vector of size 2n,
+  #' i.e. (z' u')', where z is the overall effect and u is the ICAR component
+  Q <- function() {
+    param <- interpret.theta()
+    #' Blocks of the sparse precision matrix, as in Riebler et al. (2016)
+    Q11 <-  param$tau/(1-param$phi) * Matrix::Diagonal(n=nrow(W), x=1)
+    Q12 <- - sqrt(param$phi * param$tau)/(1 - param$phi) * Matrix::Diagonal(n = nrow(W), x = 1)
+    Q21 <- Q12
+    Q22 <- L + (param$phi/(1-param$phi))*Matrix::Diagonal(n=nrow(W), x=1)
+    #' Structure matrix. Problem: it is of size 2n * 2n
+    Q <- rbind(cbind(Q11, Q12), cbind(Q21, Q22))
+    return(Q)
+  }
+  mu <- function() {
+    return(numeric(0))
+  }
+  log.norm.const <- function() {
+    val <- numeric(0)
+    return(val)
+  }
+  log.prior <- function() {
+    param <- interpret.theta()
+    val <- log.dpc.phi.bym(param$phi) - theta[1L] - 2 * log(1 + exp(-theta[1L]))
+    #val <- dnorm(theta[1L], mean = 0.5, sd = sqrt(2), log = TRUE)
+    #' PC prior on precision; term +theta[2L] needed for change of variable
+    val <- val + INLA::inla.pc.dprec(prec = param$tau, lambda = 1, log = TRUE) + theta[2L]
+    return(val)
+  }
+  #' As in the built-in model
+  initial <- function() {
+    return(c(-3, 4))
+  }
+  quit <- function() {
+    return(invisible())
+  }
+  #' Initialise hyperparameters
+  if (as.integer(R.version$major) > 3) {
+    if (!length(theta)) 
+      theta <- initial()
+  }
+  else {
+    if (is.null(theta)) {
+      theta <- initial()
+    }
+  }
+  val <- do.call(match.arg(cmd), args = list())
+  return(val)
+}
+BYM.sparse <- function(...) INLA::inla.rgeneric.define(inla.rgeneric.BYM.sparse, ...)
+
+#' built-in version
+cav_bym_INLA <- inla(N_ACC ~ 1 +TEP_th_22 + ELI + PGR + UIS + ELL + PDI + ER +
+                       f(ID, model = "bym2", graph = W_con,  scale.model = T, 
+                         hyper = list(prec = list(prior = "pc.prec", param = c(1.5, 0.01)))),
+                     family = "poisson", offset = log(nn), data =dd_con,
+                     num.threads = 1, control.compute = 
+                       list(internal.opt = F, cpo = T, waic = T), 
+                     #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
+                     control.predictor = list(compute = T),
+                     verbose = T) 
+
+
+# PCAR model
+cav_bym_INLA_man <- inla(N_ACC ~ 1 +TEP_th_22 + ELI + PGR + UIS + ELL + PDI + ER +
+                        f(ID, model = BYM.sparse(W = W_con),
+                          extraconstr = list(A = cbind(
+                            matrix(0, nrow = 1, ncol = nrow(W_con)),
+                            matrix(1, nrow = 1, ncol = nrow(W_con))), e = 0),
+                          A.local = rbind(Matrix::Diagonal(n, 1), matrix(0, nrow = n, ncol = n))),
+                      family = "poisson", offset = log(nn), data =dd_con,
+                      num.threads = 1, control.compute = 
+                        list(internal.opt = F, cpo = T, waic = T), 
+                      #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy  = "grid"),
+                      control.predictor = list(compute = T),
+                      verbose = T) 
+
+plot( as.vector(cav_bym_INLA_man$summary.linear.predictor$mean) - 
+  as.vector(cav_bym_INLA_man$model.matrix %*% cav_bym_INLA_man$summary.fixed$mean + 
+            cav_bym_INLA_man$summary.random$ID$mean[c(1:n)] +
+            cav_bym_INLA_man$offset.linear.predictor),
+  as.vector(cav_bym_INLA_man$summary.random$ID$mean[-c(1:n)]) )
+
+# BYM model
+# better
+
 ## Spatial pogit regression: INLABRU -------------------------------------------
 
 #' Coding strictly follows the work of Wøllo (2022)
 #' See: https://github.com/saraew/Prosjektoppgave
 
+#' For later; regarding under-reporting, try 
+#' browsing this webpage: https://www.istat.it/comunicato-stampa/le-case-rifugio-e-le-strutture-residenziali-non-specializzate-per-le-vittime-di-violenza-anno-2023/
 library(inlabru)
 logexpit <- function(v1, v2, beta0, beta1, beta2){
   pred = beta0 + beta1 * v1 + beta2 * v2
