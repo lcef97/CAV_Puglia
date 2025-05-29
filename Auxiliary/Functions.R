@@ -1,6 +1,6 @@
-#'  
-#'  --  Auxiliary functions --
-#'  
+#'  ---------------------------------------------------------------------------#
+#'                          Auxiliary functions                                #
+#'  ---------------------------------------------------------------------------#
 # #'  PC-prior for multivariate BYM model --------------------------------------
 #'
 #' Multivariate extension of the PC-prior on the
