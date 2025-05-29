@@ -42,7 +42,7 @@ inla.pc.mbym.phi <- function(phi, invL, M, alpha = 2/3, U = 1/2){
     }
     derivative <- 1/2 * sum(-gammas[[j]]/(1+phi[j]*gammas[[j]]) + gammas[[j]])
     rate <- -1/KLD(U, eigenvalues = gammas[[j]]) * log(1 - alpha)
-    log.p[j] <- dexp(x=sqrt(2*KLD), rate = rate, log = T) +
+    log.p[j] <- dexp(x=sqrt(2*KLD), rate = rate, log = T) -log(2) +
       log(1/2*sqrt(KLD)) + log(abs(derivative))
   }
   return(sum(log.p))
