@@ -172,7 +172,7 @@ ggy23 <- ggplot2::ggplot() +
 
 gridExtra::grid.arrange(ggy21, ggy22, ggy23, nrow = 3, ncol = 1)
 
-
+source("Auxiliary/Functions.R")
 
 
 #'  ## Mapping municipalities from support centers ----------------------------#
@@ -1532,12 +1532,12 @@ rho_summary_pcar <- data.frame(do.call(rbind, lapply(
 
 inla.PMMCAR.bigDM <- function(...) INLA::inla.rgeneric.define(bigDM::Mmodel_pcar, ... )
 
-cav_PMMCAR_bigDM <- inla(
+cav_PMMCAR_bigDM_panel <- inla(
   N_ACC ~ 1 +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
-    f(ID, model = inla.PMMCAR.bigDM(J = 3, W = W_con,  alpha.min = 0,alpha.max = 1,
+    f(ID_ym, model = inla.PMMCAR.bigDM(J = 3, W = W_con,  alpha.min = 0,alpha.max = 1,
                                     initial.values = rep(0, 6))),
   offset = log(nn),
-  family = rep("poisson", 3), data =dd_list,
+  family = "poisson", data =dd_long,
   #control.fixed = list(prec = list(Intercept1 = 0, Intercept2 = 0, Intercept3 = 0)),
   #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
   num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
@@ -1546,145 +1546,6 @@ cav_PMMCAR_bigDM <- inla(
 
 #' More general version covering also LCAR and sparse BYM:
 
-inla.rgeneric.Mmodel <- 
-  function (cmd = c("graph", "Q", "mu", "initial", "log.norm.const", 
-                    "log.prior", "quit"), theta = NULL) {
-    envir <- parent.env(environment())
-    if(!exists("cache.done", envir=envir)){
-      starttime.scale <- Sys.time()
-      if(Qmod == "BYM"){
-        #' Unscaled Laplacian matrix (marginal precision of u_1, u_2 ... u_k)
-        L_unscaled <- Matrix::Diagonal(nrow(W), rowSums(W)) -  W
-        L_unscaled_block <- kronecker(diag(1,k), L_unscaled)
-        A_constr <- t(pracma::nullspace(as.matrix(L_unscaled_block)))
-        scaleQ <- INLA:::inla.scale.model.internal(
-          L_unscaled_block, constr = list(A = A_constr, e = rep(0, nrow(A_constr))))
-        #' Block Laplacian, i.e. precision of U = I_k \otimes L
-        n <- nrow(W)
-        L <- scaleQ$Q[c(1:n), c(1:n)]
-        Sigma.u <- MASS::ginv(as.matrix(L))
-        endtime.scale <- Sys.time()
-        cat("Time needed for scaling Laplacian matrix: ",
-            round(difftime(endtime.scale, starttime.scale), 3), " seconds \n")
-        assign("Sigma.u", Sigma.u, envir = envir)
-      }
-      assign("cache.done", TRUE, envir = envir)
-    }
-    if(!exists("Bartlett", envir = envir)){
-      assign("Bartlett", FALSE, envir = envir)
-    }
-    interpret.theta <- function() {
-      alpha <- 1/(1 + exp(-theta[as.integer(1:k)]))
-      if(!Bartlett){
-        #' No Bartlett decomposition ==> M is modelled directly 
-        #' AND the function employs k^2 parameters, i.e. the 
-        #' entries of M
-        M <- matrix(theta[-as.integer(1:k)], ncol = k)
-      } else{
-        #' Bartlett decomposition ==> First define Sigma, 
-        #' then use its eigendecomposition to define M ==> 
-        #' ==> the function employs k(k+1)/2 parameters, 
-        #' i.e. lower-triangular factor in the Bartlett decomposition indeed.
-        diag.N <- sapply(theta[as.integer(k + 1:k)], function(x) {
-          exp(x)
-        })
-        no.diag.N <- theta[as.integer(2 * k + 1:(k * (k - 1)/2))]
-        N <- diag(diag.N, k)
-        N[lower.tri(N, diag = FALSE)] <- no.diag.N
-        Sigma <- N %*% t(N)
-        e <- eigen(Sigma)
-        M <- t(e$vectors %*% diag(sqrt(e$values)))
-      }
-      return(list(alpha = alpha, M = M))
-    }
-    graph <- function() {
-      MI <- kronecker(Matrix::Matrix(1, ncol = k, nrow = k), 
-                      Matrix::Diagonal(nrow(W), 1))
-      IW <- Matrix::Diagonal(nrow(W), 1) + W
-      BlockIW <- Matrix::bdiag(replicate(k, IW, simplify = FALSE))
-      G <- (MI %*% BlockIW) %*% MI
-      return(G)
-    }
-    Q <- function() {
-      param <- interpret.theta()
-      M.inv <- solve(param$M)
-      MI <- kronecker(M.inv, Matrix::Diagonal(nrow(W), 1))
-      D <- as.vector(apply(W, 1, sum))
-      if(Qmod == "LCAR"){
-        BlockIW <- Matrix::bdiag(lapply(1:k, function(i) {
-          param$alpha[i]*(Matrix::Diagonal(x = D) - W) + 
-            (1 - param$alpha[i]) * Matrix::Diagonal(nrow(W), 1)
-        }))
-      } else if (Qmod == "BYM"){
-        BlockIW <- Matrix::bdiag(lapply(1:k, function(i) {
-          solve(param$alpha[i]*Sigma.u + 
-                  (1-param$alpha[i])*Matrix::Diagonal(nrow(W), 1))
-        }))
-      } else if(Qmod == "PCAR"){
-        BlockIW <- Matrix::bdiag(lapply(1:k, function(i) {
-          Matrix::Diagonal(x = D) - param$alpha[i] * W
-        }))
-      }
-      
-      Q <- (MI %*% BlockIW) %*% kronecker(t(M.inv), Matrix::Diagonal(nrow(W),  1))
-      
-      
-      
-      return(Q)
-    }
-    mu <- function() {
-      return(numeric(0))
-    }
-    log.norm.const <- function() {
-      val <- numeric(0)
-      return(val)
-    }
-    log.prior <- function() {
-      param <- interpret.theta()
-      val <- sum(-theta[as.integer(1:k)] - 2 * log(1 + exp(-theta[as.integer(1:k)])))
-      if(!Bartlett){
-        #' Direct parametrisation ==> Wishart prior
-        #' directly assigned to Sigma
-        sigma2 <- 1 
-        val = val + log(MCMCpack::dwish(W = crossprod(param$M), 
-                                        v = k, S = diag(rep(sigma2, k))))
-      } else {
-        #' Diagonal entries of the lower-triangular
-        #' factor of Sigma: Chi-squared prior
-        val <- val + k * log(2) + 2 * sum(theta[k + 1:k]) + 
-          sum(dchisq(exp(2 * theta[k + 1:k]), df = (k + 2) - 
-                       1:k + 1, log = TRUE))
-        #' Off-diagonal entries of the factor:
-        #' Normal prior
-        val <- val + sum(dnorm(theta[as.integer((2 * k) + 1:(k *  (k - 1)/2))],
-                               mean = 0, sd = 1, log = TRUE))
-      }
-      
-      return(val)
-    }
-    initial <- function() {
-      if(!Bartlett){
-        return(c(rep(0, k), as.vector(diag(rep(1, k)))))
-      } else{
-        return(c(rep(0, k * (k+3)/2)) )
-      }
-    }
-    quit <- function() {
-      return(invisible())
-    }
-    if (as.integer(R.version$major) > 3) {
-      if (!length(theta)) 
-        theta = initial()
-    }
-    else {
-      if (is.null(theta)) {
-        theta <- initial()
-      }
-    }
-    val <- do.call(match.arg(cmd), args = list())
-    return(val)
-  }
-inla.Mmodel <- function (...)    INLA::inla.rgeneric.define(inla.rgeneric.Mmodel, ...)
 
 
 cav_MmodPCAR_inla <- inla(
@@ -1697,11 +1558,12 @@ cav_MmodPCAR_inla <- inla(
   num.threads = 1, control.compute = list(internal.opt = F, cpo = T,  waic = T, config = T, dic = TRUE), 
   verbose = T)
 
+
 cav_MmodPCAR_inla_panel <- inla(
   N_ACC ~ 1 +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
-    f(ID, model = inla.Mmodel(k = 3, W = W_con, Qmod = "PCAR")),
+    f(ID_ym, model = inla.Mmodel(k = 3, W = W_con, Qmod = "PCAR")),
   offset = log(nn),
-  family = rep("poisson", 3), data =dd_list,
+  family = "poisson", data =dd_long,
   #control.fixed = list(prec = list(Intercept1 = 0, Intercept2 = 0, Intercept3 = 0)),
   #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
   num.threads = 1, control.compute = list(internal.opt = F, cpo = T,  waic = T, config = T), 
@@ -1752,6 +1614,24 @@ cav_MmodBYM_inla_panel <- inla(
   #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
   num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
   verbose = T)
+
+
+
+source("Auxiliary/Functions.R")
+cav_MmodBYM_inla_dense <- inla(
+  N_ACC ~ 0 +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(Year, model = "iid", hyper = list(prec = list(initial = 1e-3, fixed = TRUE))) +
+    f(ID_ym, model = inla.MMBYM.model(k = 3, W = W_con, sparse =F, PC= F),
+      extraconstr = list(A = A_constr, e = rep(0, 3))),
+  offset = log(nn),
+  family = "poisson", data =dd_long,
+  #control.fixed = list(prec = list(Intercept1 = 0, Intercept2 = 0, Intercept3 = 0)),
+  #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  verbose = T)
+
+
+
 
 
 

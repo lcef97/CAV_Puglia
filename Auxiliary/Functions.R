@@ -43,12 +43,12 @@ inla.pc.mbym.phi <- function(phi, invL, M, alpha = 2/3, U = 1/2){
     derivative <- 1/2 * sum(-gammas[[j]]/(1+phi[j]*gammas[[j]]) + gammas[[j]])
     rate <- -1/KLD(U, eigenvalues = gammas[[j]]) * log(1 - alpha)
     log.p[j] <- dexp(x=sqrt(2*KLD), rate = rate, log = T) -log(2) +
-      log(1/2*sqrt(KLD)) + log(abs(derivative))
+      log(1/sqrt(2*KLD)) + log(abs(derivative))
   }
   return(sum(log.p))
 }
 
-# #' INLA code for M-model extension of the BYM --------------------------------
+# #'  INLA code for M-model extension of the BYM --------------------------------
 #'
 #' General function to implement the M-model extension of the BYM.
 #' Allows for either uniform or PC-prior on the mixing parameter.
@@ -180,3 +180,144 @@ inla.rgeneric.Mmodel.BYM <-
     val <- do.call(match.arg(cmd), args = list())
     return(val)
   }
+
+# #'  OLD: INLA code for general M-models - not includes sparse BYM/PC-prior----
+inla.rgeneric.Mmodel <- 
+  function (cmd = c("graph", "Q", "mu", "initial", "log.norm.const", 
+                    "log.prior", "quit"), theta = NULL) {
+    envir <- parent.env(environment())
+    if(!exists("cache.done", envir=envir)){
+      starttime.scale <- Sys.time()
+      if(Qmod == "BYM"){
+        #' Unscaled Laplacian matrix (marginal precision of u_1, u_2 ... u_k)
+        L_unscaled <- Matrix::Diagonal(nrow(W), rowSums(W)) -  W
+        L_unscaled_block <- kronecker(diag(1,k), L_unscaled)
+        A_constr <- t(pracma::nullspace(as.matrix(L_unscaled_block)))
+        scaleQ <- INLA:::inla.scale.model.internal(
+          L_unscaled_block, constr = list(A = A_constr, e = rep(0, nrow(A_constr))))
+        #' Block Laplacian, i.e. precision of U = I_k \otimes L
+        n <- nrow(W)
+        L <- scaleQ$Q[c(1:n), c(1:n)]
+        Sigma.u <- MASS::ginv(as.matrix(L))
+        endtime.scale <- Sys.time()
+        cat("Time needed for scaling Laplacian matrix: ",
+            round(difftime(endtime.scale, starttime.scale), 3), " seconds \n")
+        assign("Sigma.u", Sigma.u, envir = envir)
+      }
+      assign("cache.done", TRUE, envir = envir)
+    }
+    if(!exists("Bartlett", envir = envir)){
+      assign("Bartlett", FALSE, envir = envir)
+    }
+    interpret.theta <- function() {
+      alpha <- 1/(1 + exp(-theta[as.integer(1:k)]))
+      if(!Bartlett){
+        #' No Bartlett decomposition ==> M is modelled directly 
+        #' AND the function employs k^2 parameters, i.e. the 
+        #' entries of M
+        M <- matrix(theta[-as.integer(1:k)], ncol = k)
+      } else{
+        #' Bartlett decomposition ==> First define Sigma, 
+        #' then use its eigendecomposition to define M ==> 
+        #' ==> the function employs k(k+1)/2 parameters, 
+        #' i.e. lower-triangular factor in the Bartlett decomposition indeed.
+        diag.N <- sapply(theta[as.integer(k + 1:k)], function(x) {
+          exp(x)
+        })
+        no.diag.N <- theta[as.integer(2 * k + 1:(k * (k - 1)/2))]
+        N <- diag(diag.N, k)
+        N[lower.tri(N, diag = FALSE)] <- no.diag.N
+        Sigma <- N %*% t(N)
+        e <- eigen(Sigma)
+        M <- t(e$vectors %*% diag(sqrt(e$values)))
+      }
+      return(list(alpha = alpha, M = M))
+    }
+    graph <- function() {
+      MI <- kronecker(Matrix::Matrix(1, ncol = k, nrow = k), 
+                      Matrix::Diagonal(nrow(W), 1))
+      IW <- Matrix::Diagonal(nrow(W), 1) + W
+      BlockIW <- Matrix::bdiag(replicate(k, IW, simplify = FALSE))
+      G <- (MI %*% BlockIW) %*% MI
+      return(G)
+    }
+    Q <- function() {
+      param <- interpret.theta()
+      M.inv <- solve(param$M)
+      MI <- kronecker(M.inv, Matrix::Diagonal(nrow(W), 1))
+      D <- as.vector(apply(W, 1, sum))
+      if(Qmod == "LCAR"){
+        BlockIW <- Matrix::bdiag(lapply(1:k, function(i) {
+          param$alpha[i]*(Matrix::Diagonal(x = D) - W) + 
+            (1 - param$alpha[i]) * Matrix::Diagonal(nrow(W), 1)
+        }))
+      } else if (Qmod == "BYM"){
+        BlockIW <- Matrix::bdiag(lapply(1:k, function(i) {
+          solve(param$alpha[i]*Sigma.u + 
+                  (1-param$alpha[i])*Matrix::Diagonal(nrow(W), 1))
+        }))
+      } else if(Qmod == "PCAR"){
+        BlockIW <- Matrix::bdiag(lapply(1:k, function(i) {
+          Matrix::Diagonal(x = D) - param$alpha[i] * W
+        }))
+      }
+      
+      Q <- (MI %*% BlockIW) %*% kronecker(t(M.inv), Matrix::Diagonal(nrow(W),  1))
+      
+      
+      
+      return(Q)
+    }
+    mu <- function() {
+      return(numeric(0))
+    }
+    log.norm.const <- function() {
+      val <- numeric(0)
+      return(val)
+    }
+    log.prior <- function() {
+      param <- interpret.theta()
+      val <- sum(-theta[as.integer(1:k)] - 2 * log(1 + exp(-theta[as.integer(1:k)])))
+      if(!Bartlett){
+        #' Direct parametrisation ==> Wishart prior
+        #' directly assigned to Sigma
+        sigma2 <- 1 
+        val = val + log(MCMCpack::dwish(W = crossprod(param$M), 
+                                        v = k, S = diag(rep(sigma2, k))))
+      } else {
+        #' Diagonal entries of the lower-triangular
+        #' factor of Sigma: Chi-squared prior
+        val <- val + k * log(2) + 2 * sum(theta[k + 1:k]) + 
+          sum(dchisq(exp(2 * theta[k + 1:k]), df = (k + 2) - 
+                       1:k + 1, log = TRUE))
+        #' Off-diagonal entries of the factor:
+        #' Normal prior
+        val <- val + sum(dnorm(theta[as.integer((2 * k) + 1:(k *  (k - 1)/2))],
+                               mean = 0, sd = 1, log = TRUE))
+      }
+      
+      return(val)
+    }
+    initial <- function() {
+      if(!Bartlett){
+        return(c(rep(0, k), as.vector(diag(rep(1, k)))))
+      } else{
+        return(c(rep(0, k * (k+3)/2)) )
+      }
+    }
+    quit <- function() {
+      return(invisible())
+    }
+    if (as.integer(R.version$major) > 3) {
+      if (!length(theta)) 
+        theta = initial()
+    }
+    else {
+      if (is.null(theta)) {
+        theta <- initial()
+      }
+    }
+    val <- do.call(match.arg(cmd), args = list())
+    return(val)
+  }
+inla.Mmodel <- function (...)    INLA::inla.rgeneric.define(inla.rgeneric.Mmodel, ...)

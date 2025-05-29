@@ -13,3 +13,4 @@ Ongoing analysis. This is a working paper studying the accesses to support cente
       Ongoing, I still have to implement M-models and some Poisson - Logistic regression. 
       More complex models with time - varying regression coefficients are tested in the `R` script but due to higher complexity yielding no fitting improvement they have been superseded and are not referred to in the report.
   - inputs and metadata: all data this analysis is based on. Some datasets are derived by aggregation of sensible data, which we should not make publicly available
+  - Auxiliary R functions, kept [in this repository](https://github.com/lcef97/CAV_Puglia/tree/main/Auxiliary) which may become bigger and clumsier as time goes on, but all that code needs a place to be stored!
