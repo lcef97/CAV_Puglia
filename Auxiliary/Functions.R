@@ -69,7 +69,6 @@ inla.rgeneric.Mmodel.BYM <-
       scaleQ <- INLA:::inla.scale.model.internal(
         L_unscaled,  constr = 
           list(A = constr$constr$A, e = constr$constr$e))
-      n <- nrow(W)
       L <- scaleQ$Q
       invL <- MASS::ginv(as.matrix(L))
       endtime.scale <- Sys.time()
@@ -92,18 +91,11 @@ inla.rgeneric.Mmodel.BYM <-
       N[lower.tri(N, diag = FALSE)] <- no.diag.N
       Sigma <- N %*% t(N)
       e <- eigen(Sigma)
-      M <- t(e$vectors %*% diag(sqrt(e$values)))
+      M <- t(e$vectors) %*% diag(sqrt(e$values))
       return(list(phi = phi, M = M))
     }
     graph <- function() {
-      MI <- kronecker(Matrix::Matrix(1, ncol = k, nrow = k), 
-                      Matrix::Diagonal(nrow(W), 1))
-      IW <- Matrix::Diagonal(nrow(W), 1) + W
-      BlockIW <- Matrix::bdiag(replicate(k, IW, simplify = FALSE))
-      G <- (MI %*% BlockIW) %*% MI
-      if(sparse){
-        G <- kronecker(matrix(1, nrow=2, ncol=2), G)
-      }
+      G <- Q()
       return(G)
     }
     Q <- function() {
@@ -204,6 +196,8 @@ inla.rgeneric.Mmodel <-
             round(difftime(endtime.scale, starttime.scale), 3), " seconds \n")
         assign("Sigma.u", Sigma.u, envir = envir)
       }
+      D <- Matrix::Diagonal(n=nrow(W), x=rowSums(W))
+      assign("D", D, envir = envir)
       assign("cache.done", TRUE, envir = envir)
     }
     if(!exists("Bartlett", envir = envir)){
@@ -233,22 +227,14 @@ inla.rgeneric.Mmodel <-
       }
       return(list(alpha = alpha, M = M))
     }
-    graph <- function() {
-      MI <- kronecker(Matrix::Matrix(1, ncol = k, nrow = k), 
-                      Matrix::Diagonal(nrow(W), 1))
-      IW <- Matrix::Diagonal(nrow(W), 1) + W
-      BlockIW <- Matrix::bdiag(replicate(k, IW, simplify = FALSE))
-      G <- (MI %*% BlockIW) %*% MI
-      return(G)
-    }
+    graph <- function() { return(Q())}
     Q <- function() {
       param <- interpret.theta()
       M.inv <- solve(param$M)
       MI <- kronecker(M.inv, Matrix::Diagonal(nrow(W), 1))
-      D <- as.vector(apply(W, 1, sum))
       if(Qmod == "LCAR"){
         BlockIW <- Matrix::bdiag(lapply(1:k, function(i) {
-          param$alpha[i]*(Matrix::Diagonal(x = D) - W) + 
+          param$alpha[i]*(D - W) + 
             (1 - param$alpha[i]) * Matrix::Diagonal(nrow(W), 1)
         }))
       } else if (Qmod == "BYM"){
@@ -258,14 +244,10 @@ inla.rgeneric.Mmodel <-
         }))
       } else if(Qmod == "PCAR"){
         BlockIW <- Matrix::bdiag(lapply(1:k, function(i) {
-          Matrix::Diagonal(x = D) - param$alpha[i] * W
+          D - param$alpha[i] * W
         }))
       }
-      
-      Q <- (MI %*% BlockIW) %*% kronecker(t(M.inv), Matrix::Diagonal(nrow(W),  1))
-      
-      
-      
+      Q <- (MI %*% BlockIW) %*% Matrix::t(MI)
       return(Q)
     }
     mu <- function() {

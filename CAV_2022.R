@@ -182,7 +182,7 @@ nb_con <- spdep::poly2nb(dd_con)
 # neighbouring/adjacency matrix
 W_con <- spdep::nb2mat(nb_con, style = "B")
 rownames(W_con) <- colnames(W_con) <- dd_con$PRO_COM
-
+n <- nrow(W_con)
 #' Laplacian matrix:
 #' May be useful for spectral analysis. Or may be not.
 Lapl_con <- diag(rowSums(W_con)) - W_con
@@ -662,28 +662,43 @@ cav_bym_INLA <- inla(N_ACC ~ 1 +TEP_th_22 + ELI + PGR + UIS + ELL + PDI + ER +
                      verbose = T) 
 
 
-# PCAR model
+##' manually made BYM model
+
+constr <- INLA:::inla.bym.constr.internal(Lapl_con, adjust.for.con.comp = TRUE)
+constr.BYM <- list(A = cbind(Matrix::Matrix(0, nrow = nrow(constr$constr$A), ncol(constr$constr$A)),
+                             constr$constr$A),
+                   e = constr$constr$e)
+
 cav_bym_INLA_man <- inla(N_ACC ~ 1 +TEP_th_22 + ELI + PGR + UIS + ELL + PDI + ER +
                         f(ID, model = BYM.sparse(W = W_con),
-                          extraconstr = list(A = cbind(
-                            matrix(0, nrow = 1, ncol = nrow(W_con)),
-                            matrix(1, nrow = 1, ncol = nrow(W_con))), e = 0),
-                          A.local = rbind(Matrix::Diagonal(n, 1), matrix(0, nrow = n, ncol = n))),
+                          extraconstr = constr.BYM
+                          #, A.local = cbind(Matrix::Diagonal(n, 1), matrix(0, nrow = n, ncol = n))
+                          ),
                       family = "poisson", offset = log(nn), data =dd_con,
                       num.threads = 1, control.compute = 
                         list(internal.opt = F, cpo = T, waic = T), 
                       #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy  = "grid"),
                       control.predictor = list(compute = T),
                       verbose = T) 
+#' mixing: quite low
+inla.zmarginal(inla.tmarginal(function(X) {exp(X)/(1+exp(X))},
+                              marginal = cav_bym_INLA_man$marginals.hyperpar[[1]]))
 
-plot( as.vector(cav_bym_INLA_man$summary.linear.predictor$mean) - 
-  as.vector(cav_bym_INLA_man$model.matrix %*% cav_bym_INLA_man$summary.fixed$mean + 
-            cav_bym_INLA_man$summary.random$ID$mean[c(1:n)] +
-            cav_bym_INLA_man$offset.linear.predictor),
-  as.vector(cav_bym_INLA_man$summary.random$ID$mean[-c(1:n)]) )
 
-# BYM model
-# better
+#' precision (perhaps the variance is more interesting?)
+#' ... too high standard deviation, perhaps something went wrong.
+inla.zmarginal(inla.tmarginal(function(X) {exp(X) },
+                              marginal = cav_bym_INLA_man$marginals.hyperpar[[1]]))
+
+
+
+
+#plot( as.vector(cav_bym_INLA_man$summary.linear.predictor$mean) - 
+#  as.vector(cav_bym_INLA_man$model.matrix %*% cav_bym_INLA_man$summary.fixed$mean + 
+#            cav_bym_INLA_man$summary.random$ID$mean[c(1:n)] +
+#            cav_bym_INLA_man$offset.linear.predictor),
+#  as.vector(cav_bym_INLA_man$summary.random$ID$mean[-c(1:n)]) )
+
 
 ## Spatial pogit regression: INLABRU -------------------------------------------
 

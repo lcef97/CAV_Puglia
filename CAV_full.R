@@ -484,7 +484,7 @@ cav_nosp_inla_panel <- inla(
 
 
 #' Complex model: time-varying covariate effects
-cav_IMCAR_inla <- inla(
+cav_IMCAR_inla_multiv <- inla(
   N_ACC ~ 0 + Intercept + TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
     f(ID, model = inla.IMCAR.model(k = 3, W = W_con), extraconstr = list(
       A = A_constr, e = c(0,0,0))),
@@ -495,7 +495,7 @@ cav_IMCAR_inla <- inla(
   verbose = T)
 
 #' Compare to simpler model
-cav_IMCAR_inla_panel <- inla(
+cav_IMCAR_inla <- inla(
   N_ACC ~ 0 +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
     f(Year, model = "iid", hyper = list(prec = list(initial = 1e-3, fixed = TRUE))) +
     f(ID_ym, model = inla.IMCAR.model(k = 3, W = W_con), extraconstr = list(
@@ -507,18 +507,8 @@ cav_IMCAR_inla_panel <- inla(
   verbose = T)
 
 
-cav_INDPMCAR_inla <- inla(
-  N_ACC ~ 0 + 1 +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
-    f(ID, model = inla.INDMCAR.model(k = 3, W = W_con,  alpha.min = 0,alpha.max = 1)),
-  offset = log(nn),
-  family = rep("poisson", 3), data =dd_list,
-  #control.fixed = list(prec = list(Intercept1 = 0, Intercept2 = 0, Intercept3 = 0)),
-  #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
-  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
-  verbose = T)
 
-
-cav_PMCAR_inla <- inla(
+cav_PMCAR_inla_multiv <- inla(
   N_ACC ~ 1 +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
     f(ID, model = inla.MCAR.model(k = 3, W = W_con,  alpha.min = 0,alpha.max = 1)),
   offset = log(nn),
@@ -528,7 +518,7 @@ cav_PMCAR_inla <- inla(
   num.threads = 1, control.compute = list(internal.opt = F, cpo = T,  waic = T, config = T, dic = T), 
   verbose = T)
 
-cav_PMCAR_inla_panel <- inla(
+cav_PMCAR_inla <- inla(
   N_ACC ~ 1 +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
     f(ID_ym, model = inla.MCAR.model(k = 3, W = W_con, alpha.min = 0, alpha.max = 1)),
   offset = log(nn),
@@ -647,7 +637,7 @@ inla.rgeneric.MLCAR.model <-
 
 inla.MLCAR.model <- function(...) INLA::inla.rgeneric.define(inla.rgeneric.MLCAR.model, ...)
 
-cav_MLCAR_inla <- inla(
+cav_MLCAR_inla_multiv <- inla(
   N_ACC ~ 1 +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
     f(ID, model = inla.MLCAR.model(k = 3, W = W_con, init = NULL)),
   offset = log(nn),
@@ -657,7 +647,7 @@ cav_MLCAR_inla <- inla(
   num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T, dic = T), 
   verbose = T)
 
-cav_MLCAR_inla_panel <- inla(
+cav_MLCAR_inla <- inla(
   N_ACC ~ 1 +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
     f(ID_ym, model = inla.MLCAR.model(k = 3, W = W_con, init = NULL)),
   offset = log(nn),
@@ -671,9 +661,9 @@ cav_MLCAR_inla_panel <- inla(
 #' Allow to set initial values
 cav_MLCAR_inla_init <- inla(
   N_ACC ~ 1 +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
-    f(ID, model = inla.MLCAR.model(k = 3, W = W_con, init = c(-3, rep(0,6)))),
+    f(ID_ym, model = inla.MLCAR.model(k = 3, W = W_con, init = c(-3, rep(0,6)))),
   offset = log(nn),
-  family = rep("poisson", 3), data =dd_list,
+  family = "poisson", data =dd_long,
   #control.fixed = list(prec = list(Intercept1 = 0, Intercept2 = 0, Intercept3 = 0)),
   #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
   num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
@@ -1015,13 +1005,13 @@ inla.MBYM.sparse <- function(...) INLA::inla.rgeneric.define(inla.rgeneric.MBYM.
 #' can make this already slow model even slower; still, we want to rule out overestimation.
 
 cav_MBYM_inla <- inla(
-  N_ACC ~ 0 + Intercept +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
-    f(ID, model = inla.MBYM.dense(k = 3, W = W_con, 
+  N_ACC ~ 1 +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID_ym, model = inla.MBYM.dense(k = 3, W = W_con, 
                                   PC = FALSE)#,
       #extraconstr = list(A = A_constr, e = rep(0, 3))
       ) ,
   offset = log(nn),
-  family = rep("poisson", 3), data =dd_list,
+  family = "poisson", data =dd_long,
   #control.fixed = list(prec = list(Intercept1 = 0, Intercept2 = 0, Intercept3 = 0)),
   #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
   num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
@@ -1047,13 +1037,14 @@ cav_MBYM_inla_panel <- inla(
 #' Weird results, needs to be checked. 
 #' Still, it's fast!
 cav_MBYM_inla_sparse <- inla(
-  N_ACC ~ 0 + Intercept +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
-    f(ID, model = inla.MBYM.sparse(k = 3, W = W_con, 
+  N_ACC ~ 0  +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(Year, model = "iid", hyper = list(prec = list(initial = 1e-3, fixed = TRUE))) +
+    f(ID_ym, model = inla.MBYM.sparse(k = 3, W = W_con, 
                                    PC = FALSE),
       extraconstr = list(A = kronecker(diag(1,2), A_constr), e = rep(0, 6)),
-      values = dd_list$ID2 ) ,
+      values = c(1:(2*nrow(dd_long))) ) ,
   offset = log(nn),
-  family = rep("poisson", 3), data =dd_list,
+  family = "poisson", data =dd_long,
   #control.fixed = list(prec = list(Intercept1 = 0, Intercept2 = 0, Intercept3 = 0)),
   #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
   num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
@@ -1440,10 +1431,10 @@ X.bru <- as.matrix(X.bru)
 #' matching latest R versions, in which dependencies must always be recalled through the namespace
 
 
-inla.Mmodel.man <- function(...) INLA::inla.rgeneric.define(inla.rgeneric.Mmodel.man, ...)
+inlamsm.Mmodel  <- function(...) INLA::inla.rgeneric.define(inlamsm.rgeneric.Mmodel, ...)
 
 
-inla.rgeneric.Mmodel.man <- function (cmd = c("graph", "Q", "mu", "initial", "log.norm.const", 
+inlamsm.rgeneric.Mmodel <- function (cmd = c("graph", "Q", "mu", "initial", "log.norm.const", 
                                               "log.prior", "quit"), theta = NULL) {
   interpret.theta <- function() {
     alpha <- alpha.min + (alpha.max - alpha.min)/(1 + exp(-theta[as.integer(1:k)]))
@@ -1504,23 +1495,20 @@ inla.rgeneric.Mmodel.man <- function (cmd = c("graph", "Q", "mu", "initial", "lo
   return(val)
 }
 
-
-cav_PMMCAR_inla <- inla(
+cav_PMMCAR_inlamsm <- inla(
   N_ACC ~ 1 +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
-    f(ID, model = inla.Mmodel.man(k = 3, W = W_con,  alpha.min = 0,alpha.max = 1)),
+    f(ID_ym, model = inlamsm.Mmodel(k = 3, W = W_con,  alpha.min = 0,alpha.max = 1)),
   offset = log(nn),
-  family = rep("poisson", 3), data =dd_list,
+  family = "poisson", data =dd_long,
   #control.fixed = list(prec = list(Intercept1 = 0, Intercept2 = 0, Intercept3 = 0)),
   #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
   num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
   verbose = T)
 
-rho_marg_pcar <- lapply(cav_PMMCAR_inla$marginals.hyperpar[c(1,2,3)], function(f){
-  inla.tmarginal(fun = function(X) 1/(1 + exp(-X)), marginal = f)
-})
-
-rho_summary_pcar <- data.frame(do.call(rbind, lapply(
-  rho_marg_pcar, function(x) unlist(inla.zmarginal(x, silent = TRUE))))) %>% 
+data.frame(do.call(rbind, lapply(
+  lapply(cav_PMMCAR_inlamsm$marginals.hyperpar[c(1,2,3)], function(f){
+    inla.tmarginal(fun = function(X) 1/(1 + exp(-X)), marginal = f)
+  }), function(x) unlist(inla.zmarginal(x, silent = TRUE))))) %>% 
   dplyr::select(1,2,3,5,7)
 
 #' This looks very different from the factorisable PCAR. 
@@ -1531,8 +1519,9 @@ rho_summary_pcar <- data.frame(do.call(rbind, lapply(
 #' M-model defined using the bidDM package
 
 inla.PMMCAR.bigDM <- function(...) INLA::inla.rgeneric.define(bigDM::Mmodel_pcar, ... )
-
-cav_PMMCAR_bigDM_panel <- inla(
+inla.LMMCAR.bigDM <- function(...) INLA::inla.rgeneric.define(bigDM::Mmodel_lcar, ... )
+ 
+cav_PMMCAR_bigDM <- inla(
   N_ACC ~ 1 +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
     f(ID_ym, model = inla.PMMCAR.bigDM(J = 3, W = W_con,  alpha.min = 0,alpha.max = 1,
                                     initial.values = rep(0, 6))),
@@ -1545,29 +1534,15 @@ cav_PMMCAR_bigDM_panel <- inla(
 
 
 #' More general version covering also LCAR and sparse BYM:
-
-
-
-cav_MmodPCAR_inla <- inla(
-  N_ACC ~ 1 +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
-    f(ID, model = inla.Mmodel(k = 3, W = W_con, Qmod = "PCAR")),
-  offset = log(nn),
-  family = rep("poisson", 3), data =dd_list,
-  #control.fixed = list(prec = list(Intercept1 = 0, Intercept2 = 0, Intercept3 = 0)),
-  #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
-  num.threads = 1, control.compute = list(internal.opt = F, cpo = T,  waic = T, config = T, dic = TRUE), 
-  verbose = T)
-
-
-cav_MmodPCAR_inla_panel <- inla(
-  N_ACC ~ 1 +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
-    f(ID_ym, model = inla.Mmodel(k = 3, W = W_con, Qmod = "PCAR")),
-  offset = log(nn),
-  family = "poisson", data =dd_long,
-  #control.fixed = list(prec = list(Intercept1 = 0, Intercept2 = 0, Intercept3 = 0)),
-  #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
-  num.threads = 1, control.compute = list(internal.opt = F, cpo = T,  waic = T, config = T), 
-  verbose = T)
+#cav_MmodPCAR_inla_bigDM_copy <- inla(
+#  N_ACC ~ 1 +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+#    f(ID_ym, model = inla.Mmodel(k = 3, W = W_con, Qmod = "PCAR", Bartlett = TRUE)),
+#  offset = log(nn),
+#  family = "poisson", data =dd_long,
+#  #control.fixed = list(prec = list(Intercept1 = 0, Intercept2 = 0, Intercept3 = 0)),
+#  #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
+#  num.threads = 1, control.compute = list(internal.opt = F, cpo = T,  waic = T, config = T), 
+#  verbose = T)
 
 
 cav_MmodPCAR_inla_spatplus <- inla(
@@ -1580,49 +1555,49 @@ cav_MmodPCAR_inla_spatplus <- inla(
   num.threads = 1, control.compute = list(internal.opt = F, cpo = T,  waic = T, config = T), 
   verbose = T)
 
-cav_MmodLCAR_inla <- inla(
-  N_ACC ~ 1 +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
-    f(ID, model = inla.Mmodel(k = 3, W = W_con,  Qmod = "LCAR")),
-  offset = log(nn),
-  family = rep("poisson", 3), data =dd_list,
-  #control.fixed = list(prec = list(Intercept1 = 0, Intercept2 = 0, Intercept3 = 0)),
-  #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
-  num.threads = 1, control.compute = list(internal.opt = F, cpo = T,  waic = T, config = T), 
-  verbose = T)
+#cav_MmodLCAR_inla <- inla(
+#  N_ACC ~ 1 +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+#    f(ID, model = inla.Mmodel(k = 3, W = W_con,  Qmod = "LCAR")),
+#  offset = log(nn),
+#  family = rep("poisson", 3), data =dd_list,
+#  #control.fixed = list(prec = list(Intercept1 = 0, Intercept2 = 0, Intercept3 = 0)),
+#  #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
+#  num.threads = 1, control.compute = list(internal.opt = F, cpo = T,  waic = T, config = T), 
+#  verbose = T)
 
-cav_MmodBYM_inla <- inla(
-  N_ACC ~ 0 + Intercept + TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
-    f(ID, model = inla.Mmodel(k = 3, W = W_con, Qmod = "BYM"),
-      extraconstr = list(A = A_constr, e = rep(0, 3))),
-  offset = log(nn),
-  family = rep("poisson", 3), data =dd_list,
-  #control.fixed = list(prec = list(Intercept1 = 0, Intercept2 = 0, Intercept3 = 0)),
-  #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
-  num.threads = 1, control.compute = list(internal.opt = F, cpo = T,  waic = T, config = T), 
-  verbose = T)
-#' crashes and results have terrible metrics - waic 2914.96
+#cav_MmodBYM_inla <- inla(
+#  N_ACC ~ 0 + Intercept + TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+#    f(ID, model = inla.Mmodel(k = 3, W = W_con, Qmod = "BYM"),
+#      extraconstr = list(A = A_constr, e = rep(0, 3))),
+#  offset = log(nn),
+#  family = rep("poisson", 3), data =dd_list,
+#  #control.fixed = list(prec = list(Intercept1 = 0, Intercept2 = 0, Intercept3 = 0)),
+#  #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
+#  num.threads = 1, control.compute = list(internal.opt = F, cpo = T,  waic = T, config = T), 
+#  verbose = T)
+##' crashes and results have terrible metrics - waic 2914.96
 
 #' Extremely slow but at least it seems to work:
-cav_MmodBYM_inla_panel <- inla(
-  N_ACC ~ 0 +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
-    f(Year, model = "iid", hyper = list(prec = list(initial = 1e-3, fixed = TRUE))) +
-    f(ID_ym, model = inla.Mmodel(k = 3, W = W_con, Qmod = "BYM"),
-      extraconstr = list(A = A_constr, e = rep(0, 3))),
-  offset = log(nn),
-  family = "poisson", data =dd_long,
-  #control.fixed = list(prec = list(Intercept1 = 0, Intercept2 = 0, Intercept3 = 0)),
-  #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
-  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
-  verbose = T)
+#cav_MmodBYM_inla_panel <- inla(
+#  N_ACC ~ 0 +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+#    f(Year, model = "iid", hyper = list(prec = list(initial = 1e-3, fixed = TRUE))) +
+#    f(ID_ym, model = inla.Mmodel(k = 3, W = W_con, Qmod = "BYM"),
+#      extraconstr = list(A = A_constr, e = rep(0, 3))),
+#  offset = log(nn),
+#  family = "poisson", data =dd_long,
+#  #control.fixed = list(prec = list(Intercept1 = 0, Intercept2 = 0, Intercept3 = 0)),
+#  #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
+#  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+#  verbose = T)
 
 
 
 source("Auxiliary/Functions.R")
+
 cav_MmodBYM_inla_dense <- inla(
   N_ACC ~ 0 +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
     f(Year, model = "iid", hyper = list(prec = list(initial = 1e-3, fixed = TRUE))) +
-    f(ID_ym, model = inla.MMBYM.model(k = 3, W = W_con, sparse =F, PC= F),
-      extraconstr = list(A = A_constr, e = rep(0, 3))),
+    f(ID_ym, model = inla.MMBYM.model(k = 3, W = W_con, sparse =F, PC= F) ),
   offset = log(nn),
   family = "poisson", data =dd_long,
   #control.fixed = list(prec = list(Intercept1 = 0, Intercept2 = 0, Intercept3 = 0)),
@@ -1630,6 +1605,18 @@ cav_MmodBYM_inla_dense <- inla(
   num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
   verbose = T)
 
+cav_MmodBYM_inla_sparse <- inla(
+  N_ACC ~ 0 +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(Year, model = "iid", hyper = list(prec = list(initial = 1e-3, fixed = TRUE))) +
+    f(ID_ym, model = inla.MMBYM.model(k = 3, W = W_con, sparse =T, PC= F),
+      extraconstr = list(A = kronecker(diag(1,2), A_constr), e = rep(0, 6)),
+      values = dd_list$ID2 ),
+  offset = log(nn),
+  family = "poisson", data =dd_long,
+  #control.fixed = list(prec = list(Intercept1 = 0, Intercept2 = 0, Intercept3 = 0)),
+  #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  verbose = T)
 
 
 
