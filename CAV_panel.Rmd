@@ -1074,12 +1074,16 @@ Estimations of $\alpha$ differ slightly from the nonspatial model and credibilit
   - `ER`: The effect associated with employment rate is increased for 2021 data,  more than doubled for 2022 data, and slightly increased for 2023 data. How to interpret this finding? Employment rate is clearly an indicator of economic development, hence the easiest interpretation is that - as it was with `ELI` under the nonspatial model - in more developed areas there is a higher chance that gender violence is reported.
 
 
-We show the expected latent effects
+We show the expected latent effects:
+
+
 ```{r zhat mbym, echo = FALSE, message = FALSE, warning = FALSE, output = FALSE, fig.cap = "Estimated BYM latent effect"}
 
 zhat_plot(cav_MBYM_inla)
 
 ```
+
+
 As we can see, the behaviour of 2023 data is quite puzzling, since high values of the latent effect are observed in areas such as the Northern province of Foggia, which was previously characterised by low accesses.
 
 We additionally show the fitted values of the counts of accesses, rounded to the closest integer.
@@ -1128,7 +1132,11 @@ print(xtable::xtable(Sigma_diag_df, digits = 3), include.rowname = F)
 #print(Sigma)
 
 ```
+
+
 For more insight on the dependence structure between the three years, posterior summaries for correlations are shown in the following. In terms of point estimates, the only high correlation appears that of 2021-2022.
+
+
 ```{r covariances, message = FALSE, warning = FALSE, echo = FALSE, results = "asis"}
 
 covars_ls <- sapply(c(5, 6, 7), function(i){
@@ -1469,16 +1477,49 @@ alphas.MMBYM.inla   <- cav_MMBYM_bigDM$summary.random$Year %>%
 
 print(xtable::xtable(alphas.MMBYM.inla, digits = 3), include.rowname = FALSE)
 
+#clipr::write_clip(
+#  do.call(cbind, lapply(alphas.MMBYM.inla, function(x) {
+#  if(is.numeric(x)){
+#    format(x, decimal.mark = ",")
+#    } else x
+#  })))
+
+ 
+
 ```
 
 
+```{r  alphas MMBYM plot, echo = FALSE, fig.height = 3, fig.cap = "Posterior marginals of covariate effects, M-model BYM"}
+alphalimX <-range(do.call(c, lapply(cav_MMBYM_bigDM$marginals.fixed, FUN = function(x) x[,1])))
+alphalimY <-range(do.call(c, lapply(cav_MMBYM_bigDM$marginals.fixed, FUN = function(x) x[,2])))
 
-We show the expected latent effects
+alphamarg <- as.data.frame(do.call(cbind, cav_MMBYM_bigDM$marginals.fixed))
+names(alphamarg) <- paste0(rep(names(cav_MMBYM_bigDM$marginals.fixed),each=2), c("__X", "__Y"))
+
+
+alphamarg_long <- tidyr::pivot_longer( alphamarg, cols = c(1:14),
+                                       names_to = c("Effect", ".value"),# Split names into "parameter" and value column names
+                                       names_sep = "__")
+
+ggplot2::ggplot(alphamarg_long, ggplot2::aes(x = .data$X, y = .data$Y, color = .data$Effect)) +
+  ggplot2::geom_line(size = 0.7) +
+  ggplot2::geom_vline(xintercept = 0)+
+  ggplot2::coord_cartesian(xlim = alphalimX, ylim = alphalimY) +
+  ggplot2::labs(
+    title = "Posterior Marginals of covariates effects",
+    x = expression(alpha),
+    y = expression(pi(alpha ~ "|" ~ y)),
+    color = "Effect") +
+  ggplot2::theme_classic()
+```
+
+We then show the expected latent effects.
+
+
 ```{r zhat mmbym, echo = FALSE, message = FALSE, warning = FALSE, output = FALSE, fig.cap = "Estimated BYM latent effect using the M-model formulation"}
-
 zhat_plot(cav_MMBYM_bigDM)
-
 ```
+
 As we can see, the behaviour of 2023 data is quite puzzling, since high values of the latent effect are observed in areas such as the Northern province of Foggia, which was previously characterised by low accesses.
 
 We additionally show the fitted values of the counts of accesses, rounded to the closest integer.
@@ -1494,7 +1535,7 @@ yhat_plot(cav_MMBYM_bigDM)
 Lastly, we have a look at the autoregressive (PCAR) and mixing (LCAR, BYM) parameters.
 
 
-```{r mixing mmod summary,  fig.height = 3, fig.cap = "Posterior marginal of the LCAR mixing parameter"}
+```{r mixing mmod summary, echo = FALSE, results = "asis"}
 
 rho_marg_PMMCAR <- lapply(c(1,2,3), function(x){
   inla.tmarginal(fun = function(y) {1/(1 + exp(-y))},
@@ -1513,21 +1554,46 @@ phi_marg_MMBYM <- lapply(c(1,2,3), function(x){
 })
 
 # PCAR autoregressive
-sapply(c(1,2,3), function(x){
+rho_marg_PMMCAR_summary <- t(sapply(c(1,2,3), function(x){
   inla.zmarginal(rho_marg_PMMCAR[[x]], silent = T)
-})
+}))
 
-sapply(c(1,2,3), function(x){
+xi_marg_LMMCAR_summary <- t(sapply(c(1,2,3), function(x){
   inla.zmarginal(xi_marg_LMMCAR[[x]], silent = T)
-})
+}))
 
-sapply(c(1,2,3), function(x){
+phi_marg_MMBYM_summary <- t(sapply(c(1,2,3), function(x){
   inla.zmarginal(phi_marg_MMBYM[[x]], silent = T)
-})
+}))
  
+marg_hyper_summary <- (rbind(
+  rho_marg_PMMCAR_summary, xi_marg_LMMCAR_summary, phi_marg_MMBYM_summary
+))
+
+marg_hyper_summary <- as.data.frame(matrix(unlist(marg_hyper_summary[,c(1,2,3,5,7)]), ncol=5, byrow = F))
+
+names(marg_hyper_summary) <- c("Mean", "Sd", "Q0.50", "Q0.025", "Q0.975")
+marg_hyper_summary %<>%
+  dplyr::mutate(Model = rep(c("PCAR", "LCAR", "BYM"), each = 3)) %>% 
+  dplyr::relocate(.data$Model, .before = 1) %>% 
+  dplyr::mutate(Year = rep(c("2021", "2022", "2023"), 3)) %>% 
+  dplyr::relocate(.data$Year, .after = .data$Model)
+  
+
+#clipr::write_clip(
+#  do.call(cbind, lapply(marg_hyper_summary, function(x) {
+#  if(is.numeric(x)){
+#    return(format(x, decimal.mark = ","))
+#    } else return(x)
+#  })))
+
+
+
 ```
  
-```{r mixing mmod plot, fig.height = 3, fig.cap = "Posterior marginal of the BYM mixing parameters", echo = FALSE}
+Here we plot the marginal posterior of the BYM variance mixing parameter.
+ 
+```{r mixing MMBYM plot, fig.height = 3, fig.cap = "Posterior marginal of the BYM mixing parameters", echo = FALSE}
 philimX <- range(0,1)
 philimY <- range(do.call(c, lapply(phi_marg_MMBYM, FUN = function(x) x[,2])))
 
@@ -1544,14 +1610,14 @@ ggplot2::ggplot(phimarg_long, ggplot2::aes(x = .data$X, y = .data$Y, color = .da
   ggplot2::geom_vline(xintercept = 0)+
   ggplot2::coord_cartesian(xlim = philimX, ylim = philimY) +
   ggplot2::labs(
-    title = "Posterior Marginals of covariates effects",
+    title = "Posterior Marginals of mixing parameters",
     x = expression(phi),
     y = expression(pi(phi ~ "|" ~ y)),
     color = "Year") +
   ggplot2::theme_classic()
 ```
 
-
+The interpretation is quite clear: while for 2021 and 2022 data display a moderately strong spatial association, the spatial distribution of 2023 data is dominated by noise. 
 
 
 #### Appendix: sparse parametrisation of the BYM
@@ -1674,13 +1740,15 @@ Which generalises to the multivariate case the sparse precision derived by [@BYM
 
 ## Further development: pogit model for underreporting
 
-The observed counts of accesses to AVCs clearly imply a severe under-reporting of gender-based violence, regarding the vast majority of incidents. 
+The observed counts of accesses to AVCs clearly show that only a minority of women victims of gender-based violence seeks AVC help. Now, even though help seeking is not equivalent to reporting violence, we can follow a conceptual analogy when modelling the phenomenon of AVC accesses. 
 
-If this does not provide a valid reason to model the under-reporting process explicitly - as there are not any data to assess the spatial distribution of true VAW incindents counts at *this* level of granularity, it is still needful to consider that some risk factors with a strong negative association have same-sign effects on accesses counts. 
+If the low counts of accesses do not provide a valid reason to model the under-accessing process explicitly - as there are not any data to assess the spatial distribution of true VAW incindents counts at *this* level of granularity, it is still needful to consider that some risk factors with a strong negative association have same-sign effects on accesses counts. 
 
 More specifically, employment rate and low-education incidence have a very high negative correlation, as it is reasonable to expect. Notwithstanding this, both appear to have a negative impact on access counts. A possible explanation for this finding is that these two variables impact on two different processes, which we do not observe, but whose interaction yields to the observed response variable, namely accesses counts. 
 
-We therefore attempt at implementing a Poisson - logistic model [@Pogit] to explicitly account for under-reporting or, to be more precise, to model the propensity to report violence by turning to AVCs or not.
+We therefore attempt at implementing a Poisson - logistic model [@Pogit] to explicitly account for the propensity to report violence by turning to AVCs or not. Importantly, this methodology has already been established to model under-reporting of VAW incidents [@Polettini].
+
+
 
 Given the scarce information at our disposal, we can only guess which variable enter either of the two predictor components, i.e. the VAW reporting and the actual occurrence Specifically, we assign distance from closest AVC and low education incidence to the former component and all other variables plus the spatial effect to the latter. 
 
@@ -1832,14 +1900,15 @@ WAICS_bru <- tibble::tibble(
     cav_nosp_inlabru$waic$p.eff,   cav_IMCAR_inlabru$waic$p.eff,  cav_PMCAR_inlabru$waic$p.eff,
      cav_MLCAR_inlabru$waic$p.eff, cav_MBYM_inlabru$waic$p.eff),3))
 
-print(xtable::xtable(WAICS),include.rowname = F)
+print(xtable::xtable(WAICS_bru),include.rowname = F)
 
 ```
 
 
 
 Here we show some posterior summaries for covariate effects, using the BYM model.
-```{r alphas bym inlabru, echo = FALSE, results = "asis", message = FALSE}
+
+```{r alphas bym inlabru, echo = FALSE, message = FALSE, results = "asis"}
 
 alphas.MBYM.inlabru <- cav_MBYM_inlabru$summary.random$intercept %>% 
   dplyr::bind_rows(cav_MBYM_inlabru$summary.fixed) %>% 
@@ -1854,4 +1923,4 @@ print(xtable::xtable(alphas.MBYM.inlabru, num.digits = 3), include.rowname = FAL
 
 ```
 
-Model interpretation is equivalent to the linear model.
+Model results are quite similar to the linear model, as it is reasonable to expect. 
