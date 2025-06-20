@@ -1514,10 +1514,9 @@ data.frame(do.call(rbind, lapply(
 #' This looks very different from the factorisable PCAR. 
 #' Basically, 2021 and 2022 data have no spatial structure,
 #' according to the M-model posteriors. 
-#'
+
 
 #' M-model defined using the bidDM package
-
 inla.PMMCAR.bigDM <- function(...) INLA::inla.rgeneric.define(bigDM::Mmodel_pcar, ... )
 inla.LMMCAR.bigDM <- function(...) INLA::inla.rgeneric.define(bigDM::Mmodel_lcar, ... )
  
@@ -1605,16 +1604,43 @@ cav_MmodBYM_inla_dense <- inla(
   num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
   verbose = T)
 
+#'  Sparse parametrisation attempt
+
+#'  Necessary to constrain the model ==> define ad-hoc constr object:
+constr <- INLA:::inla.bym.constr.internal(
+  Q = (diag(rowSums(as.matrix(W_con))) - W_con), 
+  adjust.for.con.comp = T)
+
+A.constr <- kronecker(Matrix::Diagonal(n=3,x=1), constr$constr$A)
+
+constr.BYM <- list(
+  A = cbind(Matrix::Matrix(0, nrow = nrow(A.constr), ncol = ncol(A.constr)), A.constr),
+  e=c(0,0,0) )
+
+
 cav_MmodBYM_inla_sparse <- inla(
   N_ACC ~ 0 +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
     f(Year, model = "iid", hyper = list(prec = list(initial = 1e-3, fixed = TRUE))) +
     f(ID_ym, model = inla.MMBYM.model(k = 3, W = W_con, sparse =T, PC= F),
-      extraconstr = list(A = kronecker(diag(1,2), A_constr), e = rep(0, 6)),
-      values = dd_list$ID2 ),
+      extraconstr = constr.BYM),
   offset = log(nn),
   family = "poisson", data =dd_long,
   #control.fixed = list(prec = list(Intercept1 = 0, Intercept2 = 0, Intercept3 = 0)),
   #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  verbose = T)
+
+
+#' !!! PC - prior
+#' !!! WARNING this is extremely slow
+cav_MmodBYM_inla_sparse.PC <- inla(
+  N_ACC ~ 0 +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(Year, model = "iid", hyper = list(prec = list(initial = 1e-3, fixed = TRUE))) +
+    f(ID_ym, model = inla.MMBYM.model(k = 3, W = W_con, sparse =T, PC= T,
+                                      initial.values = cav_MmodBYM_inla_sparse$internal.summary.hyperpar$mode),
+      extraconstr = constr.BYM),
+  offset = log(nn),
+  family = "poisson", data =dd_long,
   num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
   verbose = T)
 
