@@ -971,9 +971,6 @@ inla.pc.pmmcar.rho <- function(rho, eigenvalues, alpha = 2/3, U = 1/2){
 #' This is basically a bigDM:: function, ie.
 #' bigDM::Mmodel_compute_cor, generalised to work with models run manually.
 
-
- 
- 
 Mmodel_compute_cor_bigDM <- function (model, n.sample = 10000, J) {
   o <- tryCatch({
     hyperpar.sample <- INLA::inla.hyperpar.sample(n.sample,  model, improve.marginals = TRUE)
@@ -1044,6 +1041,41 @@ Mmodel_compute_cor_bigDM <- function (model, n.sample = 10000, J) {
   
 }
 
+#' Simplified version:
+vacov_Mmodel <- function (model, n.sample = 10000, J) {
+  
+  hyperpar.sample <- INLA::inla.hyperpar.sample(n.sample,  model, improve.marginals = TRUE)
+  offset <- ncol(hyperpar.sample) - J * (J+1) / 2
+  hyperpar.sample <- hyperpar.sample[, (1+offset):ncol(hyperpar.sample)]
+  hyperpar.sample[, 1:J] <- exp(hyperpar.sample[,  1:J])  
+  hyperpar.sample <- split(hyperpar.sample ,
+                           seq(nrow(hyperpar.sample)))
+    
+  param.sample <- lapply(hyperpar.sample, function(x) {
+    N <- diag(x[seq(J)])
+    N[lower.tri(N, diag = FALSE)] <- x[-seq(J)]
+    Sigma <- N %*% t(N)
+    Rho <- cov2cor(Sigma)
+    Rho.values <- Rho[lower.tri(Rho)]
+    return(list(sigma = diag(Sigma), rho = Rho.values))
+  })
+  cor.sample <- do.call(rbind, lapply(param.sample, 
+                                      function(x) x$rho))
+  summary.cor <- t(data.frame(apply(cor.sample, 2, function(x) summary(x))))
+  
+  rownames(summary.cor) <- paste("rho", apply(combn(J, 2), 2,
+                                              function(x) paste0(x, collapse = "")),  sep = "")
+    
+  var.sample <- do.call(rbind, lapply(param.sample, 
+                                      function(x) x$sigma))
+
+  summary.var <- t(data.frame(apply(var.sample, 2, function(x) summary(x))))
+
+  res <- list(summary.cor = summary.cor, marginals.cor = marginals.cor, 
+                         summary.var = summary.var, marginals.var = marginals.var)
+  return(res)
+  
+}
 
 
 Mmodel_compute_mixing <- function(model, J){
