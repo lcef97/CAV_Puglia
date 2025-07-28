@@ -1,4 +1,4 @@
-#' ---------  Analisi CAV Puglia 2021-23 --------------------------------------#
+#' ---------  Analisi CAV Puglia 2021-24 --------------------------------------#
 ## Input -----------------------------------------------------------------------
 
 #' NEVER forget calling magrittr and sf. Never --------------------------------#
@@ -7,8 +7,8 @@ library(magrittr)
 library(sf)
 #'  ---------------------------------------------------------------------------#
 #' 
-#'  Do not delete!! Code used to build input data from excel files
-#'  Excel inputs include sensible information which we prefer not to share;
+#'  Do not delete below ==> Code used to build input data from excel files
+#'  Excel inputs include sensible information which we prefer NOT to share;
 #'  we only leave track of how we aggregate data from individual level
 #'  to municipality level -----------------------------------------------------#
 #'  ---------------------------------------------------------------------------#
@@ -25,8 +25,7 @@ library(sf)
 #'                       .data$Comune_Residenza_Domicilio[1L]))%>% 
 #'    dplyr::ungroup()
 #'    
-#'    
-#'  Same thing for 2021 and 2023 data:  ---------------------------------------#
+#'  Same thing for other years  -------........--------------------------------#
 #'  
 #'  
 #'  CAV_mun_21 <- cav_2021_dati %>%
@@ -47,33 +46,46 @@ library(sf)
 #'      dplyr::summarise(N_ACC = dplyr::n(),
 #'      comune = stringr::str_to_title(
 #'      .data$Comune_Residenza_Domicilio[1L]))%>%   dplyr::ungroup()
+#'
+#'
+#'  CAV_mun_24 <- cav_2024 %>%
+#'      dplyr::filter(.data$ESITO_ACCESSO == "presa in carico") %>%
+#'      dplyr::filter(!is.na(.data$PRO_COM)) %>% 
+#'      dplyr::group_by(.data$PRO_COM) %>% 
+#'      dplyr::summarise(N_ACC = dplyr::n(),
+#'      comune = stringr::str_to_title(
+#'      .data$LUOGO_RESIDENZA_DOMICILIO[1L]))%>%   dplyr::ungroup()
+#'
 #'      
 #'     
 #'  ---------------------------------------------------------------------------#   
 #'  
-#'  Then we download only the municipality-level data
-#'  on accesses to support centers,
-#'  aggregated from individual-level ones:
+#'  Then we download municipality-level data on accesses to support centers,
+#'  aggregated from individual-level ones:  -----------------------------------#
 
 load("input/CAV_input_mun_2021.RData")
 load("input/CAV_input_mun_2022.RData")
 load("input/CAV_input_mun_2023.RData")
+load("input/CAV_input_mun_2024.RData")
 
-CAV_mun_21 <- CAV_mun_21 %>% dplyr::rename(N_ACC_21 = .data$N_ACC)
-CAV_mun_22 <- CAV_mun_22 %>% dplyr::rename(N_ACC_22 = .data$N_ACC)
-CAV_mun_23 <- CAV_mun_23 %>% dplyr::rename(N_ACC_23 = .data$N_ACC)
+CAV_mun_21 <- CAV_mun_21 %>% dplyr::rename(N_ACC_2021 = .data$N_ACC)
+CAV_mun_22 <- CAV_mun_22 %>% dplyr::rename(N_ACC_2022 = .data$N_ACC)
+CAV_mun_23 <- CAV_mun_23 %>% dplyr::rename(N_ACC_2023 = .data$N_ACC)
+CAV_mun_24 <- CAV_mun_24 %>% dplyr::rename(N_ACC_2024 = .data$N_ACC)
 
-#'  2022 municipalities shapefiles; easily obtainable by scraping with the following 
-#'  commented code:
-#'  Mun22_shp <- SchoolDataIT::Get_Shapefile(2022)
-#'  Shp <- Mun22_shp %>% dplyr::filter(.data$COD_REG == 16) %>% 
-#'   dplyr::select(.data$COD_PROV, .data$PRO_COM, .data$COMUNE)
+
+#'  2022 municipalities shapefiles; easily obtainable 
+#'  by scraping with the following (commented) code:
+#'    Mun22_shp <- SchoolDataIT::Get_Shapefile(2022)
+#'    Shp <- Mun22_shp %>% dplyr::filter(.data$COD_REG == 16) %>% 
+#'        dplyr::select(.data$COD_PROV, .data$PRO_COM, .data$COMUNE)
 #'  
 #'  In theory, a shapefile should be used for each year.
 #'  Still, administrative units boundaries are unchanged at least
-#'  from 2021 to 2023
+#'  from 2021 to 2023 ---------------------------------------------------------#
 #'
 #'  Still, we leave the static shapefile in order NOT to need internet connection:
+
 load("input/Shp.RData")
 
 #'  Function to extract numeric digits from a strings vector (needed to filter age):
@@ -84,103 +96,130 @@ nn_extract <- function(string){
   return(res)
 }
 
-# Female population aged >= 15 years.
-# Source data: http://dati.istat.it/Index.aspx?DataSetCode=DCIS_POPRES1#
+#'  Female population aged >= 15 years. Source data: 
+#'  http://dati.istat.it/Index.aspx?DataSetCode=DCIS_POPRES1#  ----------------#
+
 Popolazione_Puglia_2021 <- readr::read_csv("input/Popolazione_Puglia_2021.csv") %>% 
   dplyr::select(.data$ITTER107, .data$Territorio, .data$SEXISTAT1, .data$ETA1, .data$Value) %>% 
   dplyr::filter(.data$ETA1 != "TOTAL") %>% 
-  dplyr::mutate(ETA1 = nn_extract(ETA1)) %>% 
-  dplyr::mutate(ITTER107 = as.numeric(ITTER107))
+  dplyr::mutate(ETA1 = nn_extract(.data$ETA1)) %>% 
+  dplyr::mutate(ITTER107 = as.numeric(.data$ITTER107))
 
 Popolazione_Puglia_2022 <- readr::read_csv("input/Popolazione_Puglia_2022.csv") %>% 
   dplyr::select(.data$ITTER107, .data$Territorio, .data$SEXISTAT1, .data$ETA1, .data$Value) %>% 
   dplyr::filter(.data$ETA1 != "TOTAL") %>% 
-  dplyr::mutate(ETA1 = nn_extract(ETA1)) %>% 
-  dplyr::mutate(ITTER107 = as.numeric(ITTER107))
+  dplyr::mutate(ETA1 = nn_extract(.data$ETA1)) %>% 
+  dplyr::mutate(ITTER107 = as.numeric(.data$ITTER107))
 
 Popolazione_Puglia_2023 <- readr::read_csv("input/Popolazione_Puglia_2023.csv") %>% 
   dplyr::select(.data$ITTER107, .data$Territorio, .data$SEXISTAT1, .data$ETA1, .data$Value) %>% 
   dplyr::filter(.data$ETA1 != "TOTAL") %>% 
-  dplyr::mutate(ETA1 = nn_extract(ETA1)) %>% 
-  dplyr::mutate(ITTER107 = as.numeric(ITTER107))
+  dplyr::mutate(ETA1 = nn_extract(.data$ETA1)) %>% 
+  dplyr::mutate(ITTER107 = as.numeric(.data$ITTER107))
 
+Popolazione_Puglia_2024 <- readr::read_csv("input/Popolazione_Puglia_2024.csv",
+                                           quote = "")  %>% 
+  dplyr::filter(.data$AGE != "TOTAL") %>% 
+  dplyr::mutate(ETA1 = nn_extract(.data$AGE)) %>% 
+  dplyr::mutate(ITTER107 = as.numeric(.data$REF_AREA)) %>% 
+  dplyr::rename(SEXISTAT1 = .data$SEX, Value = .data$Osservazione)%>% 
+  dplyr::select(.data$ITTER107, .data$SEXISTAT1, .data$ETA1, .data$Value)
 
+#' Filter and aggregate female population -------------------------------------#
 
-
-# Filter and aggregate:
 Pop_f_15 <- Popolazione_Puglia_2021 %>% 
   dplyr::left_join(Popolazione_Puglia_2022,
                    by = c("ITTER107", "Territorio", "SEXISTAT1", "ETA1")) %>% 
   dplyr::left_join(Popolazione_Puglia_2023,
-                   by = c("ITTER107", "Territorio", "SEXISTAT1", "ETA1")) 
+                   by = c("ITTER107", "Territorio", "SEXISTAT1", "ETA1")) %>% 
+  dplyr::left_join(Popolazione_Puglia_2024,
+                   by =  c("ITTER107",  "SEXISTAT1", "ETA1"))
 
 names(Pop_f_15) <-  c("PRO_COM", "Comune", "Sesso", "Eta", 
-                      "Popolazione_21", "Popolazione_22", "Popolazione_23")
-
+                      "Popolazione_21", "Popolazione_22", "Popolazione_23", "Popolazione_24")
 
 Pop_f_15 <- Pop_f_15 %>% dplyr::filter(.data$Sesso == 2) %>% 
   dplyr::filter(.data$Eta > 14) %>% 
   dplyr::group_by(.data$PRO_COM, .data$Comune) %>% 
-  dplyr::summarise(nn21 = sum(.data$Popolazione_21),
-                   nn22 = sum(.data$Popolazione_22),
-                   nn23 = sum(.data$Popolazione_23)) %>%
+  dplyr::summarise(nn_2021 = sum(.data$Popolazione_21),
+                   nn_2022 = sum(.data$Popolazione_22),
+                   nn_2023 = sum(.data$Popolazione_23),
+                   nn_2024 = sum(.data$Popolazione_24)) %>%
   dplyr::ungroup()
 
 
+#'  Build the dataset ---------------------------------------------------------#
 
-
-# Complete dataset:
-dd <- Shp %>% dplyr::left_join(Pop_f_15[, -2],
-                               by = "PRO_COM") %>% 
+dd <- Shp %>% dplyr::left_join(Pop_f_15[, -2], by = "PRO_COM") %>% 
   dplyr::left_join(dplyr::select(CAV_mun_21, -.data$comune),by = "PRO_COM") %>% 
   dplyr::left_join(dplyr::select(CAV_mun_22, -.data$comune),by = "PRO_COM") %>% 
   dplyr::left_join(dplyr::select(CAV_mun_23, -.data$comune),by = "PRO_COM") %>% 
-  dplyr::left_join(dplyr::select(Indicators, -.data$Comune), by = "PRO_COM")
+  dplyr::left_join(dplyr::select(CAV_mun_24, -.data$comune),by = "PRO_COM") %>% 
+  tidyr::pivot_longer(cols = tidyselect::starts_with("nn_") | 
+                        tidyselect::starts_with("N_ACC_"),
+                      names_to = c(".value", "Year"),
+                      names_pattern = "(nn|N_ACC)_(\\d+)" ) %>% 
+  dplyr::left_join(dplyr::select(Indicators, -.data$Comune), by = "PRO_COM") %>% 
+  dplyr::arrange(.data$Year, .data$PRO_COM)
 
-# Municipalities from which no woman reported violence --> count == 0
-dd$N_ACC_21[is.na(dd$N_ACC_21)] <- 0
-dd$N_ACC_22[is.na(dd$N_ACC_22)] <- 0 
-dd$N_ACC_23[is.na(dd$N_ACC_23)] <- 0 
+#'  Municipalities from which no woman reported violence --> count == 0  ------#
+dd$N_ACC[is.na(dd$N_ACC)] <- 0
 
-# "access ratio"
-dd$LN_ACC_21 <- log(dd$N_ACC_21/dd$nn21)
-dd$LN_ACC_22 <- log(dd$N_ACC_22/dd$nn22)
-dd$LN_ACC_23 <- log(dd$N_ACC_23/dd$nn23)
-
+#' "access ratio" -------------------------------------------------------------#
+dd$LN_ACC <- log(dd$N_ACC/dd$nn)
 
 ggy21 <- ggplot2::ggplot() +
-  ggplot2::geom_sf(data = dd, 
-                   ggplot2::aes(fill = .data$LN_ACC_21))+
+  ggplot2::geom_sf(data = dplyr::filter(dd, .data$Year == "2021"), 
+                   ggplot2::aes(fill = .data$LN_ACC))+
   ggplot2::scale_fill_viridis_c(na.value = "white",
-                                limits = c(-9.5, -4.5))+
+                                limits = c(-9.5, -4.6))+
+  ggplot2::ggtitle("Year: 2021") +
   ggplot2::theme_classic()
 
 ggy22 <- ggplot2::ggplot() +
-  ggplot2::geom_sf(data = dd, 
-                   ggplot2::aes(fill = .data$LN_ACC_22))+
+  ggplot2::geom_sf(data = dplyr::filter(dd, .data$Year == "2022"), 
+                   ggplot2::aes(fill = .data$LN_ACC))+
   ggplot2::scale_fill_viridis_c(na.value = "white",
-                                limits = c(-9.5, -4.5))+
+                                limits = c(-9.5, -4.6))+
+  ggplot2::ggtitle("Year: 2022") +
   ggplot2::theme_classic()
 
 ggy23 <- ggplot2::ggplot() +
-  ggplot2::geom_sf(data = dd, 
-                   ggplot2::aes(fill = .data$LN_ACC_23))+
+  ggplot2::geom_sf(data = dplyr::filter(dd, .data$Year == "2023"), 
+                   ggplot2::aes(fill = .data$LN_ACC))+
   ggplot2::scale_fill_viridis_c(na.value = "white",
-                                limits = c(-9.5, -4.5))+
+                                limits = c(-9.5, -4.6))+
+  ggplot2::ggtitle("Year: 2023") +
+  ggplot2::theme_classic()
+
+ggy24 <- ggplot2::ggplot() +
+  ggplot2::geom_sf(data = dplyr::filter(dd, .data$Year == "2024"), 
+                   ggplot2::aes(fill = .data$LN_ACC))+
+  ggplot2::scale_fill_viridis_c(na.value = "white",
+                                limits = c(-9.5, -4.6))+
+  ggplot2::ggtitle("Year: 2024")+
   ggplot2::theme_classic()
 
 
-gridExtra::grid.arrange(ggy21, ggy22, ggy23, nrow = 3, ncol = 1)
+gridExtra::grid.arrange(ggy21, ggy22, ggy23, ggy24, nrow = 2, ncol = 2)
 
 source("Auxiliary/Functions.R")
 
+#' Tremiti Islands are a singleton --> 
+#'   need to remove them to perform spatial analysis --------------------------#
+suppressWarnings({
+  singletons <- Shp$PRO_COM[which(
+    unlist(lapply(spdep::poly2nb(Shp),
+                  function(x) x[1L] == 0)))]
+})
 
-#'  ## Mapping municipalities from support centers ----------------------------#
-#'  Loop to compute miniman distances
+
+#'  Mapping municipalities from support centers   ----------------------------#
+#'  
+#'  Loop to compute minimal distances
 #'
 #'
-#' Municipalities hosting a support center:
-#' 
+#'  Municipalities hosting a support center:
 #'  munWcav_22 <- c(71020, 71024, 71051, 
 #'                  72004, 72006, 72011, 72014, 72019, 72021, 72029, 72031, 72033, 72035, 
 #'                  73013, 73027, 
@@ -195,64 +234,64 @@ source("Auxiliary/Functions.R")
 #'                  75029, 75035, 75059,
 #'                  110001, 110002, 110009)
 #'  
+#' Sportelli_CAV <- readxl::read_excel("input_excel/Sportelli_CAV.xlsx", sheet = "CAV")
+#' munWcav_24 <- unique(sort(as.numeric(Sportelli_CAV$PRO_COM))) 
+#' munWcav_24 == c(71020, 71024, 71029, 71051,
+#'                  72004, 72006, 72011, 72014, 72019, 72021, 72029, 72031, 72033, 72035,
+#'                  73013, 73027,
+#'                  74001, 74009, 74019,
+#'                  75029, 75035, 75059,
+#'                  110001, 110002, 110009)
 #'
-#'  dists_th_22 <- NULL
-#'  for (i in c(1:nrow(dd[-singletons, ]))){
-#'    X <- dd[-singletons, ]$PRO_COM[i]
-#'    dists <- numeric(length(munWcav_22))
-#'      IDs <- numeric(length(munWcav_22))
-#'    for(j in c(1:length(munWcav_22))){
-#'      c.out <- munWcav_22[j]
-#'      id <- paste0(min(X, c.out),
-#'                       " - ", max(X, c.out))
-#'     nn <- which(dist_short$OR_DEST == id)
-#'      dists[j] <- dist_short$TEP_TOT[nn]
-#'      IDs[j] <- dist_short$OR_DEST[nn]
-#'  }
-#'    m <- which.min(dists)
-#'    ret <- c(X, dists[m])
-#'    dists_th_22 <- data.frame(rbind(dists_th_22, ret))
-#'  }
-#'  names(dists_th_22) <- c("PRO_COM", "TEP_th_22")
-#'  dists_th_22$TEP_th <- as.numeric(dists_th_22$TEP_th)
+#'  Routine to compute distances from closest municipality
+#'  with an AVC ---------------------------------------------------------------#
 #'  
+#'  Can be replicated for other years of course -------------------------------#
 #'  
-#'  
-#'  dists_th_23 <- NULL
-#'  for (i in c(1:nrow(dd[-singletons, ]))){
-#'    X <- dd[-singletons, ]$PRO_COM[i]
-#'    dists <- numeric(length(munWcav_23))
-#'    IDs <- numeric(length(munWcav_23))
-#'    for(j in c(1:length(munWcav_23))){
-#'      c.out <- munWcav_23[j]
+#'  dists_th_24 <- NULL
+#'  dd24 <- dd %>% dplyr::filter(.data$Year == "2024") %>% 
+#'  dplyr::filter(!.data$PRO_COM %in% singletons)
+#'  for (i in c(1:nrow(dd24))){
+#'    X <- dd24$PRO_COM[i]
+#'    dists <- numeric(length(munWcav_24))
+#'    IDs <- numeric(length(munWcav_24))
+#'    for(j in c(1:length(munWcav_24))){
+#'      c.out <- munWcav_24[j]
 #'      id <- paste0(min(X, c.out),
 #'                   " - ", max(X, c.out))
 #'      nn <- which(dist_short$OR_DEST == id)
-#'      dists[j] <- dist_short$TEP_TOT[nn]
+#'      dists[j] <- as.numeric(dist_short$TEP_TOT[nn])
 #'      IDs[j] <- dist_short$OR_DEST[nn]
 #'    }
 #'    m <- which.min(dists)
 #'    ret <- c(X, dists[m])
-#'    dists_th_23 <- data.frame(rbind(dists_th_23, ret))
+#'    dists_th_24 <- data.frame(rbind(dists_th_24, ret))
 #'  }
-#'  names(dists_th_23) <- c("PRO_COM", "TEP_th_23")
-#'  dists_th_23$TEP_th <- as.numeric(dists_th_23$TEP_th)
+#'  names(dists_th_24) <- c("PRO_COM", "TEP_th_24")
+
 
 load("input/dists_th_22.RData")
 load("input/dists_th_23.RData")
+load("input/dists_th_24.RData")
+names(dists_th_22)[2] <- names(dists_th_23)[2] <- names(dists_th_24)[2] <- "TEP_th"
+distances <- rbind(dists_th_22, dists_th_22, dists_th_23, dists_th_24) %>% 
+  dplyr::mutate(Year = c(rep("2021", nrow(dists_th_22)),
+                         rep("2022", nrow(dists_th_22)),
+                         rep("2023", nrow(dists_th_23)),
+                         rep("2024", nrow(dists_th_24))) )
 
-# Tremiti Islands are a singleton --> need to remove them to perform spatial analysis
-suppressWarnings({
-  singletons <- which(unlist(lapply(spdep::poly2nb(dd), function(x) x[1L] == 0)))
-})
 
-# This is the dataset we will concretely work on.
-# Covariates are all scaled to zero mean and unit variance
-dd_con <- dd[-singletons, ] %>% 
-  dplyr::left_join(dists_th_22, by = "PRO_COM") %>% 
-  dplyr::left_join(dists_th_23, by = "PRO_COM") %>% 
-  dplyr::mutate(TEP_th_22 = as.vector(scale(.data$TEP_th_22))) %>% 
-  dplyr::mutate(TEP_th_23 = as.vector(scale(.data$TEP_th_23))) %>% 
+
+#' This is the dataset we will concretely work on.
+#' Covariates are all scaled to zero mean and unit variance -------------------#
+dd_con <- dd %>% dplyr::filter(!.data$PRO_COM %in% singletons) %>% 
+  dplyr::left_join(distances, by = c("PRO_COM", "Year")) %>% 
+  dplyr::mutate(CAV = as.numeric(.data$TEP_th == 0)) %>% 
+  dplyr::mutate(Y_2021 = as.numeric(.data$Year == "2021")) %>% 
+  dplyr::mutate(Y_2022 = as.numeric(.data$Year == "2022")) %>% 
+  dplyr::mutate(Y_2023 = as.numeric(.data$Year == "2023")) %>% 
+  dplyr::mutate(Y_2024 = as.numeric(.data$Year == "2024")) %>% 
+  dplyr::mutate(TEP_th = as.vector(scale(.data$TEP_th))) %>% 
   dplyr::mutate(AES = as.vector(scale(.data$AES))) %>% 
   dplyr::mutate(MFI = as.vector(scale(.data$MFI)))  %>% 
   dplyr::mutate(PDI = as.vector(scale(.data$PDI)))  %>% 
@@ -260,164 +299,121 @@ dd_con <- dd[-singletons, ] %>%
   dplyr::mutate(ER = as.vector(scale(.data$ER)))  %>% 
   dplyr::mutate(PGR = as.vector(scale(.data$PGR)))  %>% 
   dplyr::mutate(UIS = as.vector(scale(.data$UIS)))  %>% 
-  dplyr::mutate(ELI = as.vector(scale(.data$ELI))) 
+  dplyr::mutate(ELI = as.vector(scale(.data$ELI)))  %>% 
+  dplyr::select(-.data$Year) %>% 
+  dplyr::mutate(ID = c(1:nrow(.))) %>% 
+  dplyr::mutate(Area = as.numeric(as.factor(.data$PRO_COM)))
 
-# sd of travel time: almost 16 minutes
-attr(scale(dists_th_22$TEP_th_22), "scaled:scale")
 
-# neighbours list
-nb_con <- spdep::poly2nb(dd_con)
-# neighbouring/adjacency matrix
+
+#' Store the dataset in tensor format -----------------------------------------#
+ 
+df2ls <- function(df, names_from, id_cols){
+  df <- sf::st_drop_geometry(df)
+  names_from.m <- as.matrix(dplyr::select(df, names_from))
+  id_cols.df <- dplyr::select(df, id_cols)
+  names_from.m[ names_from.m==0  ] <- NA
+  obj <- df %>% 
+    dplyr::select(-names_from) %>% 
+    dplyr::select(-id_cols) %>% 
+    dplyr::select_if(is.numeric) 
+  res <- lapply(obj, function(x){
+    return(names_from.m * x)
+  })
+  res <- append(as.list(id_cols.df), res)
+  res$Intercept <- names_from.df
+  return(res)
+}
+dd_list <- df2ls(dd_con, id_cols = c("ID", "COMUNE"), names_from = c("Y_2021", "Y_2022", "Y_2023", "Y_2024"))
+
+
+## Model input setup -----------------------------------------------------------
+#' 
+#' Input data are defined; now we need some auxiliary objects -----------------#
+#' 
+#' Number of sites saved here -------------------------------------------------#
+n <- length(unique(dd_con$PRO_COM))
+
+#' sd of travel time: around 14 minutes ---------------------------------------#
+attr(scale(dists_th_22$TEP_th), "scaled:scale")
+
+#' neighbours list ------------------------------------------------------------#
+nb_con <- spdep::poly2nb(dd_con[c(1:n), ])
+
+#' neighbouring/adjacency matrix ----------------------------------------------#
 W_con <- spdep::nb2mat(nb_con, style = "B")
-rownames(W_con) <- colnames(W_con) <- dd_con$PRO_COM
+rownames(W_con) <- colnames(W_con) <- dd_con$PRO_COM[c(1:n)]
 
-# Laplacian matrix:
-Lapl_con <- diag(rowSums(W_con)) - W_con
+#' Laplacian matrix -----------------------------------------------------------#
+D_con <- Matrix::Diagonal(x=apply(W_con, MARGIN=1, FUN=function(x) sum(x)), n=n)
+Lapl_con <- D_con - W_con
 V_con <- eigen(Lapl_con)$vectors
-L_block <- kronecker(diag(1, 3), Lapl_con)
-A_constr <- t(pracma::nullspace(L_block))
 
-# row ID - needed for spatial models
-dd_con$ID <- c(1:nrow(dd_con))
+constr <- INLA:::inla.bym.constr.internal(
+  Q = Lapl_con, adjust.for.con.comp = T)
+A_constr <- kronecker(Matrix::Diagonal(n=4,x=1), constr$constr$A)
 
-# Full GLM --> for model matrix
-glm_all_X <- glm(N_ACC_21 ~ 1 + TEP_th_22 + TEP_th_23 + MFI + AES + PDI + ELL + ER +
-                   PGR + UIS + ELI + offset(log(nn21)),
+#'  Necessary to constrain the BYM model 
+constr.BYM <- list(
+  A = cbind(Matrix::Matrix(0, nrow = nrow(A_constr), ncol = ncol(A_constr)), A_constr),
+  e=c(0,0,0,0) )
+
+
+
+
+
+#' Full GLM --> for model matrix
+glm_all_X <- glm(N_ACC ~ 1 + TEP_th + MFI + AES + PDI + ELL + ER +
+                   PGR + UIS + ELI + offset(log(nn)),
                  data = dd_con, family = "poisson")
-# model matrix
+#' model matrix
 X <- model.matrix(glm_all_X)
-
-
-if(!rlang::is_installed("INLAMSM")) devtools::install_github("becarioprecario/INLAMSM")
 
 #' Besides calling the package, the present R code is frequently 
 #' derived from INLAMSM source codes.
+if(!rlang::is_installed("INLAMSM")) devtools::install_github("becarioprecario/INLAMSM")
 
 library(INLA)
-library(INLAMSM)#' But before spatial analysis, let's do some NONspatial analysis:
-
-
+library(INLAMSM)
 
 #' Deconfounding with Spatial+ 
 #' First approach, more radical: fitting an ICAR model on covariates
 
-ICAR_ELL <- inla(ELL ~ 1 + f(ID, model = "besag", graph = W_con,
+ICAR_ELL <- inla(ELL ~ 1 + f(Area, model = "besag", graph = W_con,
                              hyper = list(prec=list(prior = "PC.prec"))),
-                 data  = dd_con, family = "gaussian", 
+                 data = dd_con[c(1:n), ],
+                 family = "gaussian", 
                  control.compute = list(internal.opt = F),
                  num.threads = 1, verbose = T)
-ICAR_ER <- inla(ER ~ 1 + f(ID, model = "besag", graph = W_con,
+
+ICAR_ER <- inla(ER ~ 1 + f(Area, model = "besag", graph = W_con,
                            hyper = list(prec=list(prior = "PC.prec"))),
-                data  = dd_con, family = "gaussian", 
+                data = dd_con[c(1:n), ],
+                family = "gaussian", 
                 control.compute = list(internal.opt = F),
                 num.threads = 1, verbose = T)
 
-dd_con %>% dplyr::mutate(xhat = ICAR_ELL$summary.random$ID$mean) %>% 
+dd_con[c(1:n), ]%>% 
+  dplyr::mutate(xhat = ICAR_ELL$summary.random$Area$mean) %>% 
   ggplot2::ggplot() +
   ggplot2::geom_sf(ggplot2::aes(fill = .data$xhat))+
   ggplot2::labs( fill = "xhat") +
   ggplot2::scale_fill_viridis_c(na.value = "white", direction = -1) +
   ggplot2::theme_classic()
 
-ELL_nosp_resid <- as.vector(scale(dd_con$ELL - ICAR_ELL$summary.random$ID$mean))
-ER_nosp_resid <- as.vector(scale(dd_con$ER - ICAR_ER$summary.random$ID$mean))
+ELL_nosp_resid <- as.vector(scale(dd_con$ELL - ICAR_ELL$summary.random$Area$mean))
+ER_nosp_resid <- as.vector(scale(dd_con$ER - ICAR_ER$summary.random$Area$mean))
 
 
-
-
-
-n <- nrow(dd_con)
-dd_list <- list (
-  PRO_COM  = matrix(c(dd_con$PRO_COM, rep(NA, 3*n), 
-                      dd_con$PRO_COM, rep(NA, 3*n), 
-                      dd_con$PRO_COM), nrow = 3*n, 
-                    ncol = 3, byrow = FALSE),
-  Intercept = matrix(c(rep(1, n), rep(NA, 3*n), 
-                       rep(1,n), rep(NA, 3*n), 
-                       rep(1,n)), nrow = 3*n, 
-                     ncol = 3, byrow = FALSE),
-  N_ACC = matrix(c(dd_con$N_ACC_21, rep(NA, 3*n), 
-                   dd_con$N_ACC_22, rep(NA, 3*n), 
-                   dd_con$N_ACC_23), nrow = 3*n, 
-                 ncol = 3, byrow = FALSE),
-  TEP_th = matrix(c(dd_con$TEP_th_22, rep(NA, 3*n), 
-                    dd_con$TEP_th_22, rep(NA, 3*n), 
-                    dd_con$TEP_th_23), nrow = 3*n,
-                  ncol = 3, byrow = FALSE),
-  ELI = matrix(c(dd_con$ELI, rep(NA, 3*n), 
-                 dd_con$ELI, rep(NA, 3*n), 
-                 dd_con$ELI), nrow = 3*n,
-               ncol = 3, byrow = FALSE),
-  PGR = matrix(c(dd_con$PGR, rep(NA, 3*n), 
-                 dd_con$PGR, rep(NA, 3*n), 
-                 dd_con$PGR), nrow = 3*n,
-               ncol = 3, byrow = FALSE),
-  UIS = matrix(c(dd_con$UIS, rep(NA, 3*n), 
-                 dd_con$UIS, rep(NA, 3*n), 
-                 dd_con$UIS), nrow = 3*n,
-               ncol = 3, byrow = FALSE),
-  ELL = matrix(c(dd_con$ELL, rep(NA, 3*n), 
-                 dd_con$ELL, rep(NA, 3*n), 
-                 dd_con$ELL), nrow = 3*n,
-               ncol = 3, byrow = FALSE),
-  ELL_nosp_resid = matrix(c(ELL_nosp_resid, rep(NA, 3*n), 
-                 ELL_nosp_resid, rep(NA, 3*n), 
-                 ELL_nosp_resid), nrow = 3*n,
-               ncol = 3, byrow = FALSE),
-  PDI = matrix(c(dd_con$PDI, rep(NA, 3*n), 
-                 dd_con$PDI, rep(NA, 3*n), 
-                 dd_con$PDI), nrow = 3*n,
-               ncol = 3, byrow = FALSE),
-  ER = matrix(c(dd_con$ER, rep(NA, 3*n), 
-                dd_con$ER, rep(NA, 3*n), 
-                dd_con$ER), nrow = 3*n,
-              ncol = 3, byrow = FALSE),
-  ER_nosp_resid = matrix(c(ER_nosp_resid, rep(NA, 3*n), 
-                            ER_nosp_resid, rep(NA, 3*n), 
-                            ER_nosp_resid), nrow = 3*n,
-                          ncol = 3, byrow = FALSE),
-  ID = c(1:n, (n + c(1:n)), (2*n + c(1:n))),
-  ID2 = c(1:n, (n + c(1:n)), (2*n + c(1:n)),
-          (3*n)+c(1:n, (n + c(1:n)), (2*n + c(1:n)))),
-  nn = c(dd_con$nn21, dd_con$nn22, dd_con$nn23)) 
-
-#'  May be useful?
-#'  
-#'  dataframe input obejct ==> same regression coefficients
-#'  for all years (not so trustable indeed)
-#'  ID_m is the municipality ID; ID_ym is the unique ID
-
-TEP_unscaled_df <- dd[-singletons, ] %>% 
-  dplyr::left_join(dists_th_22, by = "PRO_COM") %>% 
-  dplyr::left_join(dists_th_23, by = "PRO_COM") %>% 
-  sf::st_drop_geometry() %>% 
-  dplyr::mutate(TEP_th_21 = .data$TEP_th_22) %>% 
-  dplyr::select(.data$TEP_th_21, .data$TEP_th_22, .data$TEP_th_23) 
-
-TEP_scaled <- as.vector(scale(c(TEP_unscaled_df$TEP_th_21,
-                                TEP_unscaled_df$TEP_th_22,
-                                TEP_unscaled_df$TEP_th_23)))
-  
-
-dd_long <- do.call(rbind, rep(list(
-  dplyr::select(sf::st_drop_geometry(dd_con), 
-                colnames(X)[-c(1:3)])),3) )  %>% 
-  dplyr::mutate(N_ACC = c(dd_con$N_ACC_21, dd_con$N_ACC_22, dd_con$N_ACC_23),
-                TEP_th = TEP_scaled,
-                nn = c(dd_con$nn21, dd_con$nn22, dd_con$nn23),
-                Intercept = rep(1, nrow(.)),
-                ID_ym = rep(dd_con$ID, 3) + rep(c(0, n, 2*n), each = n),
-                ID_m = rep(dd_con$ID, 3),
-                Year = rep(c(1,2,3), each = nrow(dd_con)))
-
-#' Here some internal function that may or may not be useful
+#' Here some internal functions that may or may not be useful -----------------#
 zhat_plot <- function(model, main = NULL){
   
   zbound <- range(model$summary.random$ID$mean)
   
   if(is.null(main)) main <- deparse(substitute(model))
   
-  ggzhat21 <- dd_con %>% 
+  ggzhat21 <- dd_con %>%
+    dplyr::filter(.data$Y_2021 == 1) %>% 
     dplyr::mutate(zhat_21 = model$summary.random$ID$mean[c(1:n)]) %>% 
     ggplot2::ggplot() +
     ggplot2::geom_sf(ggplot2::aes(fill = .data$zhat_21))+
@@ -425,6 +421,7 @@ zhat_plot <- function(model, main = NULL){
     ggplot2::theme_classic()
   
   ggzhat22 <- dd_con %>% 
+    dplyr::filter(.data$Y_2022 == 1) %>% 
     dplyr::mutate(zhat_22 = model$summary.random$ID$mean[c(n+(1:n))]) %>% 
     ggplot2::ggplot() +
     ggplot2::geom_sf(ggplot2::aes(fill = .data$zhat_22))+
@@ -432,677 +429,351 @@ zhat_plot <- function(model, main = NULL){
     ggplot2::theme_classic()
   
   ggzhat23 <- dd_con %>% 
+    dplyr::filter(.data$Y_2023 == 1) %>% 
     dplyr::mutate(zhat_23 = model$summary.random$ID$mean[c((2*n)+(1:n))]) %>% 
     ggplot2::ggplot() +
     ggplot2::geom_sf(ggplot2::aes(fill = .data$zhat_23))+
     ggplot2::scale_fill_viridis_c(na.value = "white", direction = -1, limits = zbound) +
     ggplot2::theme_classic()
   
-  gridExtra::grid.arrange(ggzhat21, ggzhat22, ggzhat23, nrow = 3, ncol = 1,
+  ggzhat24 <- dd_con %>% 
+    dplyr::filter(.data$Y_2024 == 1) %>% 
+    dplyr::mutate(zhat_24 = model$summary.random$ID$mean[c((2*n)+(1:n))]) %>% 
+    ggplot2::ggplot() +
+    ggplot2::geom_sf(ggplot2::aes(fill = .data$zhat_24))+
+    ggplot2::scale_fill_viridis_c(na.value = "white", direction = -1, limits = zbound) +
+    ggplot2::theme_classic()
+  
+  gridExtra::grid.arrange(ggzhat21, ggzhat22, ggzhat23, ggzhat24, nrow = 2, ncol = 2,
                           top = main)
   
 }
 
+#' Expected accesses, may turn out to be useful -------------------------------#
+Exp_Acc <- dd_con$nn * mean(dd_con$N_ACC/dd_con$nn)
+
+#' Candidate scale parameter for Wishart priors on the marginal variance
+V.prior <- matrix(1/10, nrow= 4, ncol = 4)
+for(i in c(1:4)) V.prior[i,i] <- 1
+scale.fac <- t(chol(V.prior))
+
+#' ----------------------------------------------------------------------------#
+
+## Exploratory analysis --------------------------------------------------------
+#'
+#' Covariates correlation plot. It has now become 
+#' a standard -----------------------------------------------------------------#
+ggplot2::ggplot(data = reshape2::melt(cor(X[,-1]))) +
+  ggplot2::geom_tile(ggplot2::aes(
+    x = .data$Var2, y = .data$Var1, fill = .data$value), color = "black") +
+  ggplot2::geom_text(ggplot2::aes(
+    x = .data$Var2, y = .data$Var1, label = round(.data$value, 2))) +
+  ggplot2::scale_fill_gradient2(
+    low = "blue", mid = "white", high = "red", midpoint = 0) +
+  ggplot2::theme_minimal()
 
 
+#' Before more involved analysis let us consider the nonspatial model ---------#
+cav_nosp_glm <- glm(
+  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 +TEP_th + ELI + PGR + UIS + ELL + PDI + ER, 
+  family = "poisson", offset = log(nn), data = dd_con)
 
-## Spatial analysis ------------------------------------------------------------
-
-
-
-#' Two ways of seeing this issue: 
-#'   A) Panel - like analysis: covariate effects
-#'      are constant in time
-#'   B) Multivariate analysis: each year accounts
-#'      for a different target variable, in other words
-#'      covariate effects are time-varying 
-
+#' Model with offset ----------------------------------------------------------#
 cav_nosp_inla <- inla(
-  N_ACC ~ 0 + Intercept +TEP_th + ELI + PGR + UIS + ELL + PDI + ER,
+  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + TEP_th + ELI + PGR + UIS + ELL + PDI + ER,
   offset = log(nn),
-  family = rep("poisson", 3), data =dd_list,
-  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
-  control.predictor = list(compute = T),
+  family = "poisson", data =dd_con,
+  num.threads = 1, 
+  control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
   verbose = T)
 
-cav_nosp_inla_panel <- inla(
-  N_ACC ~ 0 + Intercept +TEP_th + ELI + PGR + UIS + ELL + PDI + ER,
+#' Model with expected accesses - equivalent in theory ------------------------#
+cav_nosp_inla_E <- inla(
+  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024+TEP_th + ELI + PGR + UIS + ELL + PDI + ER,
+  E = Exp_Acc,
+  family = "poisson", data = dplyr::mutate(dd_con, Exp_Acc = Exp_Acc),
+  num.threads = 1, 
+  control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  verbose = T)
+
+cav_nosp_inla.alt <- inla(
+  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + CAV + ELI + PGR + UIS + ELL + PDI + ER,
   offset = log(nn),
-  family = "poisson", data =dd_long,
+  family = "poisson", data =dd_con,
+  num.threads = 1, 
+  control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  verbose = T)
+
+#' Univariate models: ICAR
+#' 
+
+cav_icar_INLA_2021 <- inla(
+  N_ACC ~ 1 + TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(c(1:n), model = "besag", graph = W_con, scale.model = T, constr = T),
+  offset = log(nn), 
+  family = "poisson", data =dd_con[c(1:n),],
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  verbose = T)
+
+cav_icar_INLA_2022 <- inla(
+  N_ACC ~ 1 + TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(c(1:n), model = "besag", graph = W_con, scale.model = T, constr = T),
+  offset = log(nn), 
+  family = "poisson", data =dd_con[n+c(1:n),],
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  verbose = T)
+
+cav_icar_INLA_2023 <- inla(
+  N_ACC ~ 1 + TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(c(1:n), model = "besag", graph = W_con, scale.model = T, constr = T),
+  offset = log(nn), 
+  family = "poisson", data =dd_con[n+n+c(1:n),],
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  verbose = T)
+
+cav_icar_INLA_2024 <- inla(
+  N_ACC ~ 1 + TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(c(1:n), model = "besag", graph = W_con, scale.model = T, constr = T),
+  offset = log(nn), 
+  family = "poisson", data =dd_con[n+n+n+c(1:n),],
   num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
   verbose = T)
 
 
+#' LCAR ------------------------------------------------------------------------
+cav_lcar_INLA_2021 <- inla(
+  N_ACC ~ 1 + TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(c(1:n), model = "besagproper2", graph = W_con, constr = T),
+  offset = log(nn), 
+  family = "poisson", data =dd_con[c(1:n),],
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  verbose = T)
+
+cav_lcar_INLA_2022 <- inla(
+  N_ACC ~ 1 + TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(c(1:n), model = "besagproper2", graph = W_con, constr = T),
+  offset = log(nn), 
+  family = "poisson", data =dd_con[n+c(1:n),],
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  verbose = T)
+
+cav_lcar_INLA_2023 <- inla(
+  N_ACC ~ 1 + TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(c(1:n), model = "besagproper2", graph = W_con, constr = T),
+  offset = log(nn), 
+  family = "poisson", data =dd_con[n+n+c(1:n),],
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  verbose = T)
+
+cav_lcar_INLA_2024 <- inla(
+  N_ACC ~ 1 + TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(c(1:n), model = "besagproper2", graph = W_con, constr = T),
+  offset = log(nn), 
+  family = "poisson", data =dd_con[n+n+n+c(1:n),],
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  verbose = T)
+
+
+#' BYM -------------------------------------------------------------------------
+
+cav_bym_INLA_2021 <- inla(
+  N_ACC ~ 1 + TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(c(1:n), model = "bym2", graph = W_con, scale.model = T),
+  offset = log(nn), 
+  family = "poisson", data =dd_con[c(1:n),],
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  verbose = T)
+
+
+cav_bym_INLA_2022 <- inla(
+  N_ACC ~ 1 + TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(c(1:n), model = "bym2", graph = W_con, scale.model = T),
+  offset = log(nn), 
+  family = "poisson", data =dd_con[n+c(1:n),],
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  verbose = T)
+
+cav_bym_INLA_2023 <- inla(
+  N_ACC ~ 1 + TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(c(1:n), model = "bym2", graph = W_con, scale.model = T),
+  offset = log(nn), 
+  family = "poisson", data =dd_con[n+n+c(1:n),],
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  verbose = T)
+
+cav_bym_INLA_2024 <- inla(
+  N_ACC ~ 1 + TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(c(1:n), model = "bym2", graph = W_con, scale.model = T),
+  offset = log(nn), 
+  family = "poisson", data =dd_con[n+n+n+c(1:n),],
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  verbose = T)
+
+## Spatial analysis: Block-factorisable models ---------------------
+
+#' Simplest spatial model: ICAR -----------------------------------------------#
+
+
+cav_IMCAR_inla <- inla(
+  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.IMCAR.Bartlett(k = 4, W = W_con, df=6), 
+      extraconstr = list(A = A_constr, e = c(0,0,0,0))),
+  offset = log(nn), family = "poisson", data =dd_con,
+  #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  verbose = T)
+
+
+cav_IMCAR_inla.scale.fac <- inla(
+  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.IMCAR.Bartlett(k = 4, W = W_con, df=6, scale.fac = scale.fac/sqrt(6) ), 
+      extraconstr = list(A = A_constr, e = c(0,0,0,0))),
+  offset = log(nn), family = "poisson", data =dd_con,
+  #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  verbose = T)
+
+
+cav_IMCAR_inla_ls <- inla(
+  N_ACC ~ 0 + dd_list$intercept + dd_list$TEP_th + dd_list$ELI + dd_list$PGR + dd_list$UIS + dd_list$ELL + dd_list$PDI + dd_list$ER+ 
+    f(ID, model = inla.IMCAR.Bartlett(k = 4, W = W_con, df=6), 
+      extraconstr = list(A = A_constr, e = c(0,0,0,0))),
+  offset = log(nn), family = rep("poisson",4), data =dd_list,
+  #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  verbose = T)
+
+
+
+Mmodel_compute_cor_bigDM(cav_IMCAR_inla.W, J=4)[c(1,3)]
+
+#' ----------------------------------------------------------------------------#
 #' The simplest way to take into account the three different years
 #' is defining a multivariate model in which each year corresponds
 #' to a different dependent variable.
-#' 
-#' We use the PCAR, as outlined in Gelfand and Vounatsu (2003):
-#' Unique spatial autocorrelation parameter for the three 
-#' target variables.
-#' 
+#' We start with the PCAR, as outlined in Gelfand and Vounatsu (2003)
+#' and the LCAR by Leroux et al. (2000)
+#' Unique spatial autocorrelation/mixing parameter for the three 
+#' target variables -----------------------------------------------------------#
 
 
-#' Complex model: time-varying covariate effects
-cav_IMCAR_inla_multiv <- inla(
-  N_ACC ~ 0 + Intercept + TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
-    f(ID, model = inla.IMCAR.model(k = 3, W = W_con), extraconstr = list(
-      A = A_constr, e = c(0,0,0))),
-  offset = log(nn),
-  family = rep("poisson", 3), data =dd_list,
-  #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
-  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
-  verbose = T)
-
-#' Compare to simpler model
-cav_IMCAR_inla <- inla(
-  N_ACC ~ 0 +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
-    f(Year, model = "iid", hyper = list(prec = list(initial = 1e-3, fixed = TRUE))) +
-    f(ID_ym, model = inla.IMCAR.model(k = 3, W = W_con), extraconstr = list(
-      A = A_constr, e = c(0,0,0))),
-  offset = log(nn),
-  family = "poisson", data =dd_long,
-  #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
-  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
-  verbose = T)
+#' PMCAR model ----------------------------------------------------------------# 
 
 
+#' CRASH 
 
-cav_PMCAR_inla_multiv <- inla(
-  N_ACC ~ 1 +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
-    f(ID, model = inla.MCAR.model(k = 3, W = W_con,  alpha.min = 0,alpha.max = 1)),
-  offset = log(nn),
-  family = rep("poisson", 3), data =dd_list,
-  #control.fixed = list(prec = list(Intercept1 = 0, Intercept2 = 0, Intercept3 = 0)),
-  #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
-  num.threads = 1, control.compute = list(internal.opt = F, cpo = T,  waic = T, config = T, dic = T), 
-  verbose = T)
+ 
 
-cav_PMCAR_inla <- inla(
-  N_ACC ~ 1 +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
-    f(ID_ym, model = inla.MCAR.model(k = 3, W = W_con, alpha.min = 0, alpha.max = 1)),
-  offset = log(nn),
-  family = "poisson", data =dd_long,
+cav_PMCAR_inla.W <- inla(
+  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + 
+    ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.PMCAR.Bartlett(W = W_con, k = 4,  df = 6, Wishart.on.scale = T)),
+  offset = log(nn), family = "poisson", data = dd_con,
   #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
   num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T, dic = T), 
   verbose = T)
 
 
+cav_PMCAR_inla.IW <- inla(
+  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + 
+    ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.PMCAR.Bartlett(W = W_con, k = 4,  df = 6, Wishart.on.scale = F)),
+  offset = log(nn), family = "poisson", data = dd_con,
+  #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T, dic = T), 
+  verbose = T)
 
-#' Apparently seems nice.
-#' Apparently.
-#' 
-#' The problem is that CPO is utterly messed up, as in 
-#' most INLA applications to this dataset.
-
-cav_PMCAR_inla_tHyper <- inla.MCAR.transform(cav_PMCAR_inla, k=3,
-                                            model = "PMCAR", alpha.min = 0, alpha.max = 1)
 
 #' Autocorrelation seems high. Still, remind the CPO problem:
 #' may it be a red flag for INLA not doing well?
+Mmodel_compute_cor_bigDM(cav_PMCAR_inla.W,  J=4)[c(1,3)]
+Mmodel_compute_cor_bigDM(cav_PMCAR_inla.IW, J=4)[c(1,3)]
 
 inla.zmarginal(inla.tmarginal(
   fun = function(X) 1/(1 + exp(-X)),
-  marginal = cav_PMCAR_inla$marginals.hyperpar[[1]]))
-
-#' Weird result: employment rate has negative association, and 
-#' even stronger in absolute value than for 2022.
-
-#' It seems the panel model outperforms the more complex one.
-#' This is not entirely due to reduced complexity.
+  marginal = cav_PMCAR_inla.W$marginals.hyperpar[[1]]))
 
 
-#' Leroux model, manual definition: --------------------------------------------
 
-inla.rgeneric.MLCAR.model <- 
-  function (cmd = c("graph", "Q", "mu", "initial", "log.norm.const", 
-                    "log.prior", "quit"), theta = NULL) {
-    interpret.theta <- function() {
-      alpha <-  1/(1 + exp(-theta[1L]))
-      mprec <- sapply(theta[as.integer(2:(k + 1))], function(x) {
-        exp(x)
-      })
-      corre <- sapply(theta[as.integer(-(1:(k + 1)))], function(x) {
-        (2 * exp(x))/(1 + exp(x)) - 1
-      })
-      param <- c(alpha, mprec, corre)
-      n <- (k - 1) * k/2
-      M <- diag(1, k)
-      M[lower.tri(M)] <- param[k + 2:(n + 1)]
-      M[upper.tri(M)] <- t(M)[upper.tri(M)]
-      st.dev <- 1/sqrt(param[2:(k + 1)])
-      st.dev.mat <- matrix(st.dev, ncol = 1) %*% matrix(st.dev, 
-                                                        nrow = 1)
-      M <- M * st.dev.mat
-      PREC <- solve(M)
-      return(list(alpha = alpha, param = param, VACOV = M, 
-                  PREC = PREC))
-    }
-    graph <- function() {
-      PREC <- matrix(1, ncol = k, nrow = k)
-      G <- kronecker(PREC, Matrix::Diagonal(nrow(W), 1) + 
-                       W)
-      return(G)
-    }
-    Q <- function() {
-      param <- interpret.theta()
-      Lapl <- Matrix::Diagonal(nrow(W), apply(W, 1, sum)) -  W
-      #Sigma.u <- MASS::ginv(as.matrix(Lapl))
-      #Sigma <- param$alpha * Sigma.u + (1-param$alpha)*diag(1, nrow(W))
-      R <- param$alpha*Lapl + (1-param$alpha)*diag(1, nrow(W))
-      Q <- kronecker(param$PREC, R)
-      return(Q)
-    }
-    mu <- function() {
-      return(numeric(0))
-    }
-    log.norm.const <- function() {
-      val <- numeric(0)
-      return(val)
-    }
-    log.prior <- function() {
-      param <- interpret.theta()
-      # Uniform prior on \lambda
-      # val <- -theta[1L] - 2 * log(1 + exp(-theta[1L]))
-      # Normal prior on \lambda, in analogy with the univariate default case
-      val <- log(dnorm(theta[1L], mean = 0, sd = sqrt(1/0.45))) 
-      val <- val + log(MCMCpack::dwish(
-        W = param$PREC, v = k, S = diag(rep(1, k)))) +
-        sum(theta[as.integer(2:(k + 1))]) + 
-        sum(log(2) + theta[-as.integer(1:(k + 1))] - 
-              2 * log(1 + exp(theta[-as.integer(1:(k + 1))])))
-      return(val)
-    }
-    initial <- function(){
-      if(is.null(init)){
-        return(c(0, rep(0, k), rep(0, (k * (k - 1)/2))))
-      } else return(init)
-    } 
-      
-    quit <- function() {
-      return(invisible())
-    }
-    if (as.integer(R.version$major) > 3) {
-      if (!length(theta)) 
-        theta = initial()
-    }
-    else {
-      if (is.null(theta)) {
-        theta <- initial()
-      }
-    }
-    val <- do.call(match.arg(cmd), args = list())
-    return(val)
-  }
-
-inla.MLCAR.model <- function(...) INLA::inla.rgeneric.define(inla.rgeneric.MLCAR.model, ...)
-
-cav_MLCAR_inla_multiv <- inla(
-  N_ACC ~ 1 +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
-    f(ID, model = inla.MLCAR.model(k = 3, W = W_con, init = NULL)),
+cav_LMCAR_inla.W <- inla(
+  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + 
+    TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.LMCAR.Bartlett(k = 4, W = W_con, Wishart.on.scale = T, df = 6)),
   offset = log(nn),
-  family = rep("poisson", 3), data =dd_list,
-  #control.fixed = list(prec = list(Intercept1 = 0, Intercept2 = 0, Intercept3 = 0)),
+  family = "poisson", data =dd_con,
   #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
   num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T, dic = T), 
   verbose = T)
 
-cav_MLCAR_inla <- inla(
-  N_ACC ~ 1 +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
-    f(ID_ym, model = inla.MLCAR.model(k = 3, W = W_con, init = NULL)),
+cav_LMCAR_inla.IW <- inla(
+  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + 
+    TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.LMCAR.Bartlett(k = 4, W = W_con, Wishart.on.scale = F, df = 6)),
   offset = log(nn),
-  family = "poisson", data =dd_long,
+  family = "poisson", data =dd_con,
   #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
   num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T, dic = T), 
   verbose = T)
 
 
-
-#' Allow to set initial values
-cav_MLCAR_inla_init <- inla(
-  N_ACC ~ 1 +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
-    f(ID_ym, model = inla.MLCAR.model(k = 3, W = W_con, init = c(-3, rep(0,6)))),
-  offset = log(nn),
-  family = "poisson", data =dd_long,
-  #control.fixed = list(prec = list(Intercept1 = 0, Intercept2 = 0, Intercept3 = 0)),
-  #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
-  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
-  verbose = T)
-
-#' Mixing parameter
-#' (hard to interpret etcetera)
+#' Mixing parameter (hard to interpret etcetera) ------------------------------#
 
 inla.zmarginal(inla.tmarginal(
   fun = function(X) 1/(1 + exp(-X)),
-  marginal = cav_MLCAR_inla$marginals.hyperpar[[1]]))
+  marginal = cav_LMCAR_inla.IW$marginals.hyperpar[[1]]))
 
-#' Covariances
-inla.MCAR.transform(cav_MLCAR_inla, model = "PMCAR", k = 3, alpha.min = 0, alpha.max = 1)$summary.hyperpar
-inla.MCAR.transform(cav_PMCAR_inla, model = "PMCAR", k = 3, alpha.min = 0, alpha.max = 1)$summary.hyperpar
-
-#' Manual transformation of ALL the covariance matrix 
-
-inla.zmarginal(inla.tmarginal(fun = function(x) exp(-x), 
-                              marginal = cav_MLCAR_inla$marginals.hyperpar[[2]]))
-
-inla.zmarginal(inla.tmarginal(fun = function(x) exp(-x), 
-                              marginal = cav_MLCAR_inla$marginals.hyperpar[[3]]))
-
-inla.zmarginal(inla.tmarginal(fun = function(x) exp(-x), 
-                              marginal = cav_MLCAR_inla$marginals.hyperpar[[4]]))
+   
+ 
 
 
-inla.zmarginal(inla.tmarginal(fun = function(x) (2 * exp(x))/(1 + exp(x)) - 1, 
-                              marginal = cav_MLCAR_inla$marginals.hyperpar[[5]]))
+## ----------------------------------------------------------------------------#
+#
+#' Multivariate BYM ATTEMPT - Warning: slow -----------------------------------#
 
-inla.zmarginal(inla.tmarginal(fun = function(x) (2 * exp(x))/(1 + exp(x)) - 1, 
-                              marginal = cav_MLCAR_inla$marginals.hyperpar[[6]]))
-
-inla.zmarginal(inla.tmarginal(fun = function(x) (2 * exp(x))/(1 + exp(x)) - 1, 
-                              marginal = cav_MLCAR_inla$marginals.hyperpar[[7]]))
-
-
-#' Median of the scale parameter.
-#' Yes, this is too much code for a 3x3 matrix.
-#' 
-Sigma_diagonal <- sapply(c(2,3,4), function(i){
-  inla.zmarginal(inla.tmarginal(fun = function(x) exp(-x), 
-                                marginal = 
-                                  cav_MLCAR_inla$marginals.hyperpar[[i]]),
-                 silent = T)$quant0.5
-})
-
-Sigma_offdiag <- sapply(c(5, 6, 7), function(i){
-  inla.zmarginal(inla.tmarginal(fun = function(x) (2 * exp(x))/(1 + exp(x)) - 1, 
-                                marginal = 
-                                  cav_MLCAR_inla$marginals.hyperpar[[i]]),
-                 silent = T)$quant0.5
-})
-
-Sigma <- Matrix::Diagonal(x = Sigma_diagonal)
-Sigma[lower.tri(Sigma)] <- Sigma_offdiag
-Sigma[upper.tri(Sigma)] <- t(Sigma[lower.tri(Sigma)])
-Sigma
-
-
-
-
-## Multivariate BYM ATTEMPT - Warning: slow ------------------------------------
-
-
-#scaleQ <- INLA:::inla.scale.model.internal(
-#  L_block, constr = list(A = A_constr, e = rep(0, nrow(A_constr))))
-#' Eigenvalues of ICAR precision.
-#' caveat: I used the SCALED precision, don't know if is what
-#' inla.pc.bym.phi() needs. It should
-#L_eigen_scaled <- pmax(eigen( scaleQ$Q)$values, 0)
-
-#' PC prior on the mixing parameter
-#' 
-#dpc.log.0 <- INLA:::inla.pc.bym.phi(Q =  scaleQ$Q,
-#                                  u = 0.5, alpha = 2/3)
-
-#log.dpc.phi.bym <- INLA:::inla.pc.bym.phi(eigenvalues = L_eigen_scaled, 
-#                                  marginal.variances = scaleQ$var,
-#                                  rankdef = nrow(A_constr),
-#                                  u = 0.5, alpha = 2/3)
-
-#' WAIC: 2921.905, summaries for phi:
-#' Mean            0.902401 
-#' Stdev           0.0659761 
-#' Quantile  0.025 0.724788 
-#' Quantile  0.25  0.875523 
-#' Quantile  0.5   0.920359 
-#' Quantile  0.75  0.948348 
-#' Quantile  0.975 0.976785
-
-inla.rgeneric.MBYM.dense <- 
-  function (cmd = c("graph", "Q", "mu", "initial", "log.norm.const", 
-                    "log.prior", "quit"), theta = NULL ) {
-    envir <- parent.env(environment())
-    if(!exists("cache.done", envir=envir)){
-      starttime.scale <- Sys.time()
-      #' Unscaled Laplacian matrix (marginal precision of u_1, u_2 ... u_k)
-      L_unscaled <- Matrix::Diagonal(nrow(W), rowSums(W)) -  W
-      L_unscaled_block <- kronecker(diag(1,k), L_unscaled)
-      A_constr <- t(pracma::nullspace(as.matrix(L_unscaled_block)))
-      scaleQ <- INLA:::inla.scale.model.internal(
-        L_unscaled_block, constr = list(A = A_constr, e = rep(0, nrow(A_constr))))
-      #' Block Laplacian, i.e. precision of U = I_k \otimes L
-      n <- nrow(W)
-      L <- scaleQ$Q[c(1:n), c(1:n)]
-      Sigma.u <- MASS::ginv(as.matrix(L))
-      if(PC == TRUE){
-        #' Eigenvalues of the SCALED Laplacian, sufficient for trace and determinant entering the KLD
-        L_eigen_scaled <- eigen(scaleQ$Q)$values
-        #' PC prior on mixing parameter - definition should be fine.
-        log.dpc.phi.bym <- INLA:::inla.pc.bym.phi(eigenvalues = L_eigen_scaled, 
-                                                  marginal.variances = scaleQ$var,
-                                                  rankdef = nrow(A_constr),
-                                                  u = 0.5, alpha = 2/3)
-        assign("log.dpc.phi.bym", log.dpc.phi.bym, envir = envir)
-        
-      }
-      endtime.scale <- Sys.time()
-      cat("Time needed for scaling Laplacian matrix: ",
-          round(difftime(endtime.scale, starttime.scale), 3), " seconds \n")
-      assign("L", L, envir = envir)
-      assign("Sigma.u", Sigma.u, envir = envir)
-      assign("cache.done", TRUE, envir = envir)
-    }
-    interpret.theta <- function() {
-      alpha <-  1/(1 + exp(-theta[1L]))
-      mprec <- sapply(theta[as.integer(2:(k + 1))], function(x) {
-        exp(x)
-      })
-      corre <- sapply(theta[as.integer(-(1:(k + 1)))], function(x) {
-        (2 * exp(x))/(1 + exp(x)) - 1
-      })
-      param <- c(alpha, mprec, corre)
-      n <- (k - 1) * k/2
-      M <- diag(1, k)
-      M[lower.tri(M)] <- param[k + 2:(n + 1)]
-      M[upper.tri(M)] <- t(M)[upper.tri(M)]
-      st.dev <- 1/sqrt(param[2:(k + 1)])
-      st.dev.mat <- matrix(st.dev, ncol = 1) %*% matrix(st.dev, 
-                                                        nrow = 1)
-      M <- M * st.dev.mat
-      PREC <- solve(M)
-      return(list(alpha = alpha, param = param, VACOV = M, 
-                  PREC = PREC))
-    }
-    graph <- function() {
-      PREC <- matrix(1, ncol = k, nrow = k)
-      G <- kronecker(PREC, Matrix::Diagonal(nrow(W), 1) + 
-                       W)
-      return(G)
-    }
-    Q <- function() {
-      param <- interpret.theta()
-      #' Weighted average of ICAR and IID variables: variance is the sum of variances.
-      #' Precision here defined as inverse variance. Not
-      #' the best way to do it; still using sparse
-      #' parametrisation requires a latent effect of length 2*np
-      Sigma <- param$alpha * Sigma.u + (1-param$alpha)*diag(1, nrow(W))
-      Q <- kronecker(param$PREC, solve(Sigma))
-      return(Q)
-    }
-    mu <- function() {
-      return(numeric(0))
-    }
-    log.norm.const <- function() {
-      val <- numeric(0)
-      return(val)
-    }
-    log.prior <- function() {
-      param <- interpret.theta()
-      if(PC == TRUE){
-        #' PC prior implementation
-        val <- log.dpc.phi.bym(param$phi)- theta[1L] - 2 * log(1 + exp(-theta[1L]))
-      } else {
-        #' Uniform prior
-        val <- -theta[1L] - 2 * log(1 + exp(-theta[1L]))
-      }
-      #' Whishart prior on precision (inverse scale)
-      val <- val + log(MCMCpack::dwish(W = param$PREC, v = k,
-                                       S = diag(rep(1, k)))) +
-        #' This for the change of variable
-        #' (code from INLAMSM)
-        sum(theta[as.integer(2:(k +  1))]) +
-        sum(log(2) + theta[-as.integer(1:(k + 1))] - 2 * log(1 + exp(theta[-as.integer(1:(k + 1))])))
-      return(val)
-    }
-    initial <- function() {
-      if(!exists("init", envir = envir)){
-        return(c(0, rep(0, k), rep(0, (k * (k - 1)/2))))
-      } else{
-        return(init)
-      }
-    }
-    quit <- function() {
-      return(invisible())
-    }
-    if (as.integer(R.version$major) > 3) {
-      if (!length(theta)) 
-        theta = initial()
-    }
-    else {
-      if (is.null(theta)) {
-        theta <- initial()
-      }
-    }
-    val <- do.call(match.arg(cmd), args = list())
-    return(val)
-  }
-
-#' TBD
-inla.rgeneric.MBYM.sparse <- 
-  function (cmd = c("graph", "Q", "mu", "initial", "log.norm.const", 
-                    "log.prior", "quit"), theta = NULL) {
-    envir <- parent.env(environment())
-    if(!exists("cache.done", envir=envir)){
-      starttime.scale <- Sys.time()
-      #' Unscaled Laplacian matrix (marginal precision of u_1, u_2 ... u_k)
-      L_unscaled <- Matrix::Diagonal(nrow(W), rowSums(W)) -  W
-      L_unscaled_block <- kronecker(diag(1,k), L_unscaled)
-      A_constr <- t(pracma::nullspace(as.matrix(L_unscaled_block)))
-      scaleQ <- INLA:::inla.scale.model.internal(
-        L_unscaled_block, constr = list(A = A_constr, e = rep(0, nrow(A_constr))))
-      #' Block Laplacian, i.e. precision of U = I_k \otimes L
-      n <- nrow(W)
-      L <- scaleQ$Q[c(1:n), c(1:n)]
-      if(PC == TRUE){
-        #' Eigenvalues of the SCALED Laplacian, sufficient for trace and determinant entering the KLD
-        L_eigen_scaled <- eigen(scaleQ$Q)$values
-        #' PC prior on mixing parameter - definition should be fine.
-        log.dpc.phi.bym <- INLA:::inla.pc.bym.phi(eigenvalues = L_eigen_scaled, 
-                                                  marginal.variances = scaleQ$var,
-                                                  rankdef = nrow(A_constr),
-                                                  u = 0.5, alpha = 2/3)
-        assign("log.dpc.phi.bym", log.dpc.phi.bym, envir = envir)
-        
-      }
-      endtime.scale <- Sys.time()
-      cat("Time needed for scaling Laplacian matrix: ",
-          round(difftime(endtime.scale, starttime.scale), 3), " seconds \n")
-      assign("L", L, envir = envir)
-      assign("cache.done", TRUE, envir = envir)
-    }
-    interpret.theta <- function() {
-      phi <-  1/(1 + exp(-theta[1L]))
-      mprec <- sapply(theta[as.integer(2:(k + 1))], function(x) {
-        exp(x)
-      })
-      corre <- sapply(theta[as.integer(-(1:(k + 1)))], function(x) {
-        (2 * exp(x))/(1 + exp(x)) - 1
-      })
-      param <- c(phi, mprec, corre)
-      n <- (k - 1) * k/2
-      R <- diag(1, k)
-      R[lower.tri(R)] <- param[k + 2:(n + 1)]
-      R[upper.tri(R)] <- t(R)[upper.tri(R)]
-      st.dev <- 1/sqrt(param[2:(k + 1)])
-      st.dev.mat <- matrix(st.dev, ncol = 1) %*%
-        matrix(st.dev, nrow = 1)
-      Sigma <- R * st.dev.mat
-      V <- eigen(Sigma)$vectors
-      D <- eigen(Sigma)$values
-      invM <- V %*% diag(sqrt(1/D))
-      PREC <- invM %*% t(invM)
-      return(list(phi = phi, param = param, VACOV = Sigma, 
-                  PREC = PREC, invM = invM))
-    }
-    graph <- function() {
-      BPrec <- matrix(1, ncol = 2*k, nrow = 2*k)
-      G <- kronecker(BPrec, Matrix::Diagonal(nrow(W), 1) + 
-                       W)
-      return(G)
-    }
-    Q <- function() {
-      param <- interpret.theta()
-      Q11 <- 1/(1 - param$phi) * kronecker(param$PREC, Matrix::Diagonal(n = nrow(W), x  = 1))
-      Q12 <- -sqrt(param$phi)/(1 - param$phi) * kronecker(param$invM, Matrix::Diagonal(n = nrow(W), x  = 1))
-      Q21 <- Matrix::t(Q12)
-      Q22 <- kronecker(Matrix::Diagonal(n = k, x = 1),
-                       ((param$phi/(1-param$phi))* Matrix::Diagonal(n = nrow(W), x = 1) + L))
-      Q <- rbind(cbind(Q11, Q12), cbind(Q21, Q22))
-      return(Q)
-    }
-    mu <- function() {
-      return(numeric(0))
-    }
-    log.norm.const <- function() {
-      val <- numeric(0)
-      return(val)
-    }
-    
-    log.prior <- function() {
-      param <- interpret.theta()
-      if(PC == TRUE){
-        #' PC prior implementation
-        val <-  log.dpc.phi.bym(param$phi) - theta[1L] - 2 * log(1 + exp(-theta[1L]))
-      }else {
-        #' Uniform prior
-        val <- -theta[1L] - 2 * log(1 + exp(-theta[1L]))
-      }
-      #' Whishart prior on precision (inverse scale)
-      val <- val + log(MCMCpack::dwish(W = param$PREC, v = k,
-                                       S = diag(rep(1, k)))) +
-        #' This for the change of variable
-        #' (code from INLAMSM)
-        sum(theta[as.integer(2:(k +  1))]) +
-        sum(log(2) + theta[-as.integer(1:(k + 1))] - 2 * log(1 + exp(theta[-as.integer(1:(k + 1))])))
-      return(val)
-    }
-    initial <- function() {
-      if(!exists("init", envir = envir)){
-        return(c(0, rep(0, k), rep(0, (k * (k - 1)/2))))
-      } else{
-        return(init)
-      }
-    }
-    quit <- function() {
-      return(invisible())
-    }
-    if (as.integer(R.version$major) > 3) {
-      if (!length(theta)) 
-        theta <- initial()
-    }
-    else {
-      if (is.null(theta)) {
-        theta <- initial()
-      }
-    }
-    val <- do.call(match.arg(cmd), args = list())
-    return(val)
-  }
-
-inla.MBYM.dense <- function(...) INLA::inla.rgeneric.define(inla.rgeneric.MBYM.dense, ...)
-inla.MBYM.sparse <- function(...) INLA::inla.rgeneric.define(inla.rgeneric.MBYM.sparse, ...)
 
 
 #' Warning: using a 'prudential' initial value for logit(phi)
 #' can make this already slow model even slower; still, we want to rule out overestimation.
 
-cav_MBYM_inla <- inla(
-  N_ACC ~ 1 +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
-    f(ID_ym, model = inla.MBYM.dense(k = 3, W = W_con, 
-                                  PC = FALSE)#,
-      #extraconstr = list(A = A_constr, e = rep(0, 3))
-      ) ,
+cav_MBYM_inla.dense <- inla(
+  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 +
+    TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.MBYM.Bartlett(k = 4, W = W_con, PC = FALSE, sparse =FALSE, df = 6,
+                                     Wishart.on.scale = T)) ,
   offset = log(nn),
-  family = "poisson", data =dd_long,
+  family = "poisson", data =dd_con,
   #control.fixed = list(prec = list(Intercept1 = 0, Intercept2 = 0, Intercept3 = 0)),
   #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
   num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
   verbose = T)
 
 
-cav_MBYM_inla_panel <- inla(
-  N_ACC ~ 0 +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
-    f(Year, model = "iid", hyper = list(prec = list(initial = 1e-3, fixed = TRUE))) +
-    f(ID_ym, model = inla.MBYM.dense(k = 3, W = W_con, PC = FALSE)#,
-      #extraconstr = list(A = A_constr, e = rep(0, 3))
-      ) ,
+cav_MBYM_inla.W <- inla(
+  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 +
+    TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.MBYM.Bartlett(k = 4, W = W_con, PC = FALSE, df = 6,
+                                     sparse = TRUE, Wishart.on.scale = T),
+      extraconstr = constr.BYM) ,
   offset = log(nn),
-  family = "poisson", data =dd_long,
-  #control.fixed = list(prec = list(Intercept1 = 0, Intercept2 = 0, Intercept3 = 0)),
-  #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
+  family = "poisson", data =dd_con,
   num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
   verbose = T)
 
- 
-
-
-#' Weird results, needs to be checked. 
-#' Still, it's fast!
-cav_MBYM_inla_sparse <- inla(
-  N_ACC ~ 0  +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
-    f(Year, model = "iid", hyper = list(prec = list(initial = 1e-3, fixed = TRUE))) +
-    f(ID_ym, model = inla.MBYM.sparse(k = 3, W = W_con, 
-                                   PC = FALSE),
-      extraconstr = list(A = kronecker(diag(1,2), A_constr), e = rep(0, 6)),
-      values = c(1:(2*nrow(dd_long))) ) ,
+cav_MBYM_inla.IW <- inla(
+  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 +
+    TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.MBYM.Bartlett(k = 4, W = W_con, PC = FALSE, df = 6,
+                                     sparse = TRUE, Wishart.on.scale = F),
+      extraconstr = constr.BYM) ,
   offset = log(nn),
-  family = "poisson", data =dd_long,
-  #control.fixed = list(prec = list(Intercept1 = 0, Intercept2 = 0, Intercept3 = 0)),
-  #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
-  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
-  verbose = T)
-
-cav_MBYM_inla_sparse_v1 <- inla(
-  N_ACC ~ 0 + Intercept +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
-    f(ID, model = inla.MBYM.sparse(k = 3, W = W_con, 
-                                   PC = FALSE),
-      extraconstr = list(A = cbind(matrix(0, nrow=3, ncol=3*n), A_constr), e = rep(0, 3)),
-      values = dd_list$ID2 ) ,
-  offset = log(nn),
-  family = rep("poisson", 3), data =dd_list,
-  #control.fixed = list(prec = list(Intercept1 = 0, Intercept2 = 0, Intercept3 = 0)),
-  #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
+  family = "poisson", data =dd_con,
   num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
   verbose = T)
 
 
-#' More 'standard' initial values, but not in line
-#' with INLAMSM models
-cav_MBYM_inla_I1 <- inla(
-  N_ACC ~ 0 + Intercept +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
-    f(ID, model = inla.MBYM.dense(k = 3, W = W_con, 
-                                  init = c(-3, rep(4,3), rep(0,3)),
-                                  PC = FALSE),
-      extraconstr = list(A = A_constr, e = rep(0, 3))
-      #values = dd_list$ID2
-    ) ,
-  offset = log(nn),
-  family = rep("poisson", 3), data =dd_list,
-  #control.fixed = list(prec = list(Intercept1 = 0, Intercept2 = 0, Intercept3 = 0)),
-  #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
-  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
-  verbose = T)
-
-#' Ungodly crashing
-cav_MBYM_inla_I1_pc <- inla(
-  N_ACC ~ 0 + Intercept +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
-    f(ID, model = inla.MBYM.dense(k = 3, W = W_con, 
-                                  #init = c(-3, rep(0,3), rep(0,3)),
-                                  PC = TRUE),
-      #extraconstr = list(A = A_constr, e = rep(0, 3))
-      #values = dd_list$ID2
-    ) ,
-  offset = log(nn),
-  family = rep("poisson", 3), data =dd_list,
-  #control.fixed = list(prec = list(Intercept1 = 0, Intercept2 = 0, Intercept3 = 0)),
-  #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
-  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
-  verbose = T)
-
-
-
-#' No, too high.
 inla.zmarginal(inla.tmarginal(
   fun = function(X) 1/(1 + exp(-X)),
-  marginal = cav_MBYM_inla$marginals.hyperpar[[1]]))
+  marginal = cav_MBYM_inla.W$marginals.hyperpar[[1]]))
 
 #' Nasty:
 #' 
@@ -1171,17 +842,7 @@ LPMLs <- function(models, num.level.sets){
 }
 LPMLs_df <- LPMLs(models = mm, c(1:6, 8, 10, 12, 15, 20, 25))
 
-## Spatiotemporal model: INLA versus MCMC --------------------------------------
-
-
-
-cav_BYM_st_bmstdrCARBayes <- 
-  bmstdr::Bcartime(N_ACC ~ 1 + offset(log(nn)) + TEP_th + ELI + PGR + UIS + ELL + PDI + ER,
-                 data=dd_long, package = "CARBayesST", model = "ar",
-                 scol="ID_m", tcol = "Year",  family="poisson", W=W_con,
-                 N=50000, burn.in=10000, thin=5)
-
-## Multivariate Pogit analysis ATTEMPT ---------------------------------
+## TBD TBD TBD Multivariate Pogit analysis ATTEMPT ---------------------------------
  
 
 #' Let's try a single-likelihood approach:
@@ -1427,110 +1088,126 @@ X.bru <- as.matrix(X.bru)
 ## M-Model attempt --------------------------------------------------------
 
 
-#' Edited version of INLAMSM:::inla.rgeneric.Mmodel.model
-#' matching latest R versions, in which dependencies must always be recalled through the namespace
+#' M-model defined using the bigDM package
+inla.IMCAR.bigDM  <- function(...) INLA::inla.rgeneric.define(bigDM::Mmodel_icar, ...)
+inla.PMMCAR.bigDM <- function(...) INLA::inla.rgeneric.define(bigDM::Mmodel_pcar, ... )
+inla.LMMCAR.bigDM <- function(...) INLA::inla.rgeneric.define(bigDM::Mmodel_lcar, ... )
+ 
 
 
-inlamsm.Mmodel  <- function(...) INLA::inla.rgeneric.define(inlamsm.rgeneric.Mmodel, ...)
 
 
-inlamsm.rgeneric.Mmodel <- function (cmd = c("graph", "Q", "mu", "initial", "log.norm.const", 
-                                              "log.prior", "quit"), theta = NULL) {
-  interpret.theta <- function() {
-    alpha <- alpha.min + (alpha.max - alpha.min)/(1 + exp(-theta[as.integer(1:k)]))
-    M <- matrix(theta[-as.integer(1:k)], ncol = k)
-    return(list(alpha = alpha, M = M))
-  }
-  graph <- function() {
-    MI <- kronecker(Matrix::Matrix(1, ncol = k, nrow = k), 
-                    Matrix::Diagonal(nrow(W), 1))
-    IW <- Matrix::Diagonal(nrow(W), 1) + W
-    BlockIW <- Matrix::bdiag(replicate(k, IW, simplify = FALSE))
-    G <- (MI %*% BlockIW) %*% MI
-    return(G)
-  }
-  Q <- function() {
-    param <- interpret.theta()
-    M.inv <- solve(param$M)
-    MI <- kronecker(M.inv, Matrix::Diagonal(nrow(W), 1))
-    D <- as.vector(apply(W, 1, sum))
-    BlockIW <- Matrix::bdiag(lapply(1:k, function(i) {
-      Matrix::Diagonal(x = D) - param$alpha[i] * W
-    }))
-    Q <- (MI %*% BlockIW) %*% kronecker(t(M.inv), Matrix::Diagonal(nrow(W), 
-                                                                   1))
-    return(Q)
-  }
-  mu <- function() {
-    return(numeric(0))
-  }
-  log.norm.const <- function() {
-    val <- numeric(0)
-    return(val)
-  }
-  log.prior <- function() {
-    param <- interpret.theta()
-    val <- sum(-theta[as.integer(1:k)] - 2 * log(1 + exp(-theta[as.integer(1:k)])))
-    sigma2 <- 1000
-    val = val + log(MCMCpack::dwish(W = crossprod(param$M), 
-                                    v = k, S = diag(rep(sigma2, k))))
-    return(val)
-  }
-  initial <- function() {
-    return(c(rep(0, k), as.vector(diag(rep(1, k)))))
-  }
-  quit <- function() {
-    return(invisible())
-  }
-  if (as.integer(R.version$major) > 3) {
-    if (!length(theta)) 
-      theta = initial()
-  }
-  else {
-    if (is.null(theta)) {
-      theta <- initial()
-    }
-  }
-  val <- do.call(match.arg(cmd), args = list())
-  return(val)
-}
-
-cav_PMMCAR_inlamsm <- inla(
-  N_ACC ~ 1 +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
-    f(ID_ym, model = inlamsm.Mmodel(k = 3, W = W_con,  alpha.min = 0,alpha.max = 1)),
+cav_IMMCAR_inla <- inla(
+  N_ACC ~ 0+ Y_2021 + Y_2022 + Y_2023 + Y_2024 + TEP_th + ELI + PGR + UIS + ELL + PDI + ER + 
+    f(ID, model = inla.IMCAR.bigDM(J = 4, W = W_con, initial.values = rep(0.1, 10)),
+      extraconstr = list(A = A_constr, e = rep(0, nrow(A_constr)))  ),
   offset = log(nn),
-  family = "poisson", data =dd_long,
+  family = "poisson", data =dd_con,
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  verbose = T)
+
+##' PCAR model 
+
+#' 
+cav_PMMCAR_bigDM <- inla(
+  N_ACC ~ 0+ Y_2021 + Y_2022 + Y_2023 + Y_2024 +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.PMMCAR.bigDM(J = 4, W = W_con,  alpha.min = 0,alpha.max = 1,
+                                    initial.values = rep(0, 10))),
+  offset = log(nn),
+  family = "poisson", data =dd_con,
   #control.fixed = list(prec = list(Intercept1 = 0, Intercept2 = 0, Intercept3 = 0)),
   #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
   num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
   verbose = T)
 
+cav_PMMCAR_unif.W <- inla(
+  N_ACC ~  0+ Y_2021 + Y_2022 + Y_2023 + Y_2024 +
+    TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.PMMCAR.model(k = 4, W = W_con, df = 4, PC = F, 
+                                    Wishart.on.scale = T,
+                                    initial.values = c(0, 0, 0, 0, cav_PMCAR_inla.IW$summary.hyperpar$mode[-1]))),
+  offset = log(nn),
+  family = "poisson", data =dd_con,
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  verbose = T)
+
+
+cav_PMMCAR_unif.W.pc <- inla(
+  N_ACC ~  0+ Y_2021 + Y_2022 + Y_2023 + Y_2024 +
+    TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.PMMCAR.model(k = 4, W = W_con, df = 6, PC = T, 
+                                    initial.values = c(0, 0, 0, 0, cav_IMCAR_inla$summary.hyperpar$mode)  )),
+  offset = log(nn),
+  family = "poisson", data =dd_con,
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  verbose = T)
+
+
+ 
+#' Interpret hyperparameters --------------------------------------------------#
+
 data.frame(do.call(rbind, lapply(
-  lapply(cav_PMMCAR_inlamsm$marginals.hyperpar[c(1,2,3)], function(f){
+  lapply(cav_PMMCAR_bigDM$marginals.hyperpar[c(1,2,3,4)], function(f){
     inla.tmarginal(fun = function(X) 1/(1 + exp(-X)), marginal = f)
   }), function(x) unlist(inla.zmarginal(x, silent = TRUE))))) %>% 
   dplyr::select(1,2,3,5,7)
 
-#' This looks very different from the factorisable PCAR. 
-#' Basically, 2021 and 2022 data have no spatial structure,
-#' according to the M-model posteriors. 
+Mmodel_compute_cor_bigDM(cav_PMMCAR_bigDM, J=4)[c(1,3)]
 
 
-#' M-model defined using the bidDM package
-inla.PMMCAR.bigDM <- function(...) INLA::inla.rgeneric.define(bigDM::Mmodel_pcar, ... )
-inla.LMMCAR.bigDM <- function(...) INLA::inla.rgeneric.define(bigDM::Mmodel_lcar, ... )
- 
-cav_PMMCAR_bigDM <- inla(
-  N_ACC ~ 1 +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
-    f(ID_ym, model = inla.PMMCAR.bigDM(J = 3, W = W_con,  alpha.min = 0,alpha.max = 1,
-                                    initial.values = rep(0, 6))),
+
+
+cav_LMMCAR_bigDM <- inla(
+  N_ACC ~ 0+ Y_2021 + Y_2022 + Y_2023 +Y_2024 +
+    +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.LMMCAR.bigDM(J = 4, W = W_con,  alpha.min = 0,alpha.max = 1,
+                                       initial.values = rep(0, 10))),
   offset = log(nn),
-  family = "poisson", data =dd_long,
-  #control.fixed = list(prec = list(Intercept1 = 0, Intercept2 = 0, Intercept3 = 0)),
-  #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
+  family = "poisson", data =dd_con,
   num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
   verbose = T)
 
+
+cav_LMMCAR_unif <- inla(
+  N_ACC ~ 0+ Y_2021 + Y_2022 + Y_2023 + Y_2024 + 
+    TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.LMMCAR.model(k = 4, W = W_con, 
+                                    df = 6, PC = F )),
+  offset = log(nn),
+  family = "poisson", data =dd_con, 
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  verbose = T)
+
+
+cav_LMMCAR_pc  <- inla(
+  N_ACC ~ 0+ Y_2021 + Y_2022 + Y_2023 + Y_2024+
+    TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.LMMCAR.model(k = 4, W = W_con,  df = 6, PC = T,
+                                    initial.values = c(0, 0, 0, 0, cav_IMCAR_inla$summary.hyperpar$mode))),
+  offset = log(nn),
+  family = "poisson", data =dd_con, 
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  verbose = T)
+
+
+cav_LMMCAR_pc_strict <- inla(
+  N_ACC ~ 0+ Y_2021 + Y_2022 + Y_2023 +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.LMMCAR.model(k = 3, W = W_con, Bartlett =T, df = 5, PC = T,
+                                    alpha  = 9/10, U = 2/3)),
+  offset = log(nn),
+  family = "poisson", data =dd_con, 
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  verbose = T)
+
+
+
+data.frame(do.call(rbind, lapply(
+  lapply(cav_LMMCAR_bigDM$marginals.hyperpar[c(1,2,3)], function(f){
+    inla.tmarginal(fun = function(X) 1/(1 + exp(-X)), marginal = f)
+  }), function(x) unlist(inla.zmarginal(x, silent = TRUE))))) %>% 
+  dplyr::select(1,2,3,5,7)
+
+Mmodel_compute_cor_bigDM(cav_LMMCAR_bigDM, J=3)[c(1,3)]
 
 #' More general version covering also LCAR and sparse BYM:
 #cav_MmodPCAR_inla_bigDM_copy <- inla(
@@ -1544,15 +1221,15 @@ cav_PMMCAR_bigDM <- inla(
 #  verbose = T)
 
 
-cav_MmodPCAR_inla_spatplus <- inla(
-  N_ACC ~ 1 +TEP_th + ELI+ PGR + UIS + ELL_nosp_resid  + PDI + ER_nosp_resid+ 
-    f(ID, model = inla.Mmodel(k = 3, W = W_con, Qmod = "PCAR")),
-  offset = log(nn),
-  family = rep("poisson", 3), data =dd_list,
-  #control.fixed = list(prec = list(Intercept1 = 0, Intercept2 = 0, Intercept3 = 0)),
-  #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
-  num.threads = 1, control.compute = list(internal.opt = F, cpo = T,  waic = T, config = T), 
-  verbose = T)
+#cav_MmodPCAR_inla_spatplus <- inla(
+#  N_ACC ~ 1 +TEP_th + ELI+ PGR + UIS + ELL_nosp_resid  + PDI + ER_nosp_resid+ 
+#    f(ID, model = inla.Mmodel(k = 3, W = W_con, Qmod = "PCAR")),
+#  offset = log(nn),
+#  family = rep("poisson", 3), data =dd_list,
+#  #control.fixed = list(prec = list(Intercept1 = 0, Intercept2 = 0, Intercept3 = 0)),
+#  #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
+#  num.threads = 1, control.compute = list(internal.opt = F, cpo = T,  waic = T, config = T), 
+#  verbose = T)
 
 #cav_MmodLCAR_inla <- inla(
 #  N_ACC ~ 1 +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
@@ -1593,116 +1270,173 @@ cav_MmodPCAR_inla_spatplus <- inla(
 
 source("Auxiliary/Functions.R")
 
+
+
+#' 'Dense' parametrisation, i.e. only the convolution process is modelled -----#
+#'                !!! Enable early stop, e.g.:
+#'   > Enable early_stop ff < f0: 1612.813420 < 1612.814101 (diff 0.000681048)
+#'   > Early stop. Mode not found sufficiently accurate f0=[1612.814101] f_best=[1612.813420] local.value=[1612.813420]
+#'  The marginal prior of the latent effect is proper -------------------------#
+#'  
+#'  NOT RUn - extremely slow --------------------------------------------------#
 cav_MmodBYM_inla_dense <- inla(
-  N_ACC ~ 0 +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
-    f(Year, model = "iid", hyper = list(prec = list(initial = 1e-3, fixed = TRUE))) +
-    f(ID_ym, model = inla.MMBYM.model(k = 3, W = W_con, sparse =F, PC= F) ),
+  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.MMBYM.model(k = 3, W = W_con, sparse =F, PC= F, df = 5) ),
   offset = log(nn),
-  family = "poisson", data =dd_long,
+  family = "poisson", data =dd_con,
   #control.fixed = list(prec = list(Intercept1 = 0, Intercept2 = 0, Intercept3 = 0)),
   #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
   num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
   verbose = T)
+
+#'  > summary(cav_MmodBYM_inla_dense)
+#' Time used:
+#'  Pre = 1.38, Running = 914, Post = 4.36, Total = 920 
+#' Fixed effects:
+#'  mean    sd 0.025quant 0.5quant 0.975quant   mode kld
+#' Y_2021 -7.399 0.049     -7.496   -7.399     -7.305 -7.399   0
+#' Y_2022 -7.598 0.058     -7.714   -7.597     -7.485 -7.598   0
+#' Y_2023 -7.181 0.048     -7.276   -7.181     -7.088 -7.181   0
+#' TEP_th -0.246 0.036     -0.317   -0.246     -0.176 -0.246   0
+#' ELI    -0.024 0.033     -0.087   -0.024      0.040 -0.024   0
+#' PGR     0.094 0.037      0.022    0.094      0.167  0.094   0
+#'  UIS     0.020 0.033     -0.045    0.020      0.085  0.020   0
+#'  ELL    -0.227 0.043     -0.310   -0.226     -0.143 -0.226   0
+#'  PDI    -0.013 0.040     -0.093   -0.013      0.066 -0.013   0
+#' ER     -0.278 0.049     -0.374   -0.278     -0.182 -0.278   0
+
+#' Random effects:
+#'  Name	  Model
+#'  ID RGeneric2
+
+#'  Model hyperparameters:
+#'    mean    sd 0.025quant 0.5quant 0.975quant   mode
+#' Theta1 for ID  0.593 1.599     -2.975    0.734      3.217  1.470
+#' Theta2 for ID -0.416 1.334     -3.296   -0.347      1.927  0.064
+#' Theta3 for ID -0.039 0.666     -1.266   -0.065      1.352 -0.189
+#' Theta4 for ID  0.560 0.418     -0.249    0.555      1.398  0.534
+#' Theta5 for ID  0.383 0.467     -0.542    0.386      1.296  0.395
+#' Theta6 for ID -0.643 0.122     -0.876   -0.645     -0.396 -0.655
+#' Theta7 for ID -0.986 0.804     -2.532   -0.999      0.635 -1.054
+#' Theta8 for ID  1.282 1.219     -1.036    1.256      3.762  1.136
+#' Theta9 for ID  1.152 0.601     -0.032    1.152      2.333  1.155
+
+#'Watanabe-Akaike information criterion (WAIC) ...: 2921.93
+#'Effective number of parameters .................: 202.48
+
+#Marginal log-Likelihood:  -1611.61 
+
+
+#' Mixing posterior: ok -------------------------------------------------------#
+#'                    mean        sd quant0.025  quant0.5 quant0.975
+#' Theta1 for ID 0.6136884 0.2774067 0.05037687 0.6865006  0.9607055
+#' Theta2 for ID 0.4302582 0.2448343 0.03687192 0.4242366  0.8707938
+#' Theta3 for ID 0.4899396 0.1511219 0.22151810 0.4813382  0.7918091
+
+#' Variance posterior - weird!! -----------------------------------------------#
+#'  > Mmodel_compute_cor_bigDM(cav_MmodBYM_inla_dense, J=3)[c(1,3)]
+#' $summary.cor
+#' mean        sd 0.025quant   0.5quant 0.975quant
+#' rho12 -0.4424220 0.3571116 -0.8858624 -0.5284553  0.5409819
+#' rho13  0.5363203 0.4356559 -0.5232013  0.6879010  0.9849486
+#' rho23  0.2830047 0.4708118 -0.6866583  0.3410534  0.9587893
+
+#'   $summary.var
+#' mean       sd 0.025quant 0.5quant 0.975quant
+#' var1 4.365016 4.479759  0.5452476 3.013357   16.18146
+#' var2 4.934897 4.616448  0.4598091 3.623166   17.01168
+#' var3 5.088716 3.655035  0.9224199 4.152399   14.91578
+
+
+
+
 
 #'  Sparse parametrisation attempt
 
-#'  Necessary to constrain the model ==> define ad-hoc constr object:
-constr <- INLA:::inla.bym.constr.internal(
-  Q = (diag(rowSums(as.matrix(W_con))) - W_con), 
-  adjust.for.con.comp = T)
+#' Uniform prior --------------------------------------------------------------#
 
-A.constr <- kronecker(Matrix::Diagonal(n=3,x=1), constr$constr$A)
-
-constr.BYM <- list(
-  A = cbind(Matrix::Matrix(0, nrow = nrow(A.constr), ncol = ncol(A.constr)), A.constr),
-  e=c(0,0,0) )
-
-
-cav_MmodBYM_inla_sparse <- inla(
-  N_ACC ~ 0 +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
-    f(Year, model = "iid", hyper = list(prec = list(initial = 1e-3, fixed = TRUE))) +
-    f(ID_ym, model = inla.MMBYM.model(k = 3, W = W_con, sparse =T, PC= F),
+cav_MMBYM_INLA.unif <- inla(
+  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 +
+    TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.MMBYM.model(k = 4, W = W_con,  PC= F, df = 6 ,
+                                   initial.values = c(0, 0, 0, 0, cav_IMCAR_inla$summary.hyperpar$mode)), 
       extraconstr = constr.BYM),
   offset = log(nn),
-  family = "poisson", data =dd_long,
-  #control.fixed = list(prec = list(Intercept1 = 0, Intercept2 = 0, Intercept3 = 0)),
-  #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
+  family = "poisson", data =dd_con,
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  verbose = T)
+
+cav_MMBYM_INLA.scale.fac <- inla(
+  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 +
+    TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.MMBYM.model(k = 4, W = W_con,  PC= F, df = 6 ,
+                                   initial.values = c(1, 1, 1, 1, cav_IMCAR_inla$summary.hyperpar$mode),
+                                   scale.fac = scale.fac ), 
+      extraconstr = constr.BYM),
+  offset = log(nn), control.inla = list(h = 1e-5),
+  family = "poisson", data =dd_con,
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  verbose = T)
+
+cav_MMBYM_INLA.scale.fac.PC <- inla(
+  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 +
+    TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.MMBYM.model(k = 4, W = W_con,  PC= T, df = 6 ,
+                                   initial.values = c(1, 1, 1, 1, cav_IMCAR_inla$summary.hyperpar$mode),
+                                   scale.fac = scale.fac ), 
+      extraconstr = constr.BYM),
+  offset = log(nn), control.inla = list(h = 1e-5),
+  family = "poisson", data =dd_con,
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  verbose = T)
+
+cav_MMBYM_INLA.scale.fac.div <- inla(
+  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 +
+    TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.MMBYM.model(k = 4, W = W_con,  PC= F, df = 6 ,
+                                   initial.values = c(0, 0, 0, 0, cav_IMCAR_inla$summary.hyperpar$mode),
+                                   scale.fac = scale.fac/sqrt(6) ), 
+      extraconstr = constr.BYM),
+  offset = log(nn), control.inla = list(h = 5e-5),
+  family = "poisson", data =dd_con,
   num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
   verbose = T)
 
 
-#' !!! PC - prior
-#' !!! WARNING this is extremely slow
-cav_MmodBYM_inla_sparse.PC <- inla(
-  N_ACC ~ 0 +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
-    f(Year, model = "iid", hyper = list(prec = list(initial = 1e-3, fixed = TRUE))) +
-    f(ID_ym, model = inla.MMBYM.model(k = 3, W = W_con, sparse =T, PC= T,
-                                      initial.values = cav_MmodBYM_inla_sparse$internal.summary.hyperpar$mode),
+
+
+
+
+data.frame(do.call(rbind, lapply(
+  lapply(cav_MMBYM_inla_sparse$marginals.hyperpar[c(1,2,3)], function(f){
+    inla.tmarginal(fun = function(X) 1/(1 + exp(-X)), marginal = f)
+  }), function(x) unlist(inla.zmarginal(x, silent = TRUE))))) %>% 
+  dplyr::select(1,2,3,5,7)
+
+Mmodel_compute_cor_bigDM(cav_MMBYM_inla.unif, J=4)[c(1,3)]
+#init <- c(-0.8146, 1.0785, 4.3659, -0.7363, -0.8948, -0.5576, 0.3971, 0.1238, -0.0215) 
+
+
+#' PC - prior -----------------------------------------------------------------#
+cav_MMBYM_inla_sparse.pc <- inla(
+  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.MMBYM.model(k = 4, W = W_con, Bartlett = T, PC= T,
+                                   df = 6, alpha = 2/3, U = 1/2), 
       extraconstr = constr.BYM),
   offset = log(nn),
-  family = "poisson", data =dd_long,
+  family = "poisson", data =dd_con,
   num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
   verbose = T)
 
-
-
-
-
-## TBD: Spatiotemporal attempt -------------------------------------------------
-
-dd_list_st <- dd_list
-
-names(dd_list_st)[which(names(dd_list_st)=="ID")] <- "Area"
-
-dd_list_st$Area <- (dd_list_st$Area - 1)%%nrow(dd_con) + 1
-dd_list_st$Year <- rep(c(1,2,3), each = nrow(dd_con))
-
-dd_list_st$ID_bis <- dd_list_st$Area
-dd_list_st$Year_bis <- dd_list_st$Year
-dd_list_st$ID <- dd_list_st$Area + (dd_list_st$Year-1)*nrow(dd_con)
-
-#' Null model: no interaction, only a temporal effect
-cav_STbym_null_INLA <- inla(N_ACC ~ 1 +TEP_th + ELI + PGR + UIS + ELL + PDI + ER +
-                       f(Area, model = "bym2", graph = W_con,  scale.model = T, 
-                         hyper = list(prec = list(prior = "pc.prec", param = c(1.5, 0.01))))+
-                         f(Year, model = "iid"),
-                     family = c("poisson", "poisson", "poisson"), offset = log(nn), data =dd_list_st,
-                     num.threads = 1, control.compute = 
-                       list(internal.opt = F, cpo = T, waic = T), 
-                     #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
-                     control.predictor = list(compute = T),
-                     verbose = T)
-
-#' Works bad, but this makes sense since a unique spatial field is used for all years
-
-#' Next: type-1 interaction:
-
-cav_STbym_i1_INLA <- inla(N_ACC ~ 1 +TEP_th + ELI + PGR + UIS + ELL + PDI + ER +
-                            f(Area, model = "bym2", graph = W_con,  scale.model = T, 
-                              hyper = list(prec = list(prior = "pc.prec", param = c(1.5, 0.01))))+
-                            #f(Year, model = "iid") + 
-                            f(ID, model = "iid",
-                              hyper = list(prec = list(prior = "pc.prec", param = c(1.5, 0.01)))),
-                            family = c("poisson", "poisson", "poisson"), offset = log(nn), data =dd_list_st,
-                            num.threads = 1, control.compute = 
-                              list(internal.opt = F, cpo = T, waic = T), 
-                            #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
-                            control.predictor = list(compute = T),
-                            verbose = T)
-
-cav_STbym_i3_INLA <- inla(N_ACC ~ 1 +TEP_th + ELI + PGR + UIS + ELL + PDI + ER +
-                            f(Area, model = "bym2", graph = W_con,  scale.model = T, 
-                              hyper = list(prec = list(prior = "pc.prec", param = c(1.5, 0.01))))+
-                            #f(Year, model = "iid", hyper = list(prec = list(prior = "pc.prec", param = c(1.5, 0.01)))) + 
-                            f(Year_bis, model="iid", group=Area,
-                              control.group=list(model="besag", graph=W_con),
-                              hyper = list(prec = list(prior = "pc.prec", param = c(1.5, 0.01)))),
-                          family = c("poisson", "poisson", "poisson"), offset = log(nn), data =dd_list_st,
-                          num.threads = 1, control.compute = 
-                            list(internal.opt = F, cpo = T, waic = T), 
-                          #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
-                          control.predictor = list(compute = T),
-                          verbose = T)
+cav_MMBYM_inla_sparse.pc.rest <- inla(
+  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.MMBYM.model(k = 3, W = W_con, Bartlett = T, PC= T,
+                                   df = 5, alpha = 2/3, U = 1/2), 
+      extraconstr = constr.BYM),
+  offset = log(nn),
+  family = "poisson", data =dd_con,
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  verbose = T)
 
 
 
@@ -1726,82 +1460,96 @@ WAICS
 zhat_plot(cav_MLCAR_inla, main = "Leroux model")
 
 
-## Obsolete: covariates choice -------------------------------------------------
+
+## misc ------------------------------------------------------------------------
+
+ #' simulate PCAR
+ 
+alpha.true <- c(0.7, 0.9, 0.5, 0.8)
+sigma.true <- c(1.5, 1.8, 1.4, 1.5)
+corr.true <- c(0.9, 0.7, 0.6, 0.6, 0.8, 0.6)
+
+R.true <- diag(4)
+R.true[lower.tri(R.true)] <- corr.true
+R.true[upper.tri(R.true)] <- t(R.true[lower.tri(R.true)])
+Scale.true <- diag(sigma.true) %*% R.true %*% diag(sigma.true)
+M.true <- diag(sqrt(eigen(Scale.true)$values)) %*% t(eigen(Scale.true)$vectors)
+
+MI.true <- kronecker(solve(M.true), Matrix::Diagonal(n=n, x=1))
+blockIW.true <- kronecker(diag(4), D_con) - kronecker(diag(alpha.true), W_con)
+var.true <- solve(MI.true %*% blockIW.true %*% Matrix::t(MI.true))
+fac <- t(chol(Scale.true))
 
 
-# Plot of covariates correlations:
-ggplot2::ggplot(data = reshape2::melt(cor(X[,-1]))) +
-  ggplot2::geom_tile(ggplot2::aes(
-    x = .data$Var2, y = .data$Var1, fill = .data$value), color = "black") +
-  ggplot2::geom_text(ggplot2::aes(
-    x = .data$Var2, y = .data$Var1, label = round(.data$value, 2))) +
-  ggplot2::scale_fill_gradient2(
-    low = "blue", mid = "white", high = "red", midpoint = 0) +
-  ggplot2::theme_minimal()
+Z.true <- MASS::mvrnorm(1, mu=rep(0, 4*n), Sigma = var.true)
+
+dd_con %>% dplyr::mutate(Z = Z.true) %>% 
+  dplyr::filter(.data$Y_2021==1) %>% ggplot2::ggplot()+
+  ggplot2::geom_sf(ggplot2::aes(fill = .data$LN_ACC))+
+  ggplot2::scale_fill_viridis_c(na.value = "white")+
+  ggplot2::theme_classic()
 
 
-# Forward selection attempt: USING THE BIC AS SELECTION CRITERION,
-# two covariates are necessary
-covariates <- colnames(X)[-c(1,2, which(colnames(X)=="AES"))]
-covariates[1] <- "TEP_th"
+y.sim <- numeric(length(Z.true))
+for(i in seq(length(y.sim))) y.sim[i] <- rpois(n=1, lambda = exp (1+Z.true[i]) )
 
-cov_selector <- function(year){
-  
-  if(year == 2021){
-    dd_con <- dd_con %>% 
-      dplyr::rename(nn = .data$nn21, N_ACC = .data$N_ACC_21, TEP_th = .data$TEP_th_22)
-  } 
-  
-  if(year == 2022){
-    dd_con <- dd_con %>% 
-      dplyr::rename(nn = .data$nn22, N_ACC = .data$N_ACC_22, TEP_th = .data$TEP_th_22)
-  }
-  
-  if(year == 2023){
-    dd_con <- dd_con %>% 
-      dplyr::rename(nn = .data$nn23, N_ACC = .data$N_ACC_23, TEP_th = .data$TEP_th_23)
-  }
-  
-  covs.in <- c()
-  BIC.min <- c()
-  
-  while(length(covs.in) < length(covariates)){
-    covs.out <- covariates[which(!covariates %in% covs.in)]
-    
-    BICs <- c()
-    for(j in c(1:length(covs.out))) {
-      formula.temp <- paste0("N_ACC ~ 1 + offset(log(nn)) +", 
-                             paste(covs.in, collapse = "+"),
-                             "+", covs.out[j])
-      mod.tmp <- glm(formula.temp, data = dd_con, family = "poisson")
-      BICs[j] <- stats::BIC(mod.tmp)
-    }
-    BIC.min <- c(BIC.min, min(BICs))
-    if(length(BIC.min)>1 && BIC.min[length(BIC.min)] >= BIC.min[length(BIC.min)-1]){
-      BIC.min <- BIC.min[c(1:which.min(BIC.min))]
-      cat("Adding covariates is not necessary anymore \n")
-      break
-    } else{
-      covs.in <- c(covs.in, covs.out[which.min(BICs)])
-    }
-  }
-  
-  return(list(BIC = BIC.min, covs = covs.in))
-}
-
-#' Three different sets.
-cov_selector(2021)
-cov_selector(2022)
-cov_selector(2023)
+cav_PMCAR_sim.W<- inla(
+  y.sim ~ 1+ 
+    f(ID, model = inla.PMCAR.Bartlett(k = 4, W = W_con, df=6, Wishart.on.scale = T )),
+  family = "poisson", data = data.frame(y.sim = y.sim, ID = seq(length(y.sim))),
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  verbose = T)
 
 
-#T_dist_ls <- compindexR::calc_compindex(
-#as.matrix(sf::st_drop_geometry(dd_con)[,c("TEP_th", "AES")]))
+cav_PMCAR_sim.IW<- inla(
+  y.sim ~ 1+ 
+    f(ID, model = inla.PMCAR.Bartlett(k = 4, W = W_con, df=6, Wishart.on.scale = F )),
+  family = "poisson", data = data.frame(y.sim = y.sim, ID = seq(length(y.sim))),
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  verbose = T)
 
-#'    -------------------------------------------------------------------------#
-#'    
-#'    Problem: for each year, the optimal covariate changes.
-#'    How to interpret this? 
-#'    How to solve this?
-#'  
-#'    -------------------------------------------------------------------------#
+Mmodel_compute_cor_bigDM(cav_PMCAR_sim.IW, J=4)[c(1,3)]
+
+cav_PMMCAR_sim.W.0 <- inla(
+  y.sim ~ 1+ 
+    f(ID, model = inla.PMMCAR.model(k = 4, W = W_con, df=6)),
+  family = "poisson", data = data.frame(y.sim = y.sim, ID = seq(length(y.sim))),
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  verbose = T)
+
+V.prior + diag(x=9/10, ncol = 4)
+for(i in c(1:4)) V.prior[i,i] <- 1
+scale.fac.prior <- t(chol(V.prior))
+
+cav_PMMCAR_sim.W.1 <- inla(
+  y.sim ~ 1+ 
+    f(ID, model = inla.PMMCAR.model(k = 4, W = W_con, df=6, scale.fac = scale.fac.prior)),
+  family = "poisson", data = data.frame(y.sim = y.sim, ID = seq(length(y.sim))),
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  verbose = T)
+
+cav_PMMCAR_sim.W.2 <- inla(
+  y.sim ~ 1+ 
+    f(ID, model = inla.PMMCAR.model(k = 4, W = W_con, df=6, scale.fac = sqrt(1000)*scale.fac.prior)),
+  family = "poisson", data = data.frame(y.sim = y.sim, ID = seq(length(y.sim))),
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  verbose = T)
+
+cav_PMMCAR_sim.IW_init <- inla(
+  y.sim ~ 1+ 
+    f(ID, model = inla.PMMCAR.model(k = 4, W = W_con, df=6, Wishart.on.scale=F,
+                                    initial.values = c(0, 0, 0, 0, cav_PMCAR_sim.IW$summary.hyperpar$mode[-1]))),
+  family = "poisson", data = data.frame(y.sim = y.sim, ID = seq(length(y.sim))),
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  verbose = T)
+
+
+cav_PMMCAR_sim.W <- inla(
+  y.sim ~ 1+ 
+    f(ID, model = inla.PMMCAR.bigDM(J = 4, W = W_con,  alpha.min = 0,alpha.max = 1,
+                                    initial.values = cav_PMCAR_sim.W$summary.hyperpar$mode[-1])),
+  family = "poisson", data = data.frame(y.sim = y.sim, ID = seq(length(y.sim))),
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  verbose = T)
+
+

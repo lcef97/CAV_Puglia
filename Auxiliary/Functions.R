@@ -18,13 +18,15 @@ inla.rgeneric.IMCAR.Bartlett <-
   function (cmd = c("graph", "Q", "mu", "initial", "log.norm.const", 
                     "log.prior", "quit"), theta = NULL) {
     envir <- parent.env(environment())
+    if(!exists("scale.fac", envir = envir)) assign("scale.fac", diag(k))
     if(!exists("Wishart.on.scale", envir = envir)) assign("Wishart.on.scale", TRUE, envir = envir)
     interpret.theta <- function() {
       diag.N <- sapply(theta[as.integer(1:k)], function(x) {exp(x)})
       no.diag.N <- theta[as.integer(k + 1:(k * (k - 1)/2))]
       N <- diag(diag.N, k)
       N[lower.tri(N, diag = FALSE)] <- no.diag.N
-      Wish.mat <- solve( N %*% t(N) )
+      N <- scale.fac %*% N
+      Wish.mat <- N %*% t(N) 
       return(list(Wish.mat = Wish.mat))
     }
     graph <- function() {
@@ -89,16 +91,50 @@ inla.rgeneric.PMCAR.Bartlett <-
   function (cmd = c("graph", "Q", "mu", "initial", "log.norm.const", 
                     "log.prior", "quit"), theta = NULL) {
     envir <- parent.env(environment())
-    if(!exists("Wishart.on.scale", envir = envir)) assign("Wishart.on.scale", TRUE, envir = envir)
-    
+    if(!exists("PC", envir = envir)) PC <- FALSE
+    if(!exists("Wishart.on.scale", envir = envir)) Wishart.on.scale <- TRUE
+    if(!exists("scale.fac", envir = envir)) scale.fac <- diag(k)
+    if(!exists("cache.done", envir=envir)){
+      D <- Matrix::Diagonal(n=nrow(W), x=rowSums(as.matrix(W))) 
+      assign("D", D, envir = envir)
+      if(PC) {
+        eigenvalues <- eigen(solve(D) %*% W)$values
+        inla.pc.pmmcar.rho <- function(rho, eigenvalues, alpha = 2/3, U = 1/2){
+          n <- length(eigenvalues)
+          In <- Matrix::Diagonal(n = n, x = 1)
+          log.p <- numeric(length(rho))
+          KLD <- function(rho, eigenvalues){
+            res <-  1/2 * sum(log(1 - rho*eigenvalues)) +
+              1/2 * sum(1/(1 - rho * eigenvalues) - 1)
+            return(res)
+          }
+          for(j in c(1:length(rho))){
+            KLD_j <- KLD(rho = rho[j], eigenvalues = eigenvalues)
+            if(KLD_j <= 0){
+              message("!!! PROBLEM !!!! \n!!! NEGATIVE OR NULL KLD - MUST FIX MODEL !!!")
+              return(NULL)
+            }
+            derivative <- 1/2 * sum( (rho[j]*eigenvalues^2)/(1 - rho[j]*eigenvalues)^2 )
+            rate <- -1/sqrt(2*KLD(U, eigenvalues = eigenvalues)) * log(1 - alpha)
+            log.p[j] <- dexp(x=sqrt(2*KLD_j), rate = rate, log = T) -log(2) +
+              log(1/sqrt(2*KLD_j)) + log(abs(derivative))
+          }
+          return(sum(log.p))
+        }
+        assign("inla.pc.pmmcar.rho", inla.pc.pmmcar.rho, envir = envir)
+        assign("eigenvalues", eigenvalues, envir = envir)
+      }
+      assign("cache.done", TRUE, envir = envir)
+    }
     interpret.theta <- function() {
-      alpha <- 1/(1 + exp(-theta[1L]))
+      rho <- 1/(1 + exp(-theta[1L]))
       diag.N <- sapply(theta[as.integer(2:(k+1))], function(x) {exp(x)})
       no.diag.N <- theta[as.integer( (k+1):(k*(k+1)/2) +1)]
       N <- diag(diag.N, k)
       N[lower.tri(N, diag = FALSE)] <- no.diag.N
-      Wish.mat <- solve( N %*% t(N) )
-      return(list(alpha = alpha, Wish.mat = Wish.mat))
+      N <- scale.fac %*% N
+      Wish.mat <-  N %*% t(N) 
+      return(list(rho = rho, Wish.mat = Wish.mat))
     }
     graph <- function() {
       PREC <- matrix(1, ncol = k, nrow = k)
@@ -111,9 +147,7 @@ inla.rgeneric.PMCAR.Bartlett <-
         PREC <- solve(param$Wish.mat)
       } else PREC <- param$Wish.mat
       
-      Q <- kronecker(PREC,
-                     Matrix::Diagonal(nrow(W),  apply(W, 1, sum)) - 
-                       param$alpha*W)
+      Q <- kronecker(PREC, D - param$rho*W)
       return(Q)
     }
     mu <- function() {
@@ -128,9 +162,19 @@ inla.rgeneric.PMCAR.Bartlett <-
       if(!exists("df", envir = envir)) df <- k+2
       param <- interpret.theta()
       #' Uniform prior on the autoregressive parameter
-      val <- -theta[1L] - 2 * log(1 + exp(-theta[1L]))+ 
+      if(!PC){
+        #' Uniform prior
+        val <- -theta[1L] - 2 * log(1 + exp(-theta[1L]))
+      } else{
+        #' PC-prior
+        if(!exists("alpha", envir = envir)) alpha <- 2/3
+        if(!exists("U" , envir = envir)) U <- 1/2
+        val <- inla.pc.pmmcar.rho(eigenvalues = eigenvalues, rho = rep(param$rho, k), 
+                                  alpha = alpha, U = U) -
+          theta[1L] - 2 * log(1 + exp(-theta[1L]))
+      }
         #' Chi-squared on the diagonal
-      k * log(2) + 2 * sum(theta[2:(k+1)]) + 
+      val <- val + k * log(2) + 2 * sum(theta[2:(k+1)]) + 
         sum(dchisq(exp(2 * theta[2:(k+1)]), df = c(df:(df-k+1)), log = TRUE)) +
         #' Normal on the off-diagonal
         sum(dnorm(theta[as.integer( (k+1):(k*(k+1)/2) +1 )],
@@ -169,16 +213,52 @@ inla.rgeneric.LMCAR.Bartlett <-
   function (cmd = c("graph", "Q", "mu", "initial", "log.norm.const", 
                     "log.prior", "quit"), theta = NULL) {
     envir <- parent.env(environment())
-    if(!exists("Wishart.on.scale", envir = envir)) assign("Wishart.on.scale", TRUE, envir = envir)
-    
+    if(!exists("scale.fac", envir = envir)) scale.fac <- diag(k) 
+    if(!exists("Wishart.on.scale", envir = envir)) Wishart.on.scale <- TRUE
+    if(!exists("PC", envir = envir)) PC <- FALSE
+    if(!exists("cache.done", envir=envir)){
+      L <- Matrix::Diagonal(n=nrow(W), x=rowSums(as.matrix(W))) -  W
+      In <- Matrix::Diagonal(n = nrow(W), x = 1)
+      if(PC) {
+        eigenvalues <- eigen(L - In)$values
+        inla.pc.lmmcar.lambda <- function(lambda, eigenvalues, alpha = 2/3, U = 1/2){
+          n <- length(eigenvalues)
+          In <- Matrix::Diagonal(n = n, x = 1)
+          #gammas <- list()
+          log.p <- numeric(length(lambda))
+          KLD <- function(lambda, eigenvalues){
+            res <-  1/2 * sum(log(1 + lambda*eigenvalues)) +
+              1/2 * sum(1/(1 + lambda * eigenvalues) - 1)
+            return(res)
+          }
+          for(j in c(1:length(lambda))){
+            KLD_j <- KLD(lambda = lambda[j], eigenvalues = eigenvalues)
+            if(KLD_j <= 0){
+              message("!!! PROBLEM !!!! \n!!! NEGATIVE OR NULL KLD - MUST FIX MODEL !!!")
+              return(NULL)
+            }
+            derivative <- 1/2 * sum( (lambda[j]*eigenvalues^2)/(1 + lambda[j]*eigenvalues)^2 )
+            rate <- -1/sqrt(2*KLD(U, eigenvalues = eigenvalues)) * log(1 - alpha)
+            log.p[j] <- dexp(x=sqrt(2*KLD_j), rate = rate, log = T) -log(2) +
+              log(1/sqrt(2*KLD_j)) + log(abs(derivative))
+          }
+          return(sum(log.p))
+        }
+        assign("inla.pc.lmmcar.lambda", inla.pc.lmmcar.lambda, envir = envir)
+        assign("eigenvalues", eigenvalues, envir = envir)
+      }
+      assign("L", L, envir = envir)
+      assign("cache.done", TRUE, envir = envir)
+    }
     interpret.theta <- function() {
-      alpha <- 1/(1 + exp(-theta[1L]))
+      lambda <- 1/(1 + exp(-theta[1L]))
       diag.N <- sapply(theta[as.integer(2:(k+1))], function(x) {exp(x)})
       no.diag.N <- theta[as.integer( (k+1):(k*(k+1)/2) +1)]
       N <- diag(diag.N, k)
       N[lower.tri(N, diag = FALSE)] <- no.diag.N
-      Wish.mat <- solve( N %*% t(N) )
-      return(list(alpha = alpha, Wish.mat = Wish.mat))
+      N <- scale.fac %*% N
+      Wish.mat <- N %*% t(N) 
+      return(list(lambda = lambda, Wish.mat = Wish.mat))
     }
     graph <- function() {
       PREC <- matrix(1, ncol = k, nrow = k)
@@ -190,8 +270,8 @@ inla.rgeneric.LMCAR.Bartlett <-
       if(Wishart.on.scale){
         PREC <- solve(param$Wish.mat)
       } else PREC <- param$Wish.mat
-      blockIW <- (param$alpha * (Matrix::Diagonal(nrow(W),  apply(W, 1, sum)) - W))+
-        (1-param$alpha)*Matrix::Diagonal(n=nrow(W), x=1)
+      blockIW <- param$lambda * L +
+        (1-param$lambda)*Matrix::Diagonal(n=nrow(W), x=1)
       Q <- kronecker(PREC, blockIW)
       return(Q)
     }
@@ -203,11 +283,20 @@ inla.rgeneric.LMCAR.Bartlett <-
       return(val)
     }
     log.prior <- function() {
-      param <- interpret.theta()
       if(!exists("df", envir = envir)) df <- k+2
       param <- interpret.theta()
       #' Uniform prior on the autoregressive parameter
-      val <- -theta[1L] - 2 * log(1 + exp(-theta[1L]))+ 
+      if(!PC){
+        val <- -theta[1L] - 2 * log(1 + exp(-theta[1L]))
+      } else {
+        if(!exists("alpha", envir = envir)) alpha <- 2/3
+        if(!exists("U" , envir = envir)) U <- 1/2
+        val <- inla.pc.lmmcar.lambda(eigenvalues = eigenvalues,
+                                     lambda = rep(param$lambda, k), alpha = alpha, U = U) -
+          theta[1L] - 2 * log(1 + exp(-theta[1L]))
+        
+      }
+      val <- val + 
         #' Chi-squared on the diagonal
         k * log(2) + 2 * sum(theta[2:(k+1)]) + 
         sum(dchisq(exp(2 * theta[2:(k+1)]), df = c(df:(df-k+1)), log = TRUE)) +
@@ -248,8 +337,13 @@ inla.rgeneric.MBYM.Bartlett <- function(
             "log.prior", "quit"), theta = NULL){
   
   envir <- parent.env(environment())
-
+  if(!exists("scale.fac", envir = envir)) assign("scale.fac", diag(k), envir = envir) 
+  if(!exists("PC", envir = envir)) PC <- FALSE
+  if(!exists("Wishart.on.scale", envir = envir)) Wishart.on.scale <- TRUE
+  
   if(!exists("cache.done", envir=envir)){
+
+    if(!exists("df", envir = envir)) df <- k+2
     L_unscaled <- Matrix::Diagonal(n=nrow(W), x=rowSums(as.matrix(W))) -  W
     constr <- INLA:::inla.bym.constr.internal(L_unscaled, adjust.for.con.comp = T)
     scaleQ <- INLA:::inla.scale.model.internal(
@@ -262,7 +356,6 @@ inla.rgeneric.MBYM.Bartlett <- function(
     inla.pc.mbym.phi <- function(phi, eigenvalues, alpha = 2/3, U = 1/2){
       n <- length(eigenvalues)
       In <- Matrix::Diagonal(n = n, x = 1)
-      gammas <- list()
       log.p <- numeric(length(phi))
       KLD <- function(phi, eigenvalues){
         res <- -1/2 * sum(log(1 + phi*eigenvalues)) +
@@ -273,21 +366,20 @@ inla.rgeneric.MBYM.Bartlett <- function(
         res <- 1/2 * sum(-eigenvalues/(1+phi*eigenvalues) + eigenvalues)
         return(res)
       }
-      for(j in c(1:k)){
-        gammas[[j]] <- numeric(k*length(eigenvalues))
-        gammas[[j]][c( ((j-1)*n+1) : (j*n) )] <- eigenvalues
-        KLD_j <- KLD(phi = phi, eigenvalues = gammas[[j]])
-        if(KLD_j < 0){
-          message("!!! PROBLEM !!!! \n!!! NEGATIVE KLD - MUST FIX MODEL !!!")
+      for(j in c(1:length(phi))){
+        KLD_j <- KLD(phi = phi[j], eigenvalues = eigenvalues)
+        if(KLD_j <= 0){
+          message("!!! PROBLEM !!!! \n!!! NEGATIVE OR NULL KLD - MUST FIX MODEL !!!")
           return(NULL)
         }
-        derivative <- 1/2 * sum(-gammas[[j]]/(1+phi*gammas[[j]]) + gammas[[j]])
-        rate <- -1/KLD(U, eigenvalues = gammas[[j]]) * log(1 - alpha)
+        derivative <- 1/2 * sum(eigenvalues - eigenvalues / (1 + phi[j] * eigenvalues))
+        rate <- -1/sqrt(2*KLD(U, eigenvalues = eigenvalues)) * log(1 - alpha)
         log.p[j] <- dexp(x=sqrt(2*KLD_j), rate = rate, log = T) -log(2) +
           log(1/sqrt(2*KLD_j)) + log(abs(derivative))
       }
       return(sum(log.p))
     }
+
     assign("L", L, envir = envir)
     assign("invL", invL, envir = envir)
     assign("inla.pc.mbym.phi", inla.pc.mbym.phi, envir = envir)
@@ -301,7 +393,8 @@ inla.rgeneric.MBYM.Bartlett <- function(
     no.diag.N <- theta[as.integer( (k+1):(k*(k+1)/2) +1)]
     N <- diag(diag.N, k)
     N[lower.tri(N, diag = FALSE)] <- no.diag.N
-    Wish.mat <- solve( N %*% t(N) )
+    N <- scale.fac %*% N
+    Wish.mat <-  N %*% t(N)
     if(Wishart.on.scale) {
       Sigma <- Wish.mat
       PREC <- solve(Sigma)
@@ -353,7 +446,7 @@ inla.rgeneric.MBYM.Bartlett <- function(
     } else {
       if(!exists("alpha", envir = envir)) alpha <- 2/3
       if(!exists("U" , envir = envir)) U <- 1/2
-      val <- inla.pc.mbym.phi(eigenvalues = eigenvalues, phi = param$phi, alpha = alpha, U = U) -
+      val <- inla.pc.mbym.phi(eigenvalues = eigenvalues, phi = rep(param$phi, k), alpha = alpha, U = U) -
         theta[1L] - 2 * log(1 + exp(-theta[1L]))
     }
     val <- val +
@@ -397,6 +490,7 @@ inla.rgeneric.Mmodel.LCAR <-
     envir <- parent.env(environment())
     if(!exists("df", envir = envir)) assign("df", k + 2, envir = envir)
     if(!exists("PC", envir = envir)) assign("PC", FALSE, envir = envir)
+    if(!exists("scale.fac", envir = envir)) assign("scale.fac", diag(k))
     if(!exists("Wishart.on.scale", envir = envir)) assign("Wishart.on.scale", TRUE, envir = envir)
     if(!exists("cache.done", envir=envir)){
       L <- Matrix::Diagonal(n=nrow(W), x=rowSums(as.matrix(W))) -  W
@@ -439,6 +533,7 @@ inla.rgeneric.Mmodel.LCAR <-
       no.diag.N <- theta[as.integer(2 * k + 1:(k * (k - 1)/2))]
       N <- diag(diag.N, k)
       N[lower.tri(N, diag = FALSE)] <- no.diag.N
+      N <- scale.fac %*% N
       if(Wishart.on.scale){
         Sigma <- N %*% t(N)
       } else{
@@ -523,6 +618,7 @@ inla.rgeneric.Mmodel.PCAR <-
     envir <- parent.env(environment())
     if(!exists("df", envir = envir)) assign("df", k + 2, envir = envir)
     if(!exists("PC", envir = envir)) assign("PC", FALSE, envir = envir)
+    if(!exists("scale.fac", envir = envir)) assign("scale.fac", diag(k))
     if(!exists("Wishart.on.scale", envir = envir)) assign("Wishart.on.scale", TRUE, envir = envir)
     if(!exists("cache.done", envir=envir)){
       D <- Matrix::Diagonal(n=nrow(W), x=rowSums(as.matrix(W))) 
@@ -562,6 +658,7 @@ inla.rgeneric.Mmodel.PCAR <-
       no.diag.N <- theta[as.integer(2 * k + 1:(k * (k - 1)/2))]
       N <- diag(diag.N, k)
       N[lower.tri(N, diag = FALSE)] <- no.diag.N
+      N <- scale.fac %*% N
       if(Wishart.on.scale){
         Sigma <- N %*% t(N)
       } else{
@@ -660,6 +757,7 @@ inla.rgeneric.Mmodel.BYM <-
   envir <- parent.env(environment())
   if(!exists("df", envir = envir)) assign("df", k + 2, envir = envir)
   if(!exists("PC", envir = envir)) assign("PC", FALSE, envir = envir)
+  if(!exists("scale.fac", envir = envir)) assign("scale.fac", diag(k))
   if(!exists("Wishart.on.scale", envir = envir)) assign("Wishart.on.scale", TRUE, envir = envir)
   if(!exists("sparse", envir = envir)) assign("sparse", TRUE, envir = envir)
   if(!exists("cache.done", envir=envir)){
@@ -714,6 +812,7 @@ inla.rgeneric.Mmodel.BYM <-
     no.diag.N <- theta[2*k+1:(k*(k-1)/2)]
     N <- diag(diag.N) 
     N[lower.tri(N)] <- no.diag.N
+    N <- scale.fac %*% N
     if(Wishart.on.scale){
       Sigma <- N %*% t(N)
     } else{
@@ -874,6 +973,7 @@ inla.pc.pmmcar.rho <- function(rho, eigenvalues, alpha = 2/3, U = 1/2){
 
 
  
+ 
 Mmodel_compute_cor_bigDM <- function (model, n.sample = 10000, J) {
   o <- tryCatch({
     hyperpar.sample <- INLA::inla.hyperpar.sample(n.sample,  model, improve.marginals = TRUE)
@@ -943,6 +1043,8 @@ Mmodel_compute_cor_bigDM <- function (model, n.sample = 10000, J) {
   return(Mmodel.compute)
   
 }
+
+
 
 Mmodel_compute_mixing <- function(model, J){
   res <- data.frame(
