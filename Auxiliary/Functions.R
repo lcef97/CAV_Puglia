@@ -807,11 +807,11 @@ inla.rgeneric.Mmodel.BYM <-
     #' Same as the dense version, plus the M-factorisation of the scale parameter
     #' like in the M-models
     phi <-  1/(1+exp(-theta[as.integer(1:k)]))
-
-    diag.N <- sapply(theta[k+1:k], function(x) {exp(x)})
-    no.diag.N <- theta[2*k+1:(k*(k-1)/2)]
-    N <- diag(diag.N) 
-    N[lower.tri(N)] <- no.diag.N
+    
+    diag.N <- sapply(theta[ k+(1:k)], function(x) {exp(x)})
+    no.diag.N <- theta[2*k + 1:(k * (k - 1)/2)]
+    N <- diag(diag.N, k)
+    N[lower.tri(N, diag = FALSE)] <- no.diag.N
     N <- scale.fac %*% N
     if(Wishart.on.scale){
       Sigma <- N %*% t(N)
@@ -1042,18 +1042,18 @@ Mmodel_compute_cor_bigDM <- function (model, n.sample = 10000, J) {
 }
 
 #' Simplified version:
-vacov_Mmodel <- function (model, n.sample = 10000, J) {
+vcov_summary <- function (model, n.sample = 10000, k) {
   
   hyperpar.sample <- INLA::inla.hyperpar.sample(n.sample,  model, improve.marginals = TRUE)
-  offset <- ncol(hyperpar.sample) - J * (J+1) / 2
+  offset <- ncol(hyperpar.sample) - k * (k+1) / 2
   hyperpar.sample <- hyperpar.sample[, (1+offset):ncol(hyperpar.sample)]
-  hyperpar.sample[, 1:J] <- exp(hyperpar.sample[,  1:J])  
+  hyperpar.sample[, 1:k] <- exp(hyperpar.sample[,  1:k])  
   hyperpar.sample <- split(hyperpar.sample ,
                            seq(nrow(hyperpar.sample)))
     
   param.sample <- lapply(hyperpar.sample, function(x) {
-    N <- diag(x[seq(J)])
-    N[lower.tri(N, diag = FALSE)] <- x[-seq(J)]
+    N <- diag(x[seq(k)])
+    N[lower.tri(N, diag = FALSE)] <- x[-seq(k)]
     Sigma <- N %*% t(N)
     Rho <- cov2cor(Sigma)
     Rho.values <- Rho[lower.tri(Rho)]
@@ -1063,7 +1063,7 @@ vacov_Mmodel <- function (model, n.sample = 10000, J) {
                                       function(x) x$rho))
   summary.cor <- t(data.frame(apply(cor.sample, 2, function(x) summary(x))))
   
-  rownames(summary.cor) <- paste("rho", apply(combn(J, 2), 2,
+  rownames(summary.cor) <- paste("rho", apply(combn(k, 2), 2,
                                               function(x) paste0(x, collapse = "")),  sep = "")
     
   var.sample <- do.call(rbind, lapply(param.sample, 
@@ -1071,10 +1071,8 @@ vacov_Mmodel <- function (model, n.sample = 10000, J) {
 
   summary.var <- t(data.frame(apply(var.sample, 2, function(x) summary(x))))
 
-  res <- list(summary.cor = summary.cor, marginals.cor = marginals.cor, 
-                         summary.var = summary.var, marginals.var = marginals.var)
+  res <- list(cor = summary.cor, var = summary.var)
   return(res)
-  
 }
 
 
