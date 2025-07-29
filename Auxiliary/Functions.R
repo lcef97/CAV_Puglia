@@ -1089,10 +1089,10 @@ vcov_summary <- function (model, n.sample = 10000, k, mode = F) {
 }
 
 
-Mmodel_compute_mixing <- function(model, J){
+Mmodel_compute_mixing <- function(model, k){
   res <- data.frame(
     do.call(rbind, lapply(
-      lapply(model$marginals.hyperpar[c(1:J)], function(f){
+      lapply(model$marginals.hyperpar[c(1:k)], function(f){
         inla.tmarginal(fun = function(X) 1/(1 + exp(-X)), marginal = f)
         }), function(x) unlist(inla.zmarginal(x, silent = TRUE))))) %>% 
     dplyr::select(1,2,3,5,7)
