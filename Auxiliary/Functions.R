@@ -1042,7 +1042,20 @@ Mmodel_compute_cor_bigDM <- function (model, n.sample = 10000, J) {
 }
 
 #' Simplified version:
-vcov_summary <- function (model, n.sample = 10000, k) {
+vcov_summary <- function (model, n.sample = 10000, k, mode = F) {
+  .summary <- function(x, mode = F){
+    
+    res <- c(mean = mean(x), sd = sd(x), quant0.025 = quantile(x, 0.025, names=F),
+           quant0.5 = quantile(x, 1/2, names=F), quant0.975 = quantile(x, 0.975, names=F))
+    if(mode){
+      mode <- function(x){
+        d <- density(x)
+        return( d$x[which.max(d$y)] )        
+      }
+      res <- append(res, c(mode = mode(x))) 
+    }
+    return(res)
+  }
   
   hyperpar.sample <- INLA::inla.hyperpar.sample(n.sample,  model, improve.marginals = TRUE)
   offset <- ncol(hyperpar.sample) - k * (k+1) / 2
@@ -1061,7 +1074,7 @@ vcov_summary <- function (model, n.sample = 10000, k) {
   })
   cor.sample <- do.call(rbind, lapply(param.sample, 
                                       function(x) x$rho))
-  summary.cor <- t(data.frame(apply(cor.sample, 2, function(x) summary(x))))
+  summary.cor <- t(data.frame(apply(cor.sample, 2, function(x) .summary(x, mode = mode))))
   
   rownames(summary.cor) <- paste("rho", apply(combn(k, 2), 2,
                                               function(x) paste0(x, collapse = "")),  sep = "")
@@ -1069,7 +1082,7 @@ vcov_summary <- function (model, n.sample = 10000, k) {
   var.sample <- do.call(rbind, lapply(param.sample, 
                                       function(x) x$sigma))
 
-  summary.var <- t(data.frame(apply(var.sample, 2, function(x) summary(x))))
+  summary.var <- t(data.frame(apply(var.sample, 2, function(x) .summary(x, mode = mode))))
 
   res <- list(cor = summary.cor, var = summary.var)
   return(res)
