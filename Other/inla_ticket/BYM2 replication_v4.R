@@ -63,43 +63,43 @@ library(INLA)
 devtools::source_url("https://raw.githubusercontent.com/lcef97/CAV_Puglia/refs/heads/main/Auxiliary/Functions.R")
 
 ##' Toy examples: simpler models -----------------------------------------------
-##' 
+
 #' Easiest: IMCAR -------------------------------------------------------------#
+#' 
 #' Not the true model, but very easy to fit.
-#' Covariances matrix has Wishart(6, I_4) prior.
+#' Covariances matrix has Wishart(2k, I_k) prior.
 #' Can be still changed in the function call.
+#' 
 mod.IMCAR <- inla(
   Y ~ 1 + X +
-    f(ID, model = inla.IMCAR.Bartlett(k = 4, W = W, df=6),
+    f(ID, model = inla.IMCAR.Bartlett(k = 4, W = W, df=8),
       extraconstr = list(A=constr.BYM$A[,-c(1:(4*n))], e = c(0,0,0,0)) ),
-  family = "poisson", data = dd,
-  num.threads = 1,
+  family = "poisson", data = dd, num.threads = 1,
   control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
   verbose = T)
+
 #' Hyperparameters posterior.
-#' Variance ==> Overestimated  (not true DGP...)
+#' Variance ==> Overestimated, like 3x  (not true DGP...)
 vcov_summary(mod.IMCAR, k=4)$var
 #' Correlations: perfect
 vcov_summary(mod.IMCAR, k=4)$cor
  
-
 #' BYM toy example: independent fields ----------------------------------------#
-#' Of course it is not the true DGP. 
+#'
+#' Of course it is not the true DGP either. 
 #' Uniform prior on the mixing parameter (PC prior would be too restrictive), 
 #' sum-to-zero constraint on the ICAR component and NOT on the convolution component,
 #' as it appears to be in the univariate version implemented with `model='bym2'` 
+#' 
 mod.INDMMBYM.zero <- inla(
   Y ~ 1+ X+
-    f(ID, model = inla.INDMMBYM.model(k = 4, W = W, df=6, PC = F ),
+    f(ID, model = inla.INDMMBYM.model(k = 4, W = W, df=8, PC = F ),
       extraconstr = constr.BYM),
   family = "poisson", data = dd, num.threads = 1,
   control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
   verbose = T)
 # Mixing parameter ==> ok
-data.frame( do.call(rbind, lapply(
-  lapply(mod.INDMMBYM.zero$marginals.hyperpar[c(1:4)], function(f){
-      inla.tmarginal(fun = function(X) 1/(1 + exp(-X)), marginal = f)
-    }), function(x) unlist(inla.zmarginal(x, silent = TRUE)))))[,c(1,2,3,5,7)]  
+Mmodel_compute_mixing(mod.INDMMBYM.zero, k=4) 
 #' Variances ==> perfect
 data.frame( do.call(rbind, lapply(
   lapply(mod.INDMMBYM.zero$marginals.hyperpar[c(5:8)], function(f){
@@ -115,36 +115,32 @@ mod.MMBYM <- inla(
     f(ID, model = inla.MMBYM.model(k = 4, W = W, df=8, PC = F ),
       extraconstr = constr.BYM),
   family = "poisson", data = dd, num.threads = 1,
-  #control.inla = list(h=1e-4),
   control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
   verbose = T)
 
+#' Variances: messy
 vcov_summary(mod.MMBYM, k=4)$var
-#' Correlations: reasonable
+#' Correlations: still messy
 vcov_summary(mod.MMBYM, k=4)$cor
-#' WAIC: lowest to be seen around here, though model is miss-specified
-mod.MMBYM$waic$waic
+#' mixing: good for 3/4
 Mmodel_compute_mixing(mod.MMBYM, k=4)
 
 
-#' Posteriors: all concentrated around zero. 
-mod.MMBYM.bis <- inla.rerun(mod.MMBYM.zero)
-vcov_summary(mod.MMBYM.bis, k=4)$var
-#' Correlations: reasonable
-vcov_summary(mod.MMBYM.bis, k=4)$cor
-#' WAIC: lowest to be seen around here, though model is miss-specified
-mod.MMBYM.bis$waic$waic
+#' rerun ----------------------------------------------------------------------#
+mod.MMBYM.bis <- inla.rerun(mod.MMBYM)
+#' Closer to the original one:
+vcov_summary(mod.MMBYM.bis, k=4)
 Mmodel_compute_mixing(mod.MMBYM.bis, k=4)
 
 #' What would have been if initial values were selected
 #' based on the ICAR output ---------------------------------------------------#
 mod.MMBYM.guided <- inla(
   Y ~ 1+ X+
-    f(ID, model = inla.MMBYM.model(k = 4, W = W, df=6, PC = T,
-                                   initial.values = c(rep(-3, 4),  mod.IMCAR$summary.hyperpar$mode)),
+    f(ID, model = inla.MMBYM.model(k = 4, W = W, df=8, PC = F,
+                                   initial.values = c(rep(-3, 4),
+                                                      mod.IMCAR$summary.hyperpar$mode)),
       extraconstr = constr.BYM),
   family = "poisson", data = dd, num.threads = 1,
-  control.inla = list(stupid.search=F, h=1e-5), safe = F,
   control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
   verbose = T)
 
@@ -155,32 +151,14 @@ vcov_summary(mod.MMBYM.guided, k=4)$cor
 mod.MMBYM.guided$waic$waic
 Mmodel_compute_mixing(mod.MMBYM.guided, k=4)
 
+#' Mode comparison ------------------------------------------------------------#
+#' 
+#' Core issue: same priors, same data yet the mode seems different:
 
+#' -2 and 0 as starting log-standard deviation and correlation:
+mod.MMBYM.bis$mode$log.posterior.mode 
 
+#' starting values from ICAR:
+mod.MMBYM.guided$mode$log.posterior.mode
 
-
-
-##' Alternative models: PCAR and LCAR ------------------------------------------
  
-#' PMCAR ----------------------------------------------------------------------#
-mod.PMMCAR <- inla(
-  Y ~ 1+ X+
-    f(ID, model = inla.PMMCAR.model(k = 4, W = W, df=6, PC = F )),
-  family = "poisson", data = dd, num.threads = 1,
-  control.inla = list(stupid.search=F, h=1e-5), safe = F,
-  control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
-  verbose = T)
-#mod.PMMCAR.init.bis <- inla.rerun(mod.PMMCAR.init)
-
-vcov_summary(mod.PMMCAR, k=4)
-
-#' LMCAR ----------------------------------------------------------------------#
-mod.LMMCAR <- inla(
-  Y ~ 1+ X+
-    f(ID, model = inla.LMMCAR.model(k = 4, W = W, df=6, PC = F )),
-  family = "poisson", data = dd, num.threads = 1,
-  control.inla = list(stupid.search=F, h=1e-5), safe = F,
-  control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
-  verbose = T)
- 
-
