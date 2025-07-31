@@ -108,8 +108,10 @@ data.frame( do.call(rbind, lapply(
 
 
 ##' multivariate BYM - where trouble begins ------------------------------------
-#' Default configuration of the BYM
+#' Default configuration of the BYM;
 
+#' A priori, again, var-cov ~ Wishart(2k, I_k), while the mixing parameter
+#' follows a multivariate Uniform distribution (worse with PC)
 mod.MMBYM <- inla(
   Y ~ 1+ X+
     f(ID, model = inla.MMBYM.model(k = 4, W = W, df=8, PC = F ),
@@ -122,7 +124,7 @@ mod.MMBYM <- inla(
 vcov_summary(mod.MMBYM, k=4)$var
 #' Correlations: still messy
 vcov_summary(mod.MMBYM, k=4)$cor
-#' mixing: good for 3/4
+#' mixing 
 Mmodel_compute_mixing(mod.MMBYM, k=4)
 
 
@@ -132,17 +134,20 @@ mod.MMBYM.bis <- inla.rerun(mod.MMBYM)
 vcov_summary(mod.MMBYM.bis, k=4)
 Mmodel_compute_mixing(mod.MMBYM.bis, k=4)
 
-#' What would have been if initial values were selected
-#' based on the ICAR output ---------------------------------------------------#
+#' What would've been with initial values based on ICAR output ----------------#
 mod.MMBYM.guided <- inla(
-  Y ~ 1+ X+
-    f(ID, model = inla.MMBYM.model(k = 4, W = W, df=8, PC = F,
-                                   initial.values = c(rep(-3, 4),
-                                                      mod.IMCAR$summary.hyperpar$mode)),
+  Y ~ 1+ X+ f(ID, model = inla.MMBYM.model(
+    k = 4, W = W, df=8, PC = F,  
+    initial.values = c(rep(-3, 4),  mod.IMCAR$summary.hyperpar$mode)),
       extraconstr = constr.BYM),
   family = "poisson", data = dd, num.threads = 1,
   control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
   verbose = T)
+
+mod.MMBYM.guided.bis <- inla.rerun(mod.MMBYM.guided)
+
+
+
 
 vcov_summary(mod.MMBYM.guided, k=4)$var
 #' Correlations: perfect (it's the true DGP)
@@ -156,9 +161,14 @@ Mmodel_compute_mixing(mod.MMBYM.guided, k=4)
 #' Core issue: same priors, same data yet the mode seems different:
 
 #' -2 and 0 as starting log-standard deviation and correlation:
-mod.MMBYM.bis$mode$log.posterior.mode 
+mode.idx <- which.max(unlist(lapply(mod.MMBYM$misc$configs$config, function(x) x$log.posterior)))
+mod.MMBYM$misc$configs$config[[mode.idx]]$theta
+#' Joint posterior = -5.64
+mod.MMBYM$misc$configs$config[[mode.idx]]$log.posterior
 
 #' starting values from ICAR:
-mod.MMBYM.guided$mode$log.posterior.mode
-
+mode.idx.guided <- which.max(unlist(lapply(mod.MMBYM.guided$misc$configs$config, function(x) x$log.posterior)))
+mod.MMBYM.guided$misc$configs$config[[mode.idx]]$theta
+#' Joint posterior = -13.99 ==> Definitively not the mode!
+mod.MMBYM.guided$misc$configs$config[[mode.idx]]$log.posterior
  
