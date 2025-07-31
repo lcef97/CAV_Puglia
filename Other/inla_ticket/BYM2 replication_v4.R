@@ -109,6 +109,7 @@ data.frame( do.call(rbind, lapply(
 
 ##' multivariate BYM - where trouble begins ------------------------------------
 #' Default configuration of the BYM
+
 mod.MMBYM <- inla(
   Y ~ 1+ X+
     f(ID, model = inla.MMBYM.model(k = 4, W = W, df=8, PC = F ),
@@ -135,13 +136,8 @@ vcov_summary(mod.MMBYM.bis, k=4)$cor
 mod.MMBYM.bis$waic$waic
 Mmodel_compute_mixing(mod.MMBYM.bis, k=4)
 
-tmp <- file("modMMBYMinit_logfile.txt")
-writeLines(mod.MMBYM.zero$logfile, con=tmp)
-close(tmp)
-
-
-
-#' 
+#' What would have been if initial values were selected
+#' based on the ICAR output ---------------------------------------------------#
 mod.MMBYM.guided <- inla(
   Y ~ 1+ X+
     f(ID, model = inla.MMBYM.model(k = 4, W = W, df=6, PC = T,
@@ -162,22 +158,7 @@ Mmodel_compute_mixing(mod.MMBYM.guided, k=4)
 
 
 
-#' Variance ==> 2nd and 4th are plausible, 1st and 3rd definitively underestimated
-vcov_summary(mod.MMBYM.init, k=4)$var
-#' Correlations: messed up
-vcov_summary(mod.MMBYM.init, k=4)$cor
-#' WAIC: definitively worse than ICAR
-mod.MMBYM.init$waic$waic
 
-
-mod.MMBYM.init.bis <- inla.rerun(mod.MMBYM.init)
-
-#' Variance ==> utter mess 
-vcov_summary(mod.MMBYM.init.bis, k=4)$var
-#' Correlations: messy, but at least CI are all in the positive axis
-vcov_summary(mod.MMBYM.init.bis, k=4)$cor
-#' WAIC: improved, but higher than ICAR
-mod.MMBYM.init.bis$waic$waic
 
 ##' Alternative models: PCAR and LCAR ------------------------------------------
  
