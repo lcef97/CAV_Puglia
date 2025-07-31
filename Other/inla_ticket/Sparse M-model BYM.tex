@@ -1,0 +1,165 @@
+\documentclass{article}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\begin{document}
+
+
+Let us consider a $k$-variate Besag-York-Mollié model. We assume disease-specific mixing parameters, hence we rely on the M-models \cite{MMod} framework. 
+
+If we define the matrix-valued mixing parameter$\Phi:=\mathrm{diag}( \phi_1, \phi_2, \dots  \phi_k )$ and $\bar{\Phi}:= \mathrm{diag} ( 1 - \phi_1,  1 - \phi_2 , \dots  1 - \phi_k) = (I_k -  \Phi ) $, the BYM field $\mathbf{Y}$ is given by:
+
+\begin{equation}
+\label{eq:Mmod_conv}
+\mathbf{Y} =     \mathbf{U} \Phi^{\frac{1}{2}} M  + \mathbf{V} \bar{\Phi}^{\frac{1}{2}}M
+\end{equation}
+
+Where  \begin{itemize}
+\item $\mathbf{U} = (U_1, U_2, \dots U_k)$ is a multivariate and independent ICAR field, such that $U_j \sim \mathcal{N}_n(0, L^+)$ for $j = 1, 2 \dots k$, and $L^+$ is the pseudoinverse of the scaled graph Laplacian matrix
+\item $\mathbf{V} = (V_1, V_2, \dots V_k)$ is a collection of $iid$ random Normal vectors, such that $V_j \sim \mathcal{N}_n(0, I_n)$ for $j = 1, 2 \dots k$.
+\item $M$ is a generic $k \times k$ full-rank matrix such that $M^\top M = \Sigma$, being $\Sigma$ is the scale parameter. For instance, $M$ can be defined as $D^{1/2} E^\top$, where $D$ is the diagonal matrix of the eigenvalues of $\Sigma$ and $E$ is the corresponding eigenvectors matrix.
+
+\end{itemize}
+And the prior variance of $\mathbf{Y}$ is:
+$$
+\mathrm{Var}\left[ \mathrm{vec}(\mathbf{Y}) \mid \Sigma, \Phi \right] = 
+\left( M^\top \otimes I_n\right) 
+\mathrm{diag}\left(S_1,\ldots,S_k\right)
+\left( M \otimes I_n \right)
+$$
+Where each diagonal block $S_j$ is the variance of $U_j \Phi + V_j \bar{\Phi}$, i.e. $S_j = \phi_j L^+ + (1-\phi_j) I_n$. 
+
+
+
+Extending the approach of \cite{BYM2} to the multivariate case, we know that:
+
+$$
+\mathbb{E} [\mathrm{vec}(\mathbf{Y}) \mid U, \Phi , \Sigma] = \mathrm{vec}(\mathbf{U} \Phi^{\frac{1}{2}}M) =
+[( M^{\top}\Phi^{\frac{1}{2}}) \otimes I_n] \mathrm{vec}(\mathbf{U})
+$$
+
+and similarly
+
+$$
+\mathrm{Var} [\mathrm{vec}(\mathbf{Y}) \mid \mathbf{U}, \Phi , \Sigma] =
+\left[( M^{\top} \bar{\Phi}^{\frac{1}{2}}) \otimes I_n \right] 
+\mathbb{E} \left[
+\mathrm{vec}(\mathbf{V})
+\mathrm{vec}(\mathbf{V})^\top \right]
+\left[(\bar{\Phi}^{\frac{1}{2}} M) \otimes I_n \right] = 
+\left(
+ M^\top \bar{\Phi}  M \right) \otimes I_n
+$$
+
+
+The distribution of $\mathbf{Y} \mid \mathbf{U}, \Sigma, \Phi $ then reads:
+\begin{align*}
+-2 \ln \pi \left(\mathrm{vec}(\mathbf{Y}) \mid \mathbf{U}, \Sigma, \phi \right) %\\
+% = C+ \Big{ \{ }
+% \mathrm{vec}(\mathbf{Y}) - \left[ \left( M^\top \Phi^{\frac{1}{2}} \right) \otimes I_n \right] \mathrm{vec}(\mathbf{U}) \Big{\} } ^{\top}
+%
+%\left[ \left(
+% M^{-1} \bar{\Phi}^{-1}{M^{-1}}^\top
+%\right) \otimes I_n \right] 
+%
+%\Big{ \{ } \mathrm{vec}(\mathbf{Y}) -\left[ \left( M^\top \Phi^{\frac{1}{2}} \right) \otimes I_n \right] \mathrm{vec}(\mathbf{U}) \Big{\}} 
+ = C + 
+%
+\mathrm{vec}(\mathbf{Y})^{\top}
+\left[ \left(
+ M^{-1} \bar{\Phi}^{-1}{M^{-1}}^\top
+\right) \otimes I_n \right] 
+\mathrm{vec}(\mathbf{Y}) \\ 
+%
+- 2\mathrm{vec}(\mathbf{Y})^{\top} 
+\left[ \left( 
+ M^{-1} \bar{\Phi}^{-1}{M^{-1}}^\top\right) \otimes I_n \right] 
+\left[ \left( M^\top \Phi^{\frac{1}{2}} \right) \otimes I_n \right] \,\mathrm{vec}(\mathbf{U})   \\
+%
++  \mathrm{vec}(\mathbf{U})^{\top}
+    \left[ \left(\Phi^{\frac{1}{2}} M \right) \otimes I_n \right]
+    \left[ \left(  M^{-1} \bar{\Phi}^{-1}{M^{-1}}^\top\right) \otimes I_n \right]
+    \left[ (M^\top\Phi^{\frac{1}{2}} ) \otimes I_n \right]
+   \mathrm{vec}(\mathbf{U}) \\
+%
+= C + \mathrm{vec}(\mathbf{Y})^{\top}
+\left[ \left(
+ M^{-1} \bar{\Phi}^{-1}{M^{-1}}^\top
+\right) \otimes I_n \right] 
+\mathrm{vec}(\mathbf{Y}) \\ 
+%
+- 2\mathrm{vec}(\mathbf{Y})^{\top} 
+\left[ \left(  M^{-1} \bar{\Phi}^{-1} \Phi^{\frac{1}{2}} M^{\top} \right)
+\otimes I_n \right]  \,\mathrm{vec}(\mathbf{U})   \\
+%
++  \mathrm{vec}(\mathbf{U})^{\top}
+    \left[ \left(  \Phi  \bar{\Phi}^{-1}  \right) \otimes I_n \right]
+   \mathrm{vec}(\mathbf{U})
+\end{align*}
+
+Now, for brevity let us define the following $k \times k$ matrices:
+\begin{align*}
+q_{11} :=  M^{-1} \bar{\Phi}^{-1}{M^{-1}}^\top; \quad
+q_{12} :=  M^{-1} \bar{\Phi}^{-1} \Phi^{\frac{1}{2}}; \quad
+q_{22} := \Phi \bar{\Phi}^{-1}
+\end{align*}
+Hence 
+\begin{align*}
+-2 \ln \pi \left(\mathrm{vec}(\mathbf{Y}) \mid \mathbf{U}, \Sigma, \Phi \right) 
+= C + \mathrm{vec}(\mathbf{Y})^{\top}
+\left(q_{11} \otimes I_n \right) 
+\mathrm{vec}(\mathbf{Y}) \\
+%
+- 2\mathrm{vec}(\mathbf{Y})^{\top} 
+\left(  q_{12} \otimes I_n \right)  \,\mathrm{vec}(\mathbf{U})\\
+%
++  \mathrm{vec}(\mathbf{U})^{\top}
+    \left(q_{22} \otimes I_n \right)
+   \mathrm{vec}(\mathbf{U})
+\end{align*}
+Then, we have 
+\begin{align*}
+-2 \ln \pi \left(\mathrm{vec}(\mathbf{Y}), \mathrm{vec}(\mathbf{U}) \mid \Sigma, \phi \right)  
+= C + \mathrm{vec}(\mathbf{Y})^{\top}
+\left(q_{11} \otimes I_n \right) 
+\mathrm{vec}(\mathbf{Y})\\ 
+%
+- 2\mathrm{vec}(\mathbf{Y})^{\top} 
+\left(  q_{12} \otimes I_n \right)  \,\mathrm{vec}(\mathbf{U})\\  
+%
++  \mathrm{vec}(\mathbf{U})^{\top}
+    \left(q_{12} \otimes I_n + I_k \otimes L\right)
+   \mathrm{vec}(\mathbf{U})
+\end{align*}
+Hence, with some straightforward algebra, it can be concluded that:
+\begin{equation} \label{eq:joint_bym_mmod}
+    \begin{pmatrix}
+        \mathrm{vec} (\mathbf{Y}) \\ \mathrm{vec} (\mathbf{U}) 
+    \end{pmatrix}
+    \sim N_{2kn} \left( 0, \begin{pmatrix}
+            q_{11} \otimes I_n \, & 
+            \, - q_{12} \otimes I_n \\
+            - q_{12}^\top\otimes I_n \, & \,
+             q_{22} \otimes I_n + I_k \otimes L
+        \end{pmatrix}^{-1} \right)
+\end{equation}
+Which generalises to the multivariate case the sparse precision derived by \cite{BYM2}. 
+
+
+
+
+\begin{thebibliography}{6}
+\bibitem{MMod}
+P. Botella-Rocamora, M.A. Martinez-Beneito, and S. Banerjee. A unifying
+modeling framework for highly multivariate disease mapping. Statistics in
+Medicine, 34(9):1548–1559, 2015
+
+\bibitem{BYM2}
+A. Riebler, S. H. Sørbye, D. Simpson, and H. Rue. An intuitive Bayesian spa-
+tial model for disease mapping that accounts for scaling. Statistical methods
+in medical research, 25(4):1145–1165, 2016
+
+\end{thebibliography}
+
+
+
+\end{document}
