@@ -75,11 +75,11 @@ inla.rgeneric.IMCAR.Bartlett <-
       param <- interpret.theta()
       if(! Bartlett){
         if(Wishart.on.scale) {
-          val <-  MCMCpack::dwish(param$Sigma, S=scale.fac %*% t(scale.fac), v = df)
+          val <-  log(MCMCpack::dwish(param$Sigma, S=scale.fac %*% t(scale.fac), v = df))
         } else {
-          val <-  MCMCpack::diwish(param$Sigma, S = scale.fac %*% t(scale.fac), v = df)
+          val <-  log(MCMCpack::diwish(param$Sigma, S = scale.fac %*% t(scale.fac), v = df))
         } # Change of variable: var-cov matrix --> std devs _and_ correlations
-        val <- val + sum( log(2) + k  * log(diag(param$Sigma)))
+        val <- val + sum( log(2) + k/2 * log(diag(param$Sigma)))
         #' Change of variable: std devs --> theta
         val <- val + sum(theta[1:k])
         #' Change of variable: correlations --> theta
@@ -625,11 +625,11 @@ inla.rgeneric.Mmodel.LCAR <-
       }
       if(! Bartlett){
         if(Wishart.on.scale) {
-          val <- val + MCMCpack::dwish(param$Sigma, S=scale.fac %*% t(scale.fac), v = df)
+          val <- val + log(MCMCpack::dwish(param$Sigma, S=scale.fac %*% t(scale.fac), v = df))
         } else {
-          val <- val + MCMCpack::diwish(param$Sigma, S = scale.fac %*% t(scale.fac), v = df)
+          val <- val + log(MCMCpack::diwish(param$Sigma, S = scale.fac %*% t(scale.fac), v = df))
         } # Change of variable: var-cov matrix --> variances _and_ correlations
-        val <- val + sum(log(2) + k * log(diag(param$Sigma)))
+        val <- val + sum(log(2) + k/2 * log(diag(param$Sigma)))
         #' Change of variable: variances --> theta
         val <- val + sum(theta[k+1:k])
         #' Change of variable: correlations --> theta
@@ -778,11 +778,11 @@ inla.rgeneric.Mmodel.PCAR <-
       }
       if(! Bartlett){
         if(Wishart.on.scale) {
-          val <- val + MCMCpack::dwish(param$Sigma, S=scale.fac %*% t(scale.fac), v = df)
+          val <- val + log(MCMCpack::dwish(param$Sigma, S=scale.fac %*% t(scale.fac), v = df))
         } else {
-          val <- val + MCMCpack::diwish(param$Sigma, S = scale.fac %*% t(scale.fac), v = df)
+          val <- val + log(MCMCpack::diwish(param$Sigma, S = scale.fac %*% t(scale.fac), v = df))
         } # Change of variable: var-cov matrix --> variances _and_ correlations
-        val <- val + sum(log(2) + k * log(diag(param$Sigma)))
+        val <- val + sum(log(2) + k/2 * log(diag(param$Sigma)))
         #' Change of variable: variances --> theta
         val <- val + sum(theta[k+1:k])
         #' Change of variable: correlations --> theta
@@ -1100,11 +1100,11 @@ inla.rgeneric.Mmodel.BYM <-
     } 
     if(! Bartlett){
       if(Wishart.on.scale) {
-        val <- val + MCMCpack::dwish(param$Sigma, S=scale.fac %*% t(scale.fac), v = df)
+        val <- val + log(MCMCpack::dwish(param$Sigma, S=scale.fac %*% t(scale.fac), v = df) )
       } else {
-        val <- val + MCMCpack::diwish(param$Sigma, S = scale.fac %*% t(scale.fac), v = df)
+        val <- val + log( MCMCpack::diwish(param$Sigma, S = scale.fac %*% t(scale.fac), v = df) )
       } # Change of variable: var-cov matrix --> variances _and_ correlations
-      val <- val + sum(log(2) + k * log(diag(param$Sigma)))
+      val <- val + sum(log(2) + k/2 * log(diag(param$Sigma)))
       #' Change of variable: variances --> theta
       val <- val + sum(theta[k+1:k])
       #' Change of variable: correlations --> theta
@@ -1286,54 +1286,80 @@ Mmodel_compute_cor_bigDM <- function (model, n.sample = 10000, J) {
 }
 
 #' Simplified version:
-vcov_summary <- function (model, n.sample = 10000, k, mode = F) {
-  .summary <- function(x, mode = F){
-    
-    res <- c(mean = mean(x), sd = sd(x), quant0.025 = quantile(x, 0.025, names=F),
-           quant0.5 = quantile(x, 1/2, names=F), quant0.975 = quantile(x, 0.975, names=F))
-    if(mode){
-      mode <- function(x){
-        d <- density(x)
-        return( d$x[which.max(d$y)] )        
+vcov_summary <- function (model, n.sample = 10000, mode = F) {
+  k <- model$.args$formula[[3]][[3]]$model$k
+  J <- model$.args$formula[[3]][[3]]$model$J
+  Bartlett <- eval(model$.args$formula[[3]][[3]]$model$Bartlett)
+  if(is.null(Bartlett)) Bartlett <- T
+  if(is.null(k)) k <- J
+   
+  offset <- nrow(model$summary.hyperpar) - k * (k+1) / 2
+  
+  if(Bartlett){
+    .summary <- function(x, mode = F){
+      
+      res <- c(mean = mean(x), sd = sd(x), quant0.025 = quantile(x, 0.025, names=F),
+               quant0.5 = quantile(x, 1/2, names=F), quant0.975 = quantile(x, 0.975, names=F))
+      if(mode){
+        mode <- function(x){
+          d <- density(x)
+          return( d$x[which.max(d$y)] )        
+        }
+        res <- append(res, c(mode = mode(x))) 
       }
-      res <- append(res, c(mode = mode(x))) 
+      return(res)
     }
-    return(res)
+    
+    hyperpar.sample <- INLA::inla.hyperpar.sample(n.sample,  model, improve.marginals = TRUE)
+    hyperpar.sample <- hyperpar.sample[, (1+offset):ncol(hyperpar.sample)]
+    hyperpar.sample[, 1:k] <- exp(hyperpar.sample[,  1:k])  
+    hyperpar.sample <- split(hyperpar.sample ,
+                             seq(nrow(hyperpar.sample)))
+    
+    param.sample <- lapply(hyperpar.sample, function(x) {
+      N <- diag(x[seq(k)])
+      N[lower.tri(N, diag = FALSE)] <- x[-seq(k)]
+      Sigma <- N %*% t(N)
+      Rho <- cov2cor(Sigma)
+      Rho.values <- Rho[lower.tri(Rho)]
+      return(list(sigma = diag(Sigma), rho = Rho.values))
+    })
+    cor.sample <- do.call(rbind, lapply(param.sample, 
+                                        function(x) x$rho))
+    summary.cor <- t(data.frame(apply(cor.sample, 2, function(x) .summary(x, mode = mode))))
+    
+    rownames(summary.cor) <- paste("rho", apply(combn(k, 2), 2,
+                                                function(x) paste0(x, collapse = "")),  sep = "")
+    
+    var.sample <- do.call(rbind, lapply(param.sample, 
+                                        function(x) x$sigma))
+    
+    summary.var <- t(data.frame(apply(var.sample, 2, function(x) .summary(x, mode = mode))))
+    
+  } else{
+    summary.var <- data.frame(
+      do.call(rbind, lapply(
+        lapply(model$marginals.hyperpar[offset + c(1:k)], function(f){
+          inla.tmarginal(fun = function(X) exp(2*X), marginal = f)
+        }), function(x) unlist(inla.zmarginal(x, silent = TRUE))))) %>% 
+      dplyr::select(1,2,3,5,7)
+    summary.cor <- data.frame(
+      do.call(rbind, lapply(
+        lapply(model$marginals.hyperpar[offset + k + c(1:(k*(k-1)/2))], function(f){
+          inla.tmarginal(fun = function(X) 2*exp(X)/(1+exp(X))-1, marginal = f)
+        }), function(x) unlist(inla.zmarginal(x, silent = TRUE))))) %>% 
+      dplyr::select(1,2,3,5,7)
   }
   
-  hyperpar.sample <- INLA::inla.hyperpar.sample(n.sample,  model, improve.marginals = TRUE)
-  offset <- ncol(hyperpar.sample) - k * (k+1) / 2
-  hyperpar.sample <- hyperpar.sample[, (1+offset):ncol(hyperpar.sample)]
-  hyperpar.sample[, 1:k] <- exp(hyperpar.sample[,  1:k])  
-  hyperpar.sample <- split(hyperpar.sample ,
-                           seq(nrow(hyperpar.sample)))
-    
-  param.sample <- lapply(hyperpar.sample, function(x) {
-    N <- diag(x[seq(k)])
-    N[lower.tri(N, diag = FALSE)] <- x[-seq(k)]
-    Sigma <- N %*% t(N)
-    Rho <- cov2cor(Sigma)
-    Rho.values <- Rho[lower.tri(Rho)]
-    return(list(sigma = diag(Sigma), rho = Rho.values))
-  })
-  cor.sample <- do.call(rbind, lapply(param.sample, 
-                                      function(x) x$rho))
-  summary.cor <- t(data.frame(apply(cor.sample, 2, function(x) .summary(x, mode = mode))))
-  
-  rownames(summary.cor) <- paste("rho", apply(combn(k, 2), 2,
-                                              function(x) paste0(x, collapse = "")),  sep = "")
-    
-  var.sample <- do.call(rbind, lapply(param.sample, 
-                                      function(x) x$sigma))
-
-  summary.var <- t(data.frame(apply(var.sample, 2, function(x) .summary(x, mode = mode))))
-
   res <- list(cor = summary.cor, var = summary.var)
   return(res)
 }
 
 
-Mmodel_compute_mixing <- function(model, k){
+Mmodel_compute_mixing <- function(model){
+  k <- model$.args$formula[[3]][[3]]$model$k
+  J <- model$.args$formula[[3]][[3]]$model$J
+  if(is.null(k)) k <- J
   res <- data.frame(
     do.call(rbind, lapply(
       lapply(model$marginals.hyperpar[c(1:k)], function(f){
@@ -1354,6 +1380,6 @@ varcov <- function(x, tri=T){
   R[lower.tri(R)] <- corr
   R <- R + t(R) + diag(x=1, nrow=k)
   Sigma <- diag(sd) %*% R %*% diag(sd)
-  if(tri) Sigma <- Sigma[lower.tri(Sigma, diag=T )]
+  if(tri) Sigma <- c(diag(Sigma), Sigma[lower.tri(Sigma, diag=F )])
   return(Sigma)
 }
