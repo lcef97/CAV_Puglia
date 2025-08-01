@@ -4,15 +4,12 @@
 \begin{document}
 
 
-Consider the decomposition of the variance-covariance matrix $\Sigma$ of order $k$ as $SRS$, where $S = \mathrm{diag}(\sigma_1, \sigma_2, \dots \sigma_k)$ and $R$ is the matrix of correlations. We now want to compute the Jacobian matrix of the transformation: $S, R \rightarrow \Sigma$. 
+Consider the decomposition of the variance-covariance matrix $\Sigma$ of order $k$ as $SRS$, where $S = \mathrm{diag}(\sqrt{v_1}_1, \dots \sqrt{v_k})$ are the standard deviations and $R$ is the matrix of correlations. We now want to compute the Jacobian matrix of the transformation: $S, R \rightarrow \Sigma$. 
 Since $\Sigma$ is symmetric, $S$ is diagonal, and $R$ has only $k(k-1)/2$ non-fixed elements, this is an application from a set of size $k(k+1)/2$ to a set of size $k(k+1)/2$
 
-
-
-%we can arrange $\mathrm{vech} \Sigma$ as a vector of length $k(k+1)/2$ , and $( \sigma_1, \dots, \sigma_k, \rho_{12}, \dots \rho_{1k}, \rho_{23}, \rho_{2k} \dots \rho_{k-1, k} )$ as a vector of length $k(k+1)/2$ as well.
 Each column of the Jacobian matrix includes the derivatives of all the elements of the dependent variable with respect to one element of its arguments \cite{Magnus}. 
 
-Let us consider a covariance matrix of order $4$, for instance. We would have $\mathrm{vech} \Sigma = (\sigma_1^2, \sigma_2^2, \sigma_3^2, \sigma_4^2, \rho_{12} \sigma_1 \sigma_2, \rho_{13} \sigma_1 \sigma_3, \rho_{14} \sigma_1 \sigma_4, \rho_{23} \sigma_2 \sigma_3, \rho_{24} \sigma_2 \sigma_4 \rho_{34} \sigma_3 \sigma_4   )^\top$. 
+Let us consider a covariance matrix of order $4$, for instance. We would have $\mathrm{vech} \Sigma = (v_1, v_2, v_3, v_4, \rho_{12} \sqrt{v_1 v_2} , \rho_{13} \sqrt{v_1 v_3}, \rho_{14} \sqrt{v_1 v_4}, \rho_{23} \sqrt{v_2 v_3}, \rho_{24} \sigma_2 \sigma_4 \rho_{34} \sigma_3 \sigma_4   )^\top$. 
 
 The derivative of this vector with respect to $\sigma_1$ would be $(2 \sigma_1, 0,0,0, \rho_{12} \sigma_2, \rho_{13} \sigma_3, \rho_{14} \sigma_4, 0, 0, 0)$. Doing the same for all $\sigma_i \quad \forall i = 1, \dots, k$, we obtain $k$ vectors with $1$ of the first $k$ elements being $2 \sigma_i$ and the other being zeroes; while $k-1$ of the remaining elements are of the form $\rho_{ij} \sigma_j \quad \forall j \neq i$. 
 The derivative with respect to a correlation $\rho_{ij}, i \neq j$, has zeroes in the first $k$ positions, and only one nonzero element in the remainder, equal to $\sigma_i \sigma_j$. 
@@ -31,7 +28,11 @@ $$
 0 & 0 & \rho_{34} \sigma_4 & \rho_{34} \sigma_3 & 0 & 0 & 0 & 0 & 0 & \sigma_3 \sigma_4 \\
 \end{pmatrix}
 $$
-This is a block matrix of the form $\begin{pmatrix} A & B \\ C & D\end{pmatrix}$, where $A$ and $D$ are diagonals of order $k$ and $k(k-1)/2$ respectively; $B$ is a matrix of zeroes of dimension $k \times k(k-1)/2$ and $C$ is the block including correlations, of dimension $k(k-1)/2 \times k$. Since $\begin{vmatrix} A & B \\ C & D\end{vmatrix} = |A| |D - C^{-1}AB| = |A| \cdot |D|$,  we see the Jacobian determinant only depends on standard deviations. 
+This is a block matrix of the form $\begin{pmatrix} A & B \\ C & D\end{pmatrix}$, where $A$ and $D$ are diagonals of order $k$ and $k(k-1)/2$ respectively; $B$ is a matrix of zeroes of dimension $k \times k(k-1)/2$ and $C$ is the block including correlations, of dimension $k(k-1)/2 \times k$. Since $\begin{vmatrix} A & B \\ C & D\end{vmatrix} = |A| |D - C^{-1}AB| = |A| \cdot |D|$,  we see the Jacobian determinant only depends on standard deviations. And specifically we have
+\begin{equation}
+\mid J_{\Sigma \rightarrow(S,R)}\mid = 2^k \prod_{i=1}^k \sigma_i^k
+\end{equation}
+
 
 \begin{thebibliography}{6}
 \bibitem{Magnus}

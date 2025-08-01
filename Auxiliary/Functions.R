@@ -36,6 +36,11 @@ inla.rgeneric.IMCAR  <-
         R[lower.tri(R)] <- rho
         R <- R + t(R) +diag(k)
         Sigma <- diag(sd) %*% R %*% diag(sd)
+        if(det(Sigma)<=0){
+          warning("!!! PROBLEM: VCOV MATRIX IS NOT POSITIVE DEFINITE \n")
+          cat("Sigma = ", Sigma, "; determinant = ", det(Sigma), " \n")
+          cat("     ...System likely to crash...")
+        }
         PREC <- solve(Sigma)
       } else {
         N <- diag(diag.N, k)
