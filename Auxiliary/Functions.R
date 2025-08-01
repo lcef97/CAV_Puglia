@@ -19,16 +19,38 @@ inla.rgeneric.IMCAR.Bartlett <-
   function (cmd = c("graph", "Q", "mu", "initial", "log.norm.const", 
                     "log.prior", "quit"), theta = NULL) {
     envir <- parent.env(environment())
-    if(!exists("scale.fac", envir = envir)) assign("scale.fac", diag(k))
+    if(!exists("scale.fac", envir = envir)) assign("scale.fac", diag(k), envir=envir)
+    if(!exists("Bartlett", envir = envir)) assign("Bartlett", TRUE, envir=envir)
     if(!exists("Wishart.on.scale", envir = envir)) assign("Wishart.on.scale", TRUE, envir = envir)
     interpret.theta <- function() {
       diag.N <- sapply(theta[as.integer(1:k)], function(x) {exp(x)})
       no.diag.N <- theta[as.integer(k + 1:(k * (k - 1)/2))]
-      N <- diag(diag.N, k)
-      N[lower.tri(N, diag = FALSE)] <- no.diag.N
-      N <- scale.fac %*% N
-      Wish.mat <- N %*% t(N) 
-      return(list(Wish.mat = Wish.mat))
+      if(!Bartlett){
+        #' Notice: theta[k+1:k] are the log-standard deviations
+        sd <- diag.N
+        #' Correlations, $\in [0, 1]$
+        rho <- sapply(no.diag.N, function(x){
+          (2 * exp(x))/(1 + exp(x)) - 1
+        }) 
+        R <- array(0, dim = c(k,k))
+        R[lower.tri(R)] <- rho
+        R <- R + t(R) +diag(k)
+        Sigma <- diag(sd) %*% R %*% diag(sd)
+        PREC <- solve(Sigma)
+      } else {
+        N <- diag(diag.N, k)
+        N[lower.tri(N, diag = FALSE)] <- no.diag.N
+        N <- scale.fac %*% N
+        Wish.mat <- N %*% t(N) 
+        if(Wishart.on.scale){
+          Sigma <- N %*% t(N)
+          PREC <- solve(Sigma)
+        } else {
+          PREC <- N %*% t(N)
+          Sigma <- solve(PREC)
+        }
+      } 
+      return(list(Sigma = Sigma, PREC = PREC))
     }
     graph <- function() {
       PREC <- matrix(1, ncol = k, nrow = k)
@@ -37,10 +59,7 @@ inla.rgeneric.IMCAR.Bartlett <-
     }
     Q <- function() {
       param <- interpret.theta()
-      if(Wishart.on.scale){
-        PREC <- solve(param$Wish.mat)
-      } else PREC <- param$Wish.mat
-      Q <- kronecker(PREC,  Matrix::Diagonal(nrow(W),  apply(W, 1, sum)) - W)
+      Q <- kronecker(param$PREC,  Matrix::Diagonal(nrow(W),  apply(W, 1, sum)) - W)
       return(Q)
     }
     mu <- function() {
@@ -54,10 +73,24 @@ inla.rgeneric.IMCAR.Bartlett <-
       param <- interpret.theta()
       if(!exists("df", envir = envir)) df <- k+2
       param <- interpret.theta()
-      val <- k * log(2) + 2 * sum(theta[1:k]) + 
-        sum(dchisq(exp(2 * theta[1:k]), df = c(df:(df-k+1)), log = TRUE)) +
-        sum(dnorm(theta[as.integer(k + 1:(k * (k -   1)/2))],
-                             mean = 0, sd = 1, log = TRUE))
+      if(! Bartlett){
+        if(Wishart.on.scale) {
+          val <-  MCMCpack::dwish(param$Sigma, S=scale.fac %*% t(scale.fac), v = df)
+        } else {
+          val <-  MCMCpack::diwish(param$Sigma, S = scale.fac %*% t(scale.fac), v = df)
+        } # Change of variable: var-cov matrix --> std devs _and_ correlations
+        val <- val + sum( log(2) + k  * log(diag(param$Sigma)))
+        #' Change of variable: std devs --> theta
+        val <- val + sum(theta[1:k])
+        #' Change of variable: correlations --> theta
+        val <- val + sum(log(2) + theta[k + 1:(k * (k -   1)/2)] -
+                           2*log(1+exp(theta[k + 1:(k * (k -   1)/2)])) )
+      } else{
+        val <- k * log(2) + 2 * sum(theta[1:k]) + 
+          sum(dchisq(exp(2 * theta[1:k]), df = c(df:(df-k+1)), log = TRUE)) +
+          sum(dnorm(theta[as.integer(k + 1:(k * (k -   1)/2))],
+                    mean = 0, sd = 1, log = TRUE))
+      }
       return(val)
     }
     initial <- function(){
@@ -489,7 +522,8 @@ inla.rgeneric.Mmodel.LCAR <-
     envir <- parent.env(environment())
     if(!exists("df", envir = envir)) assign("df", k + 2, envir = envir)
     if(!exists("PC", envir = envir)) assign("PC", FALSE, envir = envir)
-    if(!exists("scale.fac", envir = envir)) assign("scale.fac", diag(k))
+    if(!exists("scale.fac", envir = envir)) assign("scale.fac", diag(k), envir=envir)
+    if(!exists("Bartlett", envir = envir)) assign("Bartlett", TRUE, envir = envir)
     if(!exists("Wishart.on.scale", envir = envir)) assign("Wishart.on.scale", TRUE, envir = envir)
     if(!exists("cache.done", envir=envir)){
       L <- Matrix::Diagonal(n=nrow(W), x=rowSums(as.matrix(W))) -  W
@@ -530,13 +564,26 @@ inla.rgeneric.Mmodel.LCAR <-
 
       diag.N <- sapply(theta[as.integer(k + 1:k)], function(x) exp(x) )
       no.diag.N <- theta[as.integer(2 * k + 1:(k * (k - 1)/2))]
-      N <- diag(diag.N, k)
-      N[lower.tri(N, diag = FALSE)] <- no.diag.N
-      N <- scale.fac %*% N
-      if(Wishart.on.scale){
-        Sigma <- N %*% t(N)
+      if(! Bartlett){
+        #' theta[k+1:k] are the log-stdevs
+        sd <- diag.N
+        #' Correlations, $\in [0, 1]$
+        rho <- sapply(no.diag.N, function(x){
+          (2 * exp(x))/(1 + exp(x)) - 1
+        }) 
+        R <- array(0, dim=c(k,k) )
+        R[lower.tri(R)] <- rho
+        R <- R + t(R) +diag(k)
+        Sigma <- diag(sd) %*% R %*% diag(sd)
       } else{
-        Sigma <- solve(N %*% t(N))
+        N <- diag(diag.N, k)
+        N[lower.tri(N, diag = FALSE)] <- no.diag.N
+        N <- scale.fac %*% N
+        if(Wishart.on.scale){
+          Sigma <- N %*% t(N)
+        } else{
+          Sigma <- solve(N %*% t(N))
+        }
       }
       e <- eigen(Sigma)
       M <- t(e$vectors %*% diag(sqrt(e$values)))
@@ -576,12 +623,26 @@ inla.rgeneric.Mmodel.LCAR <-
         val <- inla.pc.lmmcar.lambda(eigenvalues = eigenvalues, lambda = param$lambda, alpha = alpha, U = U) +
           sum(-theta[as.integer(1:k)] - 2 * log(1 + exp(-theta[as.integer(1:k)])))
       }
-      
-      # n^2_jj ~ chisq(k-j+1) (k degrees of freedom)
-      val <- val + k * log(2) + 2 * sum(theta[k + 1:k]) + 
-        sum(dchisq(exp(2 * theta[k + 1:k]), df = c(df:(df-k+1)), log = TRUE))
-      # n_ki ~ N(0,1)
-      val <- val + sum(dnorm(theta[(2*k)+1:(k*(k-1)/2)], mean=0, sd=1, log=TRUE))
+      if(! Bartlett){
+        if(Wishart.on.scale) {
+          val <- val + MCMCpack::dwish(param$Sigma, S=scale.fac %*% t(scale.fac), v = df)
+        } else {
+          val <- val + MCMCpack::diwish(param$Sigma, S = scale.fac %*% t(scale.fac), v = df)
+        } # Change of variable: var-cov matrix --> variances _and_ correlations
+        val <- val + sum(log(2) + k * log(diag(param$Sigma)))
+        #' Change of variable: variances --> theta
+        val <- val + sum(theta[k+1:k])
+        #' Change of variable: correlations --> theta
+        val <- val + sum(log(2) + theta[(2*k)+1:(k*(k-1)/2)] -
+                           2*log(1+exp(theta[(2*k)+1:(k*(k-1)/2)])) )
+      } else {
+        # n^2_jj ~ chisq(k-j+1) (k degrees of freedom)
+        val <- val + k * log(2) + 2 * sum(theta[k + 1:k]) + 
+          sum(dchisq(exp(2 * theta[k + 1:k]), df = c(df:(df-k+1)), log = TRUE))
+        # n_ki ~ N(0,1)
+        val <- val + sum(dnorm(theta[(2*k)+1:(k*(k-1)/2)], mean=0, sd=1, log=TRUE))
+      }
+
        
       return(val)
     }
@@ -617,7 +678,8 @@ inla.rgeneric.Mmodel.PCAR <-
     envir <- parent.env(environment())
     if(!exists("df", envir = envir)) assign("df", k + 2, envir = envir)
     if(!exists("PC", envir = envir)) assign("PC", FALSE, envir = envir)
-    if(!exists("scale.fac", envir = envir)) assign("scale.fac", diag(k))
+    if(!exists("scale.fac", envir = envir)) assign("scale.fac", diag(k), envir= envir)
+    if(!exists("Bartlett", envir=envir)) assign("Bartlett", TRUE, envir = envir)
     if(!exists("Wishart.on.scale", envir = envir)) assign("Wishart.on.scale", TRUE, envir = envir)
     if(!exists("cache.done", envir=envir)){
       D <- Matrix::Diagonal(n=nrow(W), x=rowSums(as.matrix(W))) 
@@ -655,13 +717,26 @@ inla.rgeneric.Mmodel.PCAR <-
       rho <- 1/(1 + exp(-theta[as.integer(1:k)]))
       diag.N <- sapply(theta[as.integer(k + 1:k)], function(x) exp(x) )
       no.diag.N <- theta[as.integer(2 * k + 1:(k * (k - 1)/2))]
-      N <- diag(diag.N, k)
-      N[lower.tri(N, diag = FALSE)] <- no.diag.N
-      N <- scale.fac %*% N
-      if(Wishart.on.scale){
-        Sigma <- N %*% t(N)
+      if(! Bartlett){
+        #' theta[k+1:k] are the log-stdevs
+        sd <- diag.N
+        #' Correlations, $\in [0, 1]$
+        rho <- sapply(no.diag.N, function(x){
+          (2 * exp(x))/(1 + exp(x)) - 1
+        }) 
+        R <- array(0, dim=c(k,k))
+        R[lower.tri(R)] <- rho
+        R <- R + t(R) +diag(k)
+        Sigma <- diag(sd) %*% R %*% diag(sd)
       } else{
-        Sigma <- solve(N %*% t(N))
+        N <- diag(diag.N, k)
+        N[lower.tri(N, diag = FALSE)] <- no.diag.N
+        N <- scale.fac %*% N
+        if(Wishart.on.scale){
+          Sigma <- N %*% t(N)
+        } else{
+          Sigma <- solve(N %*% t(N))
+        }
       }
       e <- eigen(Sigma)
       M <- t(e$vectors %*% diag(sqrt(e$values)))
@@ -701,11 +776,25 @@ inla.rgeneric.Mmodel.PCAR <-
         val <- inla.pc.pmmcar.rho(eigenvalues = eigenvalues, rho = param$rho, alpha = alpha, U = U) +
           sum(-theta[as.integer(1:k)] - 2 * log(1 + exp(-theta[as.integer(1:k)])))
       }
-      # n^2_jj ~ chisq(k-j+1) (k degrees of freedom)
-      val <- val + k * log(2) + 2 * sum(theta[k + 1:k]) + 
-        sum(dchisq(exp(2 * theta[k + 1:k]), df = c(df:(df-k+1)), log = TRUE))
-      # n_ki ~ N(0,1)
-      val <- val + sum(dnorm(theta[(2*k)+1:(k*(k-1)/2)], mean=0, sd=1, log=TRUE))
+      if(! Bartlett){
+        if(Wishart.on.scale) {
+          val <- val + MCMCpack::dwish(param$Sigma, S=scale.fac %*% t(scale.fac), v = df)
+        } else {
+          val <- val + MCMCpack::diwish(param$Sigma, S = scale.fac %*% t(scale.fac), v = df)
+        } # Change of variable: var-cov matrix --> variances _and_ correlations
+        val <- val + sum(log(2) + k * log(diag(param$Sigma)))
+        #' Change of variable: variances --> theta
+        val <- val + sum(theta[k+1:k])
+        #' Change of variable: correlations --> theta
+        val <- val + sum(log(2) + theta[(2*k)+1:(k*(k-1)/2)] -
+                           2*log(1+exp(theta[(2*k)+1:(k*(k-1)/2)])) )
+      } else{
+        # n^2_jj ~ chisq(k-j+1) (k degrees of freedom)
+        val <- val + k * log(2) + 2 * sum(theta[k + 1:k]) + 
+          sum(dchisq(exp(2 * theta[k + 1:k]), df = c(df:(df-k+1)), log = TRUE))
+        # n_ki ~ N(0,1)
+        val <- val + sum(dnorm(theta[(2*k)+1:(k*(k-1)/2)], mean=0, sd=1, log=TRUE))
+      }
       return(val)
     }
     initial <- function(){
@@ -883,7 +972,8 @@ inla.rgeneric.Mmodel.BYM <-
   envir <- parent.env(environment())
   if(!exists("df", envir = envir)) assign("df", k + 2, envir = envir)
   if(!exists("PC", envir = envir)) assign("PC", FALSE, envir = envir)
-  if(!exists("scale.fac", envir = envir)) assign("scale.fac", diag(k))
+  if(!exists("scale.fac", envir = envir)) assign("scale.fac", diag(k), envir=envir)
+  if(!exists("Bartlett", envir=envir)) assign("Bartlett", TRUE, envir=envir )
   if(!exists("Wishart.on.scale", envir = envir)) assign("Wishart.on.scale", TRUE, envir = envir)
   if(!exists("sparse", envir = envir)) assign("sparse", TRUE, envir = envir)
   if(!exists("cache.done", envir=envir)){
@@ -933,22 +1023,34 @@ inla.rgeneric.Mmodel.BYM <-
     #' Same as the dense version, plus the M-factorisation of the scale parameter
     #' like in the M-models
     phi <-  1/(1+exp(-theta[as.integer(1:k)]))
-    
     diag.N <- sapply(theta[ k+(1:k)], function(x) {exp(x)})
     no.diag.N <- theta[2*k + 1:(k * (k - 1)/2)]
-    N <- diag(diag.N, k)
-    N[lower.tri(N, diag = FALSE)] <- no.diag.N
-    N <- scale.fac %*% N
-    if(Wishart.on.scale){
-      Sigma <- N %*% t(N)
-    } else{
-      Sigma <- solve(N %*% t(N))
-    }   
+    if(Bartlett){
+      N <- diag(diag.N, k)
+      N[lower.tri(N, diag = FALSE)] <- no.diag.N
+      N <- scale.fac %*% N
+      if(Wishart.on.scale){
+        Sigma <- N %*% t(N)
+      } else{
+        Sigma <- solve(N %*% t(N))
+      }   
+    } else {
+      #' Notice: theta[k+1:k] are the log-variances
+      sd <- diag.N 
+      #' Correlations, $\in [0, 1]$
+      rho <- sapply(no.diag.N, function(x){
+        (2 * exp(x))/(1 + exp(x)) - 1
+      }) 
+      R <- array(0, dim = c(k, k))
+      R[lower.tri(R)] <- rho
+      R <- R + t(R) +diag(k)
+      Sigma <- diag(sd) %*% R %*% diag(sd)
+    }
     e <- eigen(Sigma)
     M <- t(e$vectors %*% diag(sqrt(e$values)))
     invM.t <- diag(1/sqrt(e$values)) %*% t(e$vectors)
-    Lambda <- t(invM.t) %*% invM.t
-    return(list(phi = phi, M = M, Lambda = Lambda, invM.t = invM.t))
+    PREC <- t(invM.t) %*% invM.t
+    return(list(phi = phi, M = M, PREC = PREC, Sigma= Sigma, invM.t = invM.t))
   }
   graph <- function() {
     QQ <- Q()
@@ -995,13 +1097,27 @@ inla.rgeneric.Mmodel.BYM <-
       if(!exists("U" , envir = envir)) U <- 1/2
       val <- inla.pc.mbym.phi(eigenvalues = eigenvalues, phi = param$phi, alpha = alpha, U = U) +
         sum(-theta[as.integer(1:k)] - 2 * log(1 + exp(-theta[as.integer(1:k)])))
+    } 
+    if(! Bartlett){
+      if(Wishart.on.scale) {
+        val <- val + MCMCpack::dwish(param$Sigma, S=scale.fac %*% t(scale.fac), v = df)
+      } else {
+        val <- val + MCMCpack::diwish(param$Sigma, S = scale.fac %*% t(scale.fac), v = df)
+      } # Change of variable: var-cov matrix --> variances _and_ correlations
+      val <- val + sum(log(2) + k * log(diag(param$Sigma)))
+      #' Change of variable: variances --> theta
+      val <- val + sum(theta[k+1:k])
+      #' Change of variable: correlations --> theta
+      val <- val + sum(log(2) + theta[(2*k)+1:(k*(k-1)/2)] -
+                         2*log(1+exp(theta[(2*k)+1:(k*(k-1)/2)])) )
+    } else {
+      # n^2_jj ~ chisq(k-j+1) (k degrees of freedom)
+      val <- val + k * log(2) + 2 * sum(theta[k + 1:k]) + 
+        sum(dchisq(exp(2 * theta[k + 1:k]), df = c(df:(df-k+1)), log = TRUE))
+      # n_ki ~ N(0,1)
+      val <- val + sum(dnorm(theta[(2*k)+1:(k*(k-1)/2)], mean=0, sd=1, log=TRUE))
     }
-    # n^2_jj ~ chisq(k-j+1) (k degrees of freedom)
-    val <- val + k * log(2) + 2 * sum(theta[k + 1:k]) + 
-      sum(dchisq(exp(2 * theta[k + 1:k]), df = c(df:(df-k+1)), log = TRUE))
-    # n_ki ~ N(0,1)
-    val <- val + sum(dnorm(theta[(2*k)+1:(k*(k-1)/2)], mean=0, sd=1, log=TRUE))
-
+    
     return(val)
   }
   initial <- function(){
@@ -1227,3 +1343,17 @@ Mmodel_compute_mixing <- function(model, k){
   return(res)
 }
  
+
+# #'  Minor functions and miscellanea ------------------------------------------
+varcov <- function(x, tri=T){
+  N <- length(x)
+  k <- (sqrt(8*N + 1) - 1)/2
+  sd <- x[1:k]
+  corr <- x[(k+1):(k*(k+1)/2)] 
+  R <- array(0, dim=c(k, k))
+  R[lower.tri(R)] <- corr
+  R <- R + t(R) + diag(x=1, nrow=k)
+  Sigma <- diag(sd) %*% R %*% diag(sd)
+  if(tri) Sigma <- Sigma[lower.tri(Sigma, diag=T )]
+  return(Sigma)
+}
