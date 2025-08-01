@@ -15,7 +15,7 @@ library(magrittr)
 #'  ==> it is possible to show that the scale parameter thus follows 
 #'  a Wishart prior.
 
-inla.rgeneric.IMCAR.Bartlett <- 
+inla.rgeneric.IMCAR  <- 
   function (cmd = c("graph", "Q", "mu", "initial", "log.norm.const", 
                     "log.prior", "quit"), theta = NULL) {
     envir <- parent.env(environment())
@@ -116,7 +116,7 @@ inla.rgeneric.IMCAR.Bartlett <-
     return(val)
   }
 
-inla.IMCAR.Bartlett <- function(...) INLA::inla.rgeneric.define(inla.rgeneric.IMCAR.Bartlett, ...)
+inla.IMCAR  <- function(...) INLA::inla.rgeneric.define(inla.rgeneric.IMCAR, ...)
 
 
 ##' PMCAR model ---------------------------------------------------------------#
