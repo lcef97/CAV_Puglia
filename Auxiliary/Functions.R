@@ -19,23 +19,35 @@ inla.rgeneric.IMCAR  <-
   function (cmd = c("graph", "Q", "mu", "initial", "log.norm.const", 
                     "log.prior", "quit"), theta = NULL) {
     envir <- parent.env(environment())
-    if(!exists("scale.fac", envir = envir)) assign("scale.fac", diag(k), envir=envir)
-    if(!exists("Bartlett", envir = envir)) assign("Bartlett", TRUE, envir=envir)
-    if(!exists("Wishart.on.scale", envir = envir)) assign("Wishart.on.scale", TRUE, envir = envir)
+    if(!exists("cache.done", envir = envir)){
+      if(!exists("theta2cov", envir=envir)){
+        theta2vcov <- function(theta){
+          sd <- sapply(theta[1:k], function(x) exp(x))
+          corr <- sapply(theta[(k+1):(k*(k+1)/2)], function(x){
+            (2 * exp(x))/(1 + exp(x)) - 1
+          }) 
+          R <- array(0, dim=c(k, k))
+          R[lower.tri(R)] <- corr
+          R <- R + t(R) + diag(x=1, nrow=k)
+          Sigma <- diag(sd) %*% R %*% diag(sd)
+          Sigma <- c(diag(Sigma), Sigma[lower.tri(Sigma, diag=F )])
+          return(Sigma)
+        }
+        assign("theta2vcov", theta2vcov, envir = envir)
+      }
+      if(!exists("df", envir = envir)) assign("df", k+2, envir=envir)
+      if(!exists("scale.fac", envir = envir)) assign("scale.fac", diag(k), envir=envir)
+      if(!exists("Bartlett", envir = envir)) assign("Bartlett", FALSE, envir=envir)
+      if(!exists("Wishart.on.scale", envir = envir)) assign("Wishart.on.scale", TRUE, envir = envir)
+    }
+    
     interpret.theta <- function() {
-      diag.N <- sapply(theta[as.integer(1:k)], function(x) {exp(x)})
-      no.diag.N <- theta[as.integer(k + 1:(k * (k - 1)/2))]
       if(!Bartlett){
         #' Notice: theta[k+1:k] are the log-standard deviations
-        sd <- diag.N
-        #' Correlations, $\in [0, 1]$
-        rho <- sapply(no.diag.N, function(x){
-          (2 * exp(x))/(1 + exp(x)) - 1
-        }) 
-        R <- array(0, dim = c(k,k))
-        R[lower.tri(R)] <- rho
-        R <- R + t(R) +diag(k)
-        Sigma <- diag(sd) %*% R %*% diag(sd)
+        vSigma <- theta2vcov(theta)
+        Sigma <- array(0, dim=c(k,k))
+        Sigma[lower.tri(Sigma)] <- vSigma[-c(1:k)]
+        Sigma <- Sigma + t(Sigma) + diag(vSigma[c(1:k)])
         if(det(Sigma)<=0){
           warning("!!! PROBLEM: VCOV MATRIX IS NOT POSITIVE DEFINITE \n")
           cat("Sigma = ", Sigma, "; determinant = ", det(Sigma), " \n")
@@ -43,6 +55,8 @@ inla.rgeneric.IMCAR  <-
         }
         PREC <- solve(Sigma)
       } else {
+        diag.N <- sapply(theta[as.integer(1:k)], function(x) {exp(x)})
+        no.diag.N <- theta[as.integer(k + 1:(k * (k - 1)/2))]
         N <- diag(diag.N, k)
         N[lower.tri(N, diag = FALSE)] <- no.diag.N
         N <- scale.fac %*% N
@@ -76,20 +90,13 @@ inla.rgeneric.IMCAR  <-
     }
     log.prior <- function() {
       param <- interpret.theta()
-      if(!exists("df", envir = envir)) df <- k+2
-      param <- interpret.theta()
       if(! Bartlett){
         if(Wishart.on.scale) {
           val <-  log(MCMCpack::dwish(param$Sigma, S=scale.fac %*% t(scale.fac), v = df))
         } else {
           val <-  log(MCMCpack::diwish(param$Sigma, S = scale.fac %*% t(scale.fac), v = df))
-        } # Change of variable: var-cov matrix --> std devs _and_ correlations
-        val <- val + sum( log(2) + k/2 * log(diag(param$Sigma)))
-        #' Change of variable: std devs --> theta
-        val <- val + sum(theta[1:k])
-        #' Change of variable: correlations --> theta
-        val <- val + sum(log(2) + theta[k + 1:(k * (k -   1)/2)] -
-                           2*log(1+exp(theta[k + 1:(k * (k -   1)/2)])) )
+        } 
+        val <- val + log(abs(det(numDeriv::jacobian(theta2vcov, theta))))
       } else{
         val <- k * log(2) + 2 * sum(theta[1:k]) + 
           sum(dchisq(exp(2 * theta[1:k]), df = c(df:(df-k+1)), log = TRUE)) +
