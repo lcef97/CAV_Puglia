@@ -48,10 +48,14 @@ inla.rgeneric.IMCAR  <-
         Sigma <- array(0, dim=c(k,k))
         Sigma[lower.tri(Sigma)] <- vSigma[-c(1:k)]
         Sigma <- Sigma + t(Sigma) + diag(vSigma[c(1:k)])
-        if(det(Sigma)<=0){
-          warning("!!! PROBLEM: VCOV MATRIX IS NOT POSITIVE DEFINITE \n")
-          cat("Sigma = ", Sigma, "; determinant = ", det(Sigma), " \n")
+        if(any(eigen(Sigma)$values <=0 )){
+          warning("!!! PROBLEM: VCOV MATRIX HAS NEGATIVE EIGENVALUES \n")
+          cat("vec(Sigma) = ", Sigma, "; eigenvalues = ", eigen(Sigma)$values, " \n")
           cat("     ...System likely to crash...")
+        }
+        if(any(abs(Sigma - t(Sigma)))){
+          warning("!!! PROBLEM: Sigma not exactly symmetric \n")
+          cat("vec(Sigma) = ", Sigma, "\nError = ", max(abs(Sigma - t(Sigma))))
         }
         PREC <- solve(Sigma)
       } else {
