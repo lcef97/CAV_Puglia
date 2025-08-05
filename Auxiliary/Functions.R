@@ -15,7 +15,13 @@ library(magrittr)
 #'  ==> it is possible to show that the scale parameter thus follows 
 #'  a Wishart prior.
 
-inla.rgeneric.IMCAR  <- 
+#' Direct Wishart paramettrisation is an experimental feature.
+#' For reasons unknown, it would bring the system to crash.
+#' So it shall be used with care. Notice that the problem 
+#' is apparently less simple than the v.cov matrix not being positive
+#' definite (which can happen if it is NOT parametrised as a quadratic form)
+#' 
+inla.rgeneric.IMCAR.Bartlett  <- 
   function (cmd = c("graph", "Q", "mu", "initial", "log.norm.const", 
                     "log.prior", "quit"), theta = NULL) {
     envir <- parent.env(environment())
@@ -37,8 +43,14 @@ inla.rgeneric.IMCAR  <-
       }
       if(!exists("df", envir = envir)) assign("df", k+2, envir=envir)
       if(!exists("scale.fac", envir = envir)) assign("scale.fac", diag(k), envir=envir)
-      if(!exists("Bartlett", envir = envir)) assign("Bartlett", FALSE, envir=envir)
-      if(!exists("Wishart.on.scale", envir = envir)) assign("Wishart.on.scale", TRUE, envir = envir)
+      #if(!exists("Bartlett", envir = envir)) assign("Bartlett", TRUE, envir=envir)
+      #if(!exists("Wishart.on.scale", envir = envir)) {
+       # cat("Which parameter has to follow Wishart prior? Scale, by default \n")
+      #  assign("Wishart.on.scale", TRUE, envir = envir)
+      #} else {
+          cat("Found Wishart.on.scale = ", Wishart.on.scale, "\n")
+      #  }
+      assign("cache.done", TRUE, envir=envir)
     }
     
     interpret.theta <- function() {
@@ -48,18 +60,10 @@ inla.rgeneric.IMCAR  <-
         Sigma <- array(0, dim=c(k,k))
         Sigma[lower.tri(Sigma)] <- vSigma[-c(1:k)]
         Sigma <- Sigma + t(Sigma) + diag(vSigma[c(1:k)])
-        if(any(eigen(Sigma)$values <=0 )){
-          warning("!!! PROBLEM: VCOV MATRIX HAS NEGATIVE EIGENVALUES \n")
-          cat("vec(Sigma) = ", Sigma, "; eigenvalues = ", eigen(Sigma)$values, " \n")
-          cat("     ...System likely to crash...")
-        }
-        if(any(abs(Sigma - t(Sigma)))){
-          warning("!!! PROBLEM: Sigma not exactly symmetric \n")
-          cat("vec(Sigma) = ", Sigma, "\nError = ", max(abs(Sigma - t(Sigma))))
-        }
-        PREC <- solve(Sigma)
-      } else {
-        diag.N <- sapply(theta[as.integer(1:k)], function(x) {exp(x)})
+        PREC <- solve(Sigma) 
+        
+       } else {
+        diag.N <- sapply(theta[c(1:k)], function(x) exp(x) )
         no.diag.N <- theta[as.integer(k + 1:(k * (k - 1)/2))]
         N <- diag(diag.N, k)
         N[lower.tri(N, diag = FALSE)] <- no.diag.N
@@ -72,8 +76,15 @@ inla.rgeneric.IMCAR  <-
           PREC <- N %*% t(N)
           Sigma <- solve(PREC)
         }
-      } 
-      return(list(Sigma = Sigma, PREC = PREC))
+       } 
+      e <- eigen(Sigma)
+      if(any(e$values <=0 )){
+        cat("!!! PROBLEM: Sigma MATRIX HAS NEGATIVE EIGENVALUES \n")
+        cat("vec(Prec) = ", Sigma, "\n eigenvalues = ", e$values, " \n")
+        cat("     ...System likely to crash... \n")
+      }
+      
+      return(list(Sigma = Sigma, PREC = PREC ))
     }
     graph <- function() {
       PREC <- matrix(1, ncol = k, nrow = k)
@@ -82,7 +93,12 @@ inla.rgeneric.IMCAR  <-
     }
     Q <- function() {
       param <- interpret.theta()
+      cat("Q called at theta:\n", paste0(round(theta, 5), collapse = ", "), "\n")
       Q <- kronecker(param$PREC,  Matrix::Diagonal(nrow(W),  apply(W, 1, sum)) - W)
+    #  cat("a[0] on guess:", Q@x[1], "\n")
+      if (any(is.nan(Q@x)) || any(is.infinite(Q@x))) {
+        cat("!!!!!!! WARNING: Q has NaNs or Infs! \n \n \n \n")
+      }
       return(Q)
     }
     mu <- function() {
@@ -93,6 +109,7 @@ inla.rgeneric.IMCAR  <-
       return(val)
     }
     log.prior <- function() {
+      cat("Computing log.prior \n")
       param <- interpret.theta()
       if(! Bartlett){
         if(Wishart.on.scale) {
@@ -100,7 +117,14 @@ inla.rgeneric.IMCAR  <-
         } else {
           val <-  log(MCMCpack::diwish(param$Sigma, S = scale.fac %*% t(scale.fac), v = df))
         } 
-        val <- val + log(abs(det(numDeriv::jacobian(theta2vcov, theta))))
+        #val <- val + log(abs(det(numDeriv::jacobian(theta2vcov, theta))))
+        #' Change of variable: var-cov matrix --> std devs _and_ correlations
+        val <- val + sum( log(2) + k/2 * log(diag(param$Sigma)))
+        #' Change of variable: std devs --> theta
+        val <- val + sum(theta[1:k])
+        #' Change of variable: correlations --> theta
+        val <- val + sum(log(2) + theta[k + 1:(k * (k -   1)/2)] -
+                           2*log(1+exp(theta[k + 1:(k * (k -   1)/2)])) )
       } else{
         val <- k * log(2) + 2 * sum(theta[1:k]) + 
           sum(dchisq(exp(2 * theta[1:k]), df = c(df:(df-k+1)), log = TRUE)) +
@@ -132,8 +156,10 @@ inla.rgeneric.IMCAR  <-
     return(val)
   }
 
-inla.IMCAR  <- function(...) INLA::inla.rgeneric.define(inla.rgeneric.IMCAR, ...)
-
+inla.IMCAR.Bartlett  <- function(...){
+  INLA::inla.rgeneric.define(inla.rgeneric.IMCAR.Bartlett,
+                             Bartlett = TRUE, Wishart.on.scale = TRUE, ...)
+} 
 
 ##' PMCAR model ---------------------------------------------------------------#
 
@@ -1307,6 +1333,8 @@ vcov_summary <- function (model, n.sample = 10000, mode = F) {
   J <- model$.args$formula[[3]][[3]]$model$J
   Bartlett <- eval(model$.args$formula[[3]][[3]]$model$Bartlett)
   if(is.null(Bartlett)) Bartlett <- T
+  Wishart.on.scale <- eval(model$.args$formula[[3]][[3]]$model$Wishart.on.scale)
+  if(is.null(Wishart.on.scale)) Wishart.on.scale <- T
   if(is.null(k)) k <- J
    
   offset <- nrow(model$summary.hyperpar) - k * (k+1) / 2
@@ -1335,7 +1363,11 @@ vcov_summary <- function (model, n.sample = 10000, mode = F) {
     param.sample <- lapply(hyperpar.sample, function(x) {
       N <- diag(x[seq(k)])
       N[lower.tri(N, diag = FALSE)] <- x[-seq(k)]
-      Sigma <- N %*% t(N)
+      if(Wishart.on.scale){
+        Sigma <- N %*% t(N)
+      } else {
+        Sigma <- solve(N %*% t(N) )
+      }
       Rho <- cov2cor(Sigma)
       Rho.values <- Rho[lower.tri(Rho)]
       return(list(sigma = diag(Sigma), rho = Rho.values))

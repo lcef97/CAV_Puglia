@@ -2,20 +2,21 @@
 
 #' Neighbourhood matrix  ==> binary
 load(url("https://github.com/lcef97/CAV_Puglia/raw/main/input/Replication/W.RData"))
+#' Source functions to implement models; 
+#' Link to R code: 'https://github.com/lcef97/CAV_Puglia/blob/main/Auxiliary/Functions.R'
+devtools::source_url("https://raw.githubusercontent.com/lcef97/CAV_Puglia/refs/heads/main/Auxiliary/Functions.R")
+
 n <- nrow(W)
 
 #' Hyperparameters ------------------------------------------------------------#
 #' Mixing
-phi.true <- c(0.6, 0.9, 0.4, 0.7)
+phi.true <- c(0.6, 0.4, 0.9,  0.7)
 #' Standard deviations
-sigma.true <- c(0.9, 1.1, 0.7, 0.6)
+sigma.true <- c(0.7, 1.1, 0.8, 0.6)
 # Correlations
-corr.true <- c(0.9, 0.7, 0.5, 0.8, 0.6, 0.7)
+corr.true <- c(0.9, 0.7, 0.5, 0.6, 0.3, 0.7)
 #' Variance-covariance matrix
-R.true <- array(0, dim=c(4,4))
-R.true[lower.tri(R.true)] <- corr.true
-R.true <- R.true + t(R.true) + diag(x=1, nrow=nrow(R.true))
-Scale.true <- diag(sigma.true) %*% R.true %*% diag(sigma.true)
+Scale.true <- varcov(c(sigma.true, corr.true), tri=F)
 #' M-matrix
 M.true <- diag(sqrt(eigen(Scale.true)$values)) %*% t(eigen(Scale.true)$vectors)
 
@@ -28,7 +29,6 @@ beta1 <- -0.6
 #' Simulate BYM field ---------------------------------------------------------#
 L.unscaled <- Matrix::Diagonal(rowSums(W), n=n) - W
 L <- INLA:::inla.scale.model.bym.internal(L.unscaled)$Q
-typical.variance <- L[1,1]/L.unscaled[1,1]
 constr <- INLA:::inla.bym.constr.internal(L)
 constr.BYM <- list(A = cbind(Matrix::Matrix(0, nrow=4, ncol = 4*n), 
                              kronecker(diag(4), constr$constr$A)),
@@ -53,14 +53,7 @@ for(i in seq(length(y.sim))) {
   y.sim[i] <- rpois(n=1, lambda = exp(eta) )
 }
 
-dd <- data.frame(Y = y.sim, ID = c(1:(4*n)), X=X,
-                 group=rep(c(1:4), each=n))
-
-#' Attach packages ------------------------------------------------------------#
-library(INLA)
-#' Source functions to implement models ---------------------------------------#
-#' Link to R code: 'https://github.com/lcef97/CAV_Puglia/blob/main/Auxiliary/Functions.R'
-devtools::source_url("https://raw.githubusercontent.com/lcef97/CAV_Puglia/refs/heads/main/Auxiliary/Functions.R")
+dd <- data.frame(Y = y.sim, ID = c(1:(4*n)), X=X, group=rep(c(1:4), each=n))
 
 ##' Toy examples: simpler models -----------------------------------------------
 
@@ -69,21 +62,40 @@ devtools::source_url("https://raw.githubusercontent.com/lcef97/CAV_Puglia/refs/h
 #' Not the true model, but very easy to fit.
 #' Covariances matrix has Wishart(2k, I_k) prior.
 #' Can be still changed in the function call.
-#' 
+#' Now, if Bartlett factorisation is used, both IMCAR, PMCAR and LMCAR work well.
+
 mod.IMCAR <- inla(
   Y ~ 1 + X +
     f(ID, model = inla.IMCAR.Bartlett(k = 4, W = W, df=8),
       extraconstr = list(A=constr.BYM$A[,-c(1:(4*n))], e = c(0,0,0,0)) ),
-  family = "poisson", data = dd, num.threads = 1,
+  family = "poisson", data = dd, num.threads = 1, #control.inla = list(cmin=0.001),
   control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
   verbose = T)
 
 #' Hyperparameters posterior.
 #' Variance ==> Overestimated, like 3x  (not true DGP...)
-vcov_summary(mod.IMCAR, k=4)$var
+vcov_summary(mod.IMCAR)$var
 #' Correlations: perfect
-vcov_summary(mod.IMCAR, k=4)$cor
+vcov_summary(mod.IMCAR)$cor
  
+#' Slightly mode complex: LCAR ------------------------------------------------#
+
+mod.LMCAR <- inla(
+  Y ~ 1 + X +
+    f(ID, model = inla.LMCAR.Bartlett(k = 4, W = W, df=8) ),
+  family = "poisson", data = dd, num.threads = 1,
+  control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  verbose = T)
+
+mod.LMCAR.IW <- inla(
+  Y ~ 1 + X +
+    f(ID, model = inla.LMCAR.Bartlett(k = 4, W = W, df=8,
+                                      Wishart.on.scale = F) ),
+  family = "poisson", data = dd, num.threads = 1,
+  control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  verbose = T)
+#' All fine; both work good
+
 #' BYM toy example: independent fields ----------------------------------------#
 #'
 #' Of course it is not the true DGP either. 
@@ -91,7 +103,7 @@ vcov_summary(mod.IMCAR, k=4)$cor
 #' sum-to-zero constraint on the ICAR component and NOT on the convolution component,
 #' as it appears to be in the univariate version implemented with `model='bym2'` 
 #' 
-mod.INDMMBYM.zero <- inla(
+mod.INDMMBYM  <- inla(
   Y ~ 1+ X+
     f(ID, model = inla.INDMMBYM.model(k = 4, W = W, df=8, PC = F ),
       extraconstr = constr.BYM),
@@ -99,10 +111,10 @@ mod.INDMMBYM.zero <- inla(
   control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
   verbose = T)
 # Mixing parameter ==> ok
-Mmodel_compute_mixing(mod.INDMMBYM.zero, k=4) 
+Mmodel_compute_mixing(mod.INDMMBYM) 
 #' Variances ==> perfect
 data.frame( do.call(rbind, lapply(
-  lapply(mod.INDMMBYM.zero$marginals.hyperpar[c(5:8)], function(f){
+  lapply(mod.INDMMBYM$marginals.hyperpar[c(5:8)], function(f){
     inla.tmarginal(fun = function(X) exp(-X), marginal = f)
   }), function(x) unlist(inla.zmarginal(x, silent = TRUE)))))[,c(1,2,3,5,7)]
 
@@ -117,15 +129,25 @@ mod.MMBYM <- inla(
     f(ID, model = inla.MMBYM.model(k = 4, W = W, df=8, PC = F ),
       extraconstr = constr.BYM),
   family = "poisson", data = dd, num.threads = 1,
+  control.inla = list(  restart = 2, tolerance = 1e-7),
+  control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  verbose = T)
+
+mod.MMBYM.IW <- inla(
+  Y ~ 1+ X+
+    f(ID, model = inla.MMBYM.model(k = 4, W = W, df=8, PC = F, Wishart.on.scale=F ),
+      extraconstr = constr.BYM),
+  family = "poisson", data = dd, num.threads = 1,
+  control.inla = list(  restart = 2, tolerance = 1e-7),
   control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
   verbose = T)
 
 #' Variances: messy
-vcov_summary(mod.MMBYM, k=4)$var
+vcov_summary(mod.MMBYM)$var
 #' Correlations: still messy
-vcov_summary(mod.MMBYM, k=4)$cor
+vcov_summary(mod.MMBYM)$cor
 #' mixing 
-Mmodel_compute_mixing(mod.MMBYM, k=4)
+Mmodel_compute_mixing(mod.MMBYM)
 
 
 #' rerun ----------------------------------------------------------------------#
@@ -137,24 +159,21 @@ Mmodel_compute_mixing(mod.MMBYM.bis, k=4)
 #' What would've been with initial values based on ICAR output ----------------#
 mod.MMBYM.guided <- inla(
   Y ~ 1+ X+ f(ID, model = inla.MMBYM.model(
-    k = 4, W = W, df=8, PC = F,  
+    k = 4, W = W, df=6, PC = T,  
     initial.values = c(rep(-3, 4),  mod.IMCAR$summary.hyperpar$mode)),
       extraconstr = constr.BYM),
   family = "poisson", data = dd, num.threads = 1,
   control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
   verbose = T)
 
-mod.MMBYM.guided.bis <- inla.rerun(mod.MMBYM.guided)
+ 
 
 
-
-
-vcov_summary(mod.MMBYM.guided, k=4)$var
 #' Correlations: perfect (it's the true DGP)
-vcov_summary(mod.MMBYM.guided, k=4)$cor
-#' WAIC: lowest to be seen around here, though model is miss-specified
-mod.MMBYM.guided$waic$waic
-Mmodel_compute_mixing(mod.MMBYM.guided, k=4)
+#' Variances: a bit overestimated
+vcov_summary(mod.MMBYM.guided)
+#' Mixing: ok
+Mmodel_compute_mixing(mod.MMBYM.guided)
 
 #' Mode comparison ------------------------------------------------------------#
 #' 
@@ -168,7 +187,7 @@ mod.MMBYM$misc$configs$config[[mode.idx]]$log.posterior
 
 #' starting values from ICAR:
 mode.idx.guided <- which.max(unlist(lapply(mod.MMBYM.guided$misc$configs$config, function(x) x$log.posterior)))
-mod.MMBYM.guided$misc$configs$config[[mode.idx]]$theta
+mod.MMBYM.guided$misc$configs$config[[mode.idx.guided]]$theta
 #' Joint posterior = -13.99 ==> Definitively not the mode!
-mod.MMBYM.guided$misc$configs$config[[mode.idx]]$log.posterior
+mod.MMBYM.guided$misc$configs$config[[mode.idx.guided]]$log.posterior
  

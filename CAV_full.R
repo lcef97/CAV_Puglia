@@ -618,7 +618,7 @@ cav_bym_INLA_2024 <- inla(
 
 cav_IMCAR_inla <- inla(
   N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
-    f(ID, model = inla.IMCAR.Bartlett(k = 4, W = W_con, df=6), 
+    f(ID, model = inla.IMCAR(k = 4, W = W_con, df=6), 
       extraconstr = list(A = A_constr, e = c(0,0,0,0))),
   offset = log(nn), family = "poisson", data =dd_con,
   #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
