@@ -60,15 +60,16 @@ dd <- data.frame(Y = y.sim, ID = c(1:(4*n)), X=X, group=rep(c(1:4), each=n))
 #' Easiest: IMCAR -------------------------------------------------------------#
 #' 
 #' Not the true model, but very easy to fit.
-#' Covariances matrix has Wishart(2k, I_k) prior.
-#' Can be still changed in the function call.
-#' Now, if Bartlett factorisation is used, both IMCAR, PMCAR and LMCAR work well.
+#' Covariances matrix has Wishart(2k, I_k) prior. 
+#' If Bartlett factorisation is used, all IMCAR, PMCAR and LMCAR work well.
 
-mod.IMCAR <- inla(
+mod.IMCAR.IW <- inla(
   Y ~ 1 + X +
-    f(ID, model = inla.IMCAR.Bartlett(k = 4, W = W, df=8),
+    f(ID, model = inla.IMCAR.Bartlett(k = 4, W = W, df=8, scale.model = T,
+                                      Wishart.on.scale=F),
       extraconstr = list(A=constr.BYM$A[,-c(1:(4*n))], e = c(0,0,0,0)) ),
-  family = "poisson", data = dd, num.threads = 1, #control.inla = list(cmin=0.001),
+  family = "poisson", data = dd, num.threads = 1, 
+  control.inla = list(tolerance=1e-7, h=1e-5),
   control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
   verbose = T)
 
@@ -79,7 +80,7 @@ vcov_summary(mod.IMCAR)$var
 vcov_summary(mod.IMCAR)$cor
  
 
-#' BYM toy example: independent fields ----------------------------------------#
+#' BYM TOY example: independent fields ----------------------------------------#
 #'
 #' Of course it is not the true DGP either. 
 #' Uniform prior on the mixing parameter (PC prior would be too restrictive), 
@@ -88,14 +89,14 @@ vcov_summary(mod.IMCAR)$cor
 #' 
 mod.INDMMBYM  <- inla(
   Y ~ 1+ X+
-    f(ID, model = inla.INDMMBYM.model(k = 4, W = W, df=8, PC = F ),
+    f(ID, model = inla.INDMMBYM.model(k = 4, W = W, df=8, PC = T ),
       extraconstr = constr.BYM),
   family = "poisson", data = dd, num.threads = 1,
   control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
   verbose = T)
 # Mixing parameter ==> ok
 Mmodel_compute_mixing(mod.INDMMBYM) 
-#' Variances ==> perfect
+#' Variances ==> almost perfect
 data.frame( do.call(rbind, lapply(
   lapply(mod.INDMMBYM$marginals.hyperpar[c(5:8)], function(f){
     inla.tmarginal(fun = function(X) exp(-X), marginal = f)
@@ -103,13 +104,12 @@ data.frame( do.call(rbind, lapply(
 
 
 ##' multivariate BYM - where trouble begins ------------------------------------
-#' Default configuration of the BYM;
-
+ 
 #' A priori, again, var-cov ~ Wishart(2k, I_k), while the mixing parameter
 #' follows a multivariate Uniform distribution (worse with PC)
 mod.MMBYM <- inla(
-  Y ~ 1+ X+
-    f(ID, model = inla.MMBYM.model(k = 4, W = W, df=8, PC = F),
+  Y ~ 1+ X+ f(ID, model = inla.MMBYM.model(
+    k = 4, W = W, df=8, PC = T),
       extraconstr = constr.BYM),
   family = "poisson", data = dd, num.threads = 1,
   #control.inla = list(tolerance = 1e-7),
@@ -122,23 +122,23 @@ vcov_summary(mod.MMBYM)$var
 vcov_summary(mod.MMBYM)$cor
 #' mixing 
 Mmodel_compute_mixing(mod.MMBYM)
-
-
  
+
+
 #' What would've been with initial values based on ICAR output ----------------#
+
 mod.MMBYM.guided <- inla(
-  Y ~ 1+ X+ f(ID, model = inla.MMBYM.model(
-    k = 4, W = W, df=6, PC = T, Wishart.on.scale=F, 
-    initial.values = c(rep(-3, 4),  mod.IMCAR$summary.hyperpar$mode)),
+  Y ~ 1+ X+  f(ID, model = inla.MMBYM.model(
+    k = 4, W = W, df=8, PC = T, 
+    initial.values = c(rep(-3, 4), mod.IMCAR.IW$summary.hyperpar$mode)),
       extraconstr = constr.BYM),
   family = "poisson", data = dd, num.threads = 1,
+  #control.inla = list(tolerance = 1e-7),
   control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
   verbose = T)
 
- 
- 
 #' Correlations: perfect (it's the true DGP)
-#' Variances: a bit overestimated
+#' Variances: perfect
 vcov_summary(mod.MMBYM.guided)
 #' Mixing: ok
 Mmodel_compute_mixing(mod.MMBYM.guided)
@@ -150,19 +150,12 @@ Mmodel_compute_mixing(mod.MMBYM.guided)
 #' -2 and 0 as starting log-standard deviation and correlation:
 mode.idx <- which.max(unlist(lapply(mod.MMBYM$misc$configs$config, function(x) x$log.posterior)))
 mod.MMBYM$misc$configs$config[[mode.idx]]$theta
-#' Joint posterior = -5.64
+#' Joint posterior = -5.76
 mod.MMBYM$misc$configs$config[[mode.idx]]$log.posterior
 
 #' starting values from ICAR:
 mode.idx.guided <- which.max(unlist(lapply(mod.MMBYM.guided$misc$configs$config, function(x) x$log.posterior)))
 mod.MMBYM.guided$misc$configs$config[[mode.idx.guided]]$theta
-#' Joint posterior = -13.99 ==> Definitively not the mode!
+#' Joint posterior = -10.03 ==> Definitively not the mode!
 mod.MMBYM.guided$misc$configs$config[[mode.idx.guided]]$log.posterior
 
-
-
-
-#' this happens at least with zero-inflated:
-#' *** Warning *** Skewness correction for transf.hyperpar is to high/low: gmean =  , corr= .
-#' This IS corrected for, but is usually a sign of a ill-defined model and/or issues with the fit.
- 

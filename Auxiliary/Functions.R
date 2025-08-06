@@ -43,6 +43,14 @@ inla.rgeneric.IMCAR.Bartlett  <-
       }
       if(!exists("df", envir = envir)) assign("df", k+2, envir=envir)
       if(!exists("scale.fac", envir = envir)) assign("scale.fac", diag(k), envir=envir)
+      L_unscaled <- Matrix::Diagonal(n=nrow(W), x=apply(W, 1, sum)) -  W
+      if(scale.model){
+        constr <- INLA:::inla.bym.constr.internal(L_unscaled, adjust.for.con.comp = T)
+        scaleQ <- INLA:::inla.scale.model.internal(
+          L_unscaled, constr = list(A = constr$constr$A, e = constr$constr$e))
+        L <- scaleQ$Q
+      } else L <- L_unscaled
+      assign("L", L, envir=envir)
       assign("cache.done", TRUE, envir=envir)
     }
     
@@ -87,7 +95,7 @@ inla.rgeneric.IMCAR.Bartlett  <-
     Q <- function() {
       param <- interpret.theta()
       #cat("Q called at theta:\n", paste0(round(theta, 5), collapse = ", "), "\n")
-      Q <- kronecker(param$PREC,  Matrix::Diagonal(nrow(W),  apply(W, 1, sum)) - W)
+      Q <- kronecker(param$PREC,  L)
     #  cat("a[0] on guess:", Q@x[1], "\n")
       if (any(is.nan(Q@x)) || any(is.infinite(Q@x))) {
         cat("!!!!!!! WARNING: Q has NaNs or Infs! \n \n \n \n")
@@ -1085,7 +1093,12 @@ inla.rgeneric.Mmodel.BYM <-
       Sigma <- diag(sd) %*% R %*% diag(sd)
     }
     e <- eigen(Sigma)
-    M <- t(e$vectors) %*% diag(sqrt(e$values))
+    if(any(e$values <= 1e-8 )){
+      cat("!!! PROBLEM: Sigma MATRIX HAS NEGATIVE EIGENVALUES \n")
+      cat("vec(Prec) = ", Sigma, "\n eigenvalues = ", e$values, " \n")
+      cat("     ...System likely to crash... \n")
+    }
+    M <-diag(sqrt(e$values)) %*%t(e$vectors)
     invM <- solve(M)
     PREC <- solve(Sigma)
     return(list(phi = phi, M = M, PREC = PREC, Sigma= Sigma, invM = invM))
