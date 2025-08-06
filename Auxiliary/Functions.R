@@ -43,13 +43,6 @@ inla.rgeneric.IMCAR.Bartlett  <-
       }
       if(!exists("df", envir = envir)) assign("df", k+2, envir=envir)
       if(!exists("scale.fac", envir = envir)) assign("scale.fac", diag(k), envir=envir)
-      #if(!exists("Bartlett", envir = envir)) assign("Bartlett", TRUE, envir=envir)
-      #if(!exists("Wishart.on.scale", envir = envir)) {
-       # cat("Which parameter has to follow Wishart prior? Scale, by default \n")
-      #  assign("Wishart.on.scale", TRUE, envir = envir)
-      #} else {
-          cat("Found Wishart.on.scale = ", Wishart.on.scale, "\n")
-      #  }
       assign("cache.done", TRUE, envir=envir)
     }
     
@@ -93,7 +86,7 @@ inla.rgeneric.IMCAR.Bartlett  <-
     }
     Q <- function() {
       param <- interpret.theta()
-      cat("Q called at theta:\n", paste0(round(theta, 5), collapse = ", "), "\n")
+      #cat("Q called at theta:\n", paste0(round(theta, 5), collapse = ", "), "\n")
       Q <- kronecker(param$PREC,  Matrix::Diagonal(nrow(W),  apply(W, 1, sum)) - W)
     #  cat("a[0] on guess:", Q@x[1], "\n")
       if (any(is.nan(Q@x)) || any(is.infinite(Q@x))) {
@@ -109,9 +102,8 @@ inla.rgeneric.IMCAR.Bartlett  <-
       return(val)
     }
     log.prior <- function() {
-      cat("Computing log.prior \n")
-      param <- interpret.theta()
       if(! Bartlett){
+        param <- interpret.theta()
         if(Wishart.on.scale) {
           val <-  log(MCMCpack::dwish(param$Sigma, S=scale.fac %*% t(scale.fac), v = df))
         } else {
@@ -126,8 +118,11 @@ inla.rgeneric.IMCAR.Bartlett  <-
         val <- val + sum(log(2) + theta[k + 1:(k * (k -   1)/2)] -
                            2*log(1+exp(theta[k + 1:(k * (k -   1)/2)])) )
       } else{
+        #' Derivative of Bartlett factor diagonal wrt theta[1:k]
         val <- k * log(2) + 2 * sum(theta[1:k]) + 
+          #' Diagonal entries ~ chi^2
           sum(dchisq(exp(2 * theta[1:k]), df = c(df:(df-k+1)), log = TRUE)) +
+          #' Off diagonal entries (not reparametrised) ~ N(0,1)
           sum(dnorm(theta[as.integer(k + 1:(k * (k -   1)/2))],
                     mean = 0, sd = 1, log = TRUE))
       }
@@ -1005,7 +1000,10 @@ inla.rgeneric.indMmodel.BYM <-
   }
 
 #' Now, THIS is the actual BYM ------------------------------------------------#
-inla.MMBYM.model <- function(...) INLA::inla.rgeneric.define(inla.rgeneric.Mmodel.BYM, ...)
+inla.MMBYM.model <- function(...) {
+  INLA::inla.rgeneric.define(inla.rgeneric.Mmodel.BYM,
+                             Bartlett = TRUE, sparse = TRUE, ...)
+  }
 
 inla.rgeneric.Mmodel.BYM <- 
   function(cmd = c("graph", "Q", "mu", "initial", "log.norm.const", 
@@ -1015,9 +1013,9 @@ inla.rgeneric.Mmodel.BYM <-
   if(!exists("df", envir = envir)) assign("df", k + 2, envir = envir)
   if(!exists("PC", envir = envir)) assign("PC", FALSE, envir = envir)
   if(!exists("scale.fac", envir = envir)) assign("scale.fac", diag(k), envir=envir)
-  if(!exists("Bartlett", envir=envir)) assign("Bartlett", TRUE, envir=envir )
+  #if(!exists("Bartlett", envir=envir)) assign("Bartlett", TRUE, envir=envir )
   if(!exists("Wishart.on.scale", envir = envir)) assign("Wishart.on.scale", TRUE, envir = envir)
-  if(!exists("sparse", envir = envir)) assign("sparse", TRUE, envir = envir)
+  #if(!exists("sparse", envir = envir)) assign("sparse", TRUE, envir = envir)
   if(!exists("cache.done", envir=envir)){
     #' Laplacian matrix scaling: only needs being done once
     L_unscaled <- Matrix::Diagonal(n=nrow(W), x=rowSums(as.matrix(W))) -  W
@@ -1031,7 +1029,6 @@ inla.rgeneric.Mmodel.BYM <-
     inla.pc.mbym.phi <- function(phi, eigenvalues, alpha = 2/3, U = 1/2){
       n <- length(eigenvalues)
       In <- Matrix::Diagonal(n = n, x = 1)
-      #gammas <- list()
       log.p <- numeric(length(phi))
       KLD <- function(phi, eigenvalues){
         res <- -1/2 * sum(log(1 + phi*eigenvalues)) +
@@ -1062,10 +1059,9 @@ inla.rgeneric.Mmodel.BYM <-
     assign("cache.done", TRUE, envir = envir)
   }
   interpret.theta <- function() {
-    #' Same as the dense version, plus the M-factorisation of the scale parameter
-    #' like in the M-models
-    phi <-  1/(1+exp(-theta[as.integer(1:k)]))
-    diag.N <- sapply(theta[ k+(1:k)], function(x) {exp(x)})
+
+    phi <-  1/(1+exp(-theta[c(1:k)]))
+    diag.N <- sapply(theta[ k+(1:k)], function(x) exp(x) )
     no.diag.N <- theta[2*k + 1:(k * (k - 1)/2)]
     if(Bartlett){
       N <- diag(diag.N, k)
@@ -1077,7 +1073,7 @@ inla.rgeneric.Mmodel.BYM <-
         Sigma <- solve(N %*% t(N))
       }   
     } else {
-      #' Notice: theta[k+1:k] are the log-variances
+      #' Notice: theta[k+1:k] are the log-stdevs
       sd <- diag.N 
       #' Correlations, $\in [0, 1]$
       rho <- sapply(no.diag.N, function(x){
@@ -1089,10 +1085,10 @@ inla.rgeneric.Mmodel.BYM <-
       Sigma <- diag(sd) %*% R %*% diag(sd)
     }
     e <- eigen(Sigma)
-    M <- t(e$vectors %*% diag(sqrt(e$values)))
-    invM.t <- diag(1/sqrt(e$values)) %*% t(e$vectors)
-    PREC <- t(invM.t) %*% invM.t
-    return(list(phi = phi, M = M, PREC = PREC, Sigma= Sigma, invM.t = invM.t))
+    M <- t(e$vectors) %*% diag(sqrt(e$values))
+    invM <- solve(M)
+    PREC <- solve(Sigma)
+    return(list(phi = phi, M = M, PREC = PREC, Sigma= Sigma, invM = invM))
   }
   graph <- function() {
     QQ <- Q()
@@ -1103,14 +1099,14 @@ inla.rgeneric.Mmodel.BYM <-
     param <- interpret.theta()
     In <- Matrix::Diagonal(nrow(W), 1)
     if(!sparse){
-      MI <- kronecker(t(param$invM.t), In)
+      MI <- kronecker(param$invM, In)
       BlockIW <- Matrix::bdiag(lapply(1:k, function(i) {
         solve(param$phi[i]*invL + (1-param$phi[i])*In)
       }))
       Q <- (MI %*% BlockIW) %*% kronecker(param$invM.t, In)
     } else {
-      q11 <- t(param$invM.t) %*% Matrix::Diagonal(x = 1/(1 - param$phi), n = k) %*% param$invM.t
-      q12 <- t(param$invM.t) %*% Matrix::Diagonal(x = sqrt(param$phi)/(1 - param$phi), n = k)
+      q11 <- param$invM  %*% Matrix::Diagonal(x = 1/(1 - param$phi), n = k) %*% t(param$invM)
+      q12 <- param$invM %*% Matrix::Diagonal(x = sqrt(param$phi)/(1 - param$phi), n = k)
       q22 <- Matrix::Diagonal(x = param$phi/(1 - param$phi), n = k)
       
       Q11 <- kronecker(q11, In)
@@ -1132,13 +1128,13 @@ inla.rgeneric.Mmodel.BYM <-
     param <- interpret.theta()
     if(!PC){
       #' Uniform prior
-      val <- sum(-theta[as.integer(1:k)] - 2 * log(1 + exp(-theta[as.integer(1:k)])))
+      val <- sum(-theta[c(1:k)] - 2 * log(1 + exp(-theta[c(1:k)])))
     } else{
       #' PC-prior
       if(!exists("alpha", envir = envir)) alpha <- 2/3
       if(!exists("U" , envir = envir)) U <- 1/2
       val <- inla.pc.mbym.phi(eigenvalues = eigenvalues, phi = param$phi, alpha = alpha, U = U) +
-        sum(-theta[as.integer(1:k)] - 2 * log(1 + exp(-theta[as.integer(1:k)])))
+        sum(-theta[c(1:k)] - 2 * log(1 + exp(-theta[c(1:k)])))
     } 
     if(! Bartlett){
       if(Wishart.on.scale) {
@@ -1153,11 +1149,9 @@ inla.rgeneric.Mmodel.BYM <-
       val <- val + sum(log(2) + theta[(2*k)+1:(k*(k-1)/2)] -
                          2*log(1+exp(theta[(2*k)+1:(k*(k-1)/2)])) )
     } else {
-      # n^2_jj ~ chisq(k-j+1) (k degrees of freedom)
       val <- val + k * log(2) + 2 * sum(theta[k + 1:k]) + 
-        sum(dchisq(exp(2 * theta[k + 1:k]), df = c(df:(df-k+1)), log = TRUE))
-      # n_ki ~ N(0,1)
-      val <- val + sum(dnorm(theta[(2*k)+1:(k*(k-1)/2)], mean=0, sd=1, log=TRUE))
+        sum(dchisq(exp(2 * theta[k + 1:k]), df = c(df:(df-k+1)), log = TRUE)) +
+        sum(dnorm(theta[(2*k)+1:(k*(k-1)/2)], mean=0, sd=1, log=TRUE))
     }
     
     return(val)
@@ -1337,7 +1331,8 @@ vcov_summary <- function (model, n.sample = 10000, mode = F) {
   if(is.null(Wishart.on.scale)) Wishart.on.scale <- T
   if(is.null(k)) k <- J
    
-  offset <- nrow(model$summary.hyperpar) - k * (k+1) / 2
+  offset <- nrow(model$summary.hyperpar) - k * (k+1) / 2 #+
+    #sum(! grepl("Theta", rownames(model$summary.hyperpar)))
   
   if(Bartlett){
     .summary <- function(x, mode = F){
@@ -1407,10 +1402,11 @@ vcov_summary <- function (model, n.sample = 10000, mode = F) {
 Mmodel_compute_mixing <- function(model){
   k <- model$.args$formula[[3]][[3]]$model$k
   J <- model$.args$formula[[3]][[3]]$model$J
+  offset <- sum(! grepl("Theta", rownames(model$summary.hyperpar)))
   if(is.null(k)) k <- J
   res <- data.frame(
     do.call(rbind, lapply(
-      lapply(model$marginals.hyperpar[c(1:k)], function(f){
+      lapply(model$marginals.hyperpar[offset + c(1:k)], function(f){
         inla.tmarginal(fun = function(X) 1/(1 + exp(-X)), marginal = f)
         }), function(x) unlist(inla.zmarginal(x, silent = TRUE))))) %>% 
     dplyr::select(1,2,3,5,7)
@@ -1430,4 +1426,28 @@ varcov <- function(x, tri=T){
   Sigma <- diag(sd) %*% R %*% diag(sd)
   if(tri) Sigma <- c(diag(Sigma), Sigma[lower.tri(Sigma, diag=F )])
   return(Sigma)
+}
+
+tan2cor <- function(x, tri=T){
+  N <- length(x)
+  k <- (sqrt(8*N + 1) + 1)/2
+  angles <- sapply(x , function(x) atan(x) + pi/2)
+  A <- B <- matrix(0, nrow=k, ncol =k)
+  A[lower.tri(A, diag=F)] <- angles
+  B[1,1] <- 1
+  if(k>1){
+    for(i in c(2:k)){
+      B[i,1] <- cos(A[i, 1])
+      cat("Expected B[", i, ",1] = ", cos(A[i,1]),", but got: ", B[i,1], "\n" )
+      if(i>2){
+        for(j in c(2:(i-1))){
+          B[i,j] <- cos(A[i,j]) * prod(sin(A[i, c(1:(j-1))]))
+        }
+      }
+      B[i,i] = prod(sin(A[i, c(1:(i-1))]))
+    }
+  }
+  R <- B %*% t(B)
+  if(tri) R <- R[lower.tri(R, diag=F)]
+  return(R)
 }

@@ -78,23 +78,6 @@ vcov_summary(mod.IMCAR)$var
 #' Correlations: perfect
 vcov_summary(mod.IMCAR)$cor
  
-#' Slightly mode complex: LCAR ------------------------------------------------#
-
-mod.LMCAR <- inla(
-  Y ~ 1 + X +
-    f(ID, model = inla.LMCAR.Bartlett(k = 4, W = W, df=8) ),
-  family = "poisson", data = dd, num.threads = 1,
-  control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
-  verbose = T)
-
-mod.LMCAR.IW <- inla(
-  Y ~ 1 + X +
-    f(ID, model = inla.LMCAR.Bartlett(k = 4, W = W, df=8,
-                                      Wishart.on.scale = F) ),
-  family = "poisson", data = dd, num.threads = 1,
-  control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
-  verbose = T)
-#' All fine; both work good
 
 #' BYM toy example: independent fields ----------------------------------------#
 #'
@@ -126,22 +109,13 @@ data.frame( do.call(rbind, lapply(
 #' follows a multivariate Uniform distribution (worse with PC)
 mod.MMBYM <- inla(
   Y ~ 1+ X+
-    f(ID, model = inla.MMBYM.model(k = 4, W = W, df=8, PC = F ),
+    f(ID, model = inla.MMBYM.model(k = 4, W = W, df=8, PC = F),
       extraconstr = constr.BYM),
   family = "poisson", data = dd, num.threads = 1,
-  control.inla = list(  restart = 2, tolerance = 1e-7),
+  #control.inla = list(tolerance = 1e-7),
   control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
   verbose = T)
-
-mod.MMBYM.IW <- inla(
-  Y ~ 1+ X+
-    f(ID, model = inla.MMBYM.model(k = 4, W = W, df=8, PC = F, Wishart.on.scale=F ),
-      extraconstr = constr.BYM),
-  family = "poisson", data = dd, num.threads = 1,
-  control.inla = list(  restart = 2, tolerance = 1e-7),
-  control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
-  verbose = T)
-
+  
 #' Variances: messy
 vcov_summary(mod.MMBYM)$var
 #' Correlations: still messy
@@ -150,16 +124,11 @@ vcov_summary(mod.MMBYM)$cor
 Mmodel_compute_mixing(mod.MMBYM)
 
 
-#' rerun ----------------------------------------------------------------------#
-mod.MMBYM.bis <- inla.rerun(mod.MMBYM)
-#' Closer to the original one:
-vcov_summary(mod.MMBYM.bis, k=4)
-Mmodel_compute_mixing(mod.MMBYM.bis, k=4)
-
+ 
 #' What would've been with initial values based on ICAR output ----------------#
 mod.MMBYM.guided <- inla(
   Y ~ 1+ X+ f(ID, model = inla.MMBYM.model(
-    k = 4, W = W, df=6, PC = T,  
+    k = 4, W = W, df=6, PC = T, Wishart.on.scale=F, 
     initial.values = c(rep(-3, 4),  mod.IMCAR$summary.hyperpar$mode)),
       extraconstr = constr.BYM),
   family = "poisson", data = dd, num.threads = 1,
@@ -167,8 +136,7 @@ mod.MMBYM.guided <- inla(
   verbose = T)
 
  
-
-
+ 
 #' Correlations: perfect (it's the true DGP)
 #' Variances: a bit overestimated
 vcov_summary(mod.MMBYM.guided)
@@ -190,4 +158,11 @@ mode.idx.guided <- which.max(unlist(lapply(mod.MMBYM.guided$misc$configs$config,
 mod.MMBYM.guided$misc$configs$config[[mode.idx.guided]]$theta
 #' Joint posterior = -13.99 ==> Definitively not the mode!
 mod.MMBYM.guided$misc$configs$config[[mode.idx.guided]]$log.posterior
+
+
+
+
+#' this happens at least with zero-inflated:
+#' *** Warning *** Skewness correction for transf.hyperpar is to high/low: gmean =  , corr= .
+#' This IS corrected for, but is usually a sign of a ill-defined model and/or issues with the fit.
  
