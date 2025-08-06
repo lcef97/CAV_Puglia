@@ -33,7 +33,7 @@ constr <- INLA:::inla.bym.constr.internal(L)
 constr.BYM <- list(A = cbind(Matrix::Matrix(0, nrow=4, ncol = 4*n), 
                              kronecker(diag(4), constr$constr$A)),
                    e = c(0, 0, 0, 0))
-
+#' Change seed!
 set.seed(11)
 #' IID component
 V.true <- matrix(rnorm(n=4*n, mean=0, sd=1), nrow = n, ncol = 4, byrow=F)
@@ -63,10 +63,9 @@ dd <- data.frame(Y = y.sim, ID = c(1:(4*n)), X=X, group=rep(c(1:4), each=n))
 #' Covariances matrix has Wishart(2k, I_k) prior. 
 #' If Bartlett factorisation is used, all IMCAR, PMCAR and LMCAR work well.
 
-mod.IMCAR.IW <- inla(
+mod.IMCAR <- inla(
   Y ~ 1 + X +
-    f(ID, model = inla.IMCAR.Bartlett(k = 4, W = W, df=8, scale.model = T,
-                                      Wishart.on.scale=F),
+    f(ID, model = inla.IMCAR.Bartlett(k = 4, W = W, df=8, scale.model = T ),
       extraconstr = list(A=constr.BYM$A[,-c(1:(4*n))], e = c(0,0,0,0)) ),
   family = "poisson", data = dd, num.threads = 1, 
   control.inla = list(tolerance=1e-7, h=1e-5),
@@ -83,13 +82,12 @@ vcov_summary(mod.IMCAR)$cor
 #' BYM TOY example: independent fields ----------------------------------------#
 #'
 #' Of course it is not the true DGP either. 
-#' Uniform prior on the mixing parameter (PC prior would be too restrictive), 
 #' sum-to-zero constraint on the ICAR component and NOT on the convolution component,
 #' as it appears to be in the univariate version implemented with `model='bym2'` 
 #' 
 mod.INDMMBYM  <- inla(
   Y ~ 1+ X+
-    f(ID, model = inla.INDMMBYM.model(k = 4, W = W, df=8, PC = T ),
+    f(ID, model = inla.INDMMBYM.model(k = 4, W = W, df=8, PC = T),
       extraconstr = constr.BYM),
   family = "poisson", data = dd, num.threads = 1,
   control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
@@ -106,21 +104,22 @@ data.frame( do.call(rbind, lapply(
 ##' multivariate BYM - where trouble begins ------------------------------------
  
 #' A priori, again, var-cov ~ Wishart(2k, I_k), while the mixing parameter
-#' follows a multivariate Uniform distribution (worse with PC)
+#' follows a multivariate Uniform distribution 
+#' WARNING: slow - falls into `Enable early_stop`` 
 mod.MMBYM <- inla(
   Y ~ 1+ X+ f(ID, model = inla.MMBYM.model(
-    k = 4, W = W, df=8, PC = T),
+    k = 4, W = W, df=8 ),
       extraconstr = constr.BYM),
   family = "poisson", data = dd, num.threads = 1,
   #control.inla = list(tolerance = 1e-7),
   control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
   verbose = T)
   
-#' Variances: messy
+#' Variances: strange
 vcov_summary(mod.MMBYM)$var
-#' Correlations: still messy
+#' Correlations: definitively messy
 vcov_summary(mod.MMBYM)$cor
-#' mixing 
+#' mixing: also quite messy
 Mmodel_compute_mixing(mod.MMBYM)
  
 
@@ -129,8 +128,8 @@ Mmodel_compute_mixing(mod.MMBYM)
 
 mod.MMBYM.guided <- inla(
   Y ~ 1+ X+  f(ID, model = inla.MMBYM.model(
-    k = 4, W = W, df=8, PC = T, 
-    initial.values = c(rep(-3, 4), mod.IMCAR.IW$summary.hyperpar$mode)),
+    k = 4, W = W, df=8,    
+    initial.values = c(rep(-3, 4), mod.IMCAR$summary.hyperpar$mode)),
       extraconstr = constr.BYM),
   family = "poisson", data = dd, num.threads = 1,
   #control.inla = list(tolerance = 1e-7),
