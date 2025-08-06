@@ -149,13 +149,30 @@ Mmodel_compute_mixing(mod.MMBYM.guided)
 
 #' -2 and 0 as starting log-standard deviation and correlation:
 mode.idx <- which.max(unlist(lapply(mod.MMBYM$misc$configs$config, function(x) x$log.posterior)))
-mod.MMBYM$misc$configs$config[[mode.idx]]$theta
+mode.default <- mod.MMBYM$misc$configs$config[[mode.idx]]$theta
 #' Joint posterior = -5.76
 mod.MMBYM$misc$configs$config[[mode.idx]]$log.posterior
 
 #' starting values from ICAR:
 mode.idx.guided <- which.max(unlist(lapply(mod.MMBYM.guided$misc$configs$config, function(x) x$log.posterior)))
-mod.MMBYM.guided$misc$configs$config[[mode.idx.guided]]$theta
+mode.guided <- mod.MMBYM.guided$misc$configs$config[[mode.idx.guided]]$theta
 #' Joint posterior = -10.03 ==> Definitively not the mode!
 mod.MMBYM.guided$misc$configs$config[[mode.idx.guided]]$log.posterior
 
+#' True values of theta -------------------------------------------------------#
+phi.true.internal <- sapply(phi.true, function(x) log(x) - log(1-x))
+fac.true <- t(chol(Scale.true))
+fac.true.internal <- c(log(diag(fac.true)), Scale.true[lower.tri(fac.true)])
+theta.true <- c(phi.true.internal, fac.true.internal)
+
+#' Arrange the true values and the modes obtained with the two models, 
+#' i.e. the one with default initial values and the one with 
+#' initial values taken from IMCAR posterior mode -----------------------------#
+
+theta.df <- data.frame(true = round(theta.true, 4), default = round(mode.default, 4),
+                       guided = round(mode.guided, 4))
+rownames(theta.df) <- c("logit.phi1", "logit.phi2", "logit.phi3", "logit.phi4",
+                       "diag.N1", "diag.N2", "diag.N3", "diag.N4",
+                       "no.diag.N21", "no.diag.N31", "no.diag.N41",
+                       "no.diag.N32", "no.diag.N42", "no.diag.N43")
+theta.df
