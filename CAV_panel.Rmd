@@ -15,45 +15,29 @@ par(mar = c(2,2,1,1))
 library(magrittr)
 library(sf)
 library(INLA)
-library(INLAMSM)
 #if(!rlang::is_installed("pscl")) install.packages("pscl")
 ```
 
 ## Data
 
-The dataset employed regards the counts of accesses to gender-based violence support centers in the Apulia region by residence municipality of the women victims of violence in 2021-2023. `R` codes to generate the dataset are in the R script [posted here](https://github.com/lcef97/CAV_Puglia/blob/main/CAV_full.R) which this report is based on. 
+The dataset employed regards the counts of accesses to gender-based violence support centers in the Apulia region by residence municipality of the women victims of violence in 2021-2024. `R` codes to generate the dataset are in the R script [posted here](https://github.com/lcef97/CAV_Puglia/blob/main/CAV_full.R) which this report is based on. 
 
 Here, we only take into account the violence reports which support centers actually take charge of, at the risk of underestimating the counts of gender-based violence cases.
 This choice is driven by the need of avoiding duplicated records, since e.g. it may happen that a support center redirects a victim to another support center. 
 ```{r input mute, echo = FALSE, message = FALSE, warning = FALSE, output = FALSE}
 
-## Input ----------------------------------------------------------------------
+## Input ----------------------------------------------------------------------#
  
 load("input/CAV_input_mun_2021.RData")
 load("input/CAV_input_mun_2022.RData")
 load("input/CAV_input_mun_2023.RData")
+load("input/CAV_input_mun_2024.RData")
 
-CAV_mun_21 <- CAV_mun_21 %>%
-  dplyr::mutate(Year = "2021")
-  
-CAV_mun_22 <- CAV_mun_22 %>%
-  dplyr::mutate(Year = "2022")
+CAV_mun_21 <- CAV_mun_21 %>% dplyr::rename(N_ACC_2021 = .data$N_ACC)
+CAV_mun_22 <- CAV_mun_22 %>% dplyr::rename(N_ACC_2022 = .data$N_ACC)
+CAV_mun_23 <- CAV_mun_23 %>% dplyr::rename(N_ACC_2023 = .data$N_ACC)
+CAV_mun_24 <- CAV_mun_24 %>% dplyr::rename(N_ACC_2024 = .data$N_ACC)
 
-CAV_mun_23 <- CAV_mun_23 %>%
-  dplyr::mutate(Year = "2023")
-
-CAV_mun <- dplyr::bind_rows(CAV_mun_21, CAV_mun_22,  CAV_mun_23)
-
-
-load("input/dists_th_22.RData")
-load("input/dists_th_23.RData")
-dists_th_22 %<>% dplyr::rename(TEP_th = .data$TEP_th_22) 
-dists_th_23 %<>% dplyr::rename(TEP_th = .data$TEP_th_23) 
-
-TEP <- dplyr::bind_rows(dists_th_22, dists_th_22, dists_th_23) %>% 
-  dplyr::mutate(Year = c(rep("2021", nrow(dists_th_22)),
-                         rep("2022", nrow(dists_th_22)),
-                         rep("2023", nrow(dists_th_23))))
 load("input/Shp.RData")
 
 #'  Function to extract numeric digits from a strings vector (needed to filter age):
@@ -64,58 +48,93 @@ nn_extract <- function(string){
   return(res)
 }
 
-# Female population aged >= 15 years.
-# Source data: http://dati.istat.it/Index.aspx?DataSetCode=DCIS_POPRES1#
 Popolazione_Puglia_2021 <- readr::read_csv("input/Popolazione_Puglia_2021.csv") %>% 
   dplyr::select(.data$ITTER107, .data$Territorio, .data$SEXISTAT1, .data$ETA1, .data$Value) %>% 
   dplyr::filter(.data$ETA1 != "TOTAL") %>% 
-  dplyr::mutate(ETA1 = nn_extract(ETA1)) %>% 
-  dplyr::mutate(ITTER107 = as.numeric(ITTER107)) %>% 
-  dplyr::mutate(Year = "2021")
+  dplyr::mutate(ETA1 = nn_extract(.data$ETA1)) %>% 
+  dplyr::mutate(ITTER107 = as.numeric(.data$ITTER107))
 
 Popolazione_Puglia_2022 <- readr::read_csv("input/Popolazione_Puglia_2022.csv") %>% 
   dplyr::select(.data$ITTER107, .data$Territorio, .data$SEXISTAT1, .data$ETA1, .data$Value) %>% 
   dplyr::filter(.data$ETA1 != "TOTAL") %>% 
-  dplyr::mutate(ETA1 = nn_extract(ETA1)) %>% 
-  dplyr::mutate(ITTER107 = as.numeric(ITTER107)) %>% 
-  dplyr::mutate(Year = "2022")
+  dplyr::mutate(ETA1 = nn_extract(.data$ETA1)) %>% 
+  dplyr::mutate(ITTER107 = as.numeric(.data$ITTER107))
 
 Popolazione_Puglia_2023 <- readr::read_csv("input/Popolazione_Puglia_2023.csv") %>% 
   dplyr::select(.data$ITTER107, .data$Territorio, .data$SEXISTAT1, .data$ETA1, .data$Value) %>% 
   dplyr::filter(.data$ETA1 != "TOTAL") %>% 
-  dplyr::mutate(ETA1 = nn_extract(ETA1)) %>% 
-  dplyr::mutate(ITTER107 = as.numeric(ITTER107)) %>% 
-  dplyr::mutate(Year  = "2023")
+  dplyr::mutate(ETA1 = nn_extract(.data$ETA1)) %>% 
+  dplyr::mutate(ITTER107 = as.numeric(.data$ITTER107))
 
-# Filter and aggregate:
+Popolazione_Puglia_2024 <- readr::read_csv("input/Popolazione_Puglia_2024.csv",
+                                           quote = "")  %>% 
+  dplyr::filter(.data$AGE != "TOTAL") %>% 
+  dplyr::mutate(ETA1 = nn_extract(.data$AGE)) %>% 
+  dplyr::mutate(ITTER107 = as.numeric(.data$REF_AREA)) %>% 
+  dplyr::rename(SEXISTAT1 = .data$SEX, Value = .data$Osservazione)%>% 
+  dplyr::select(.data$ITTER107, .data$SEXISTAT1, .data$ETA1, .data$Value)
+
+
 Pop_f_15 <- Popolazione_Puglia_2021 %>% 
-  dplyr::bind_rows(list(Popolazione_Puglia_2022, Popolazione_Puglia_2023))
+  dplyr::left_join(Popolazione_Puglia_2022,
+                   by = c("ITTER107", "Territorio", "SEXISTAT1", "ETA1")) %>% 
+  dplyr::left_join(Popolazione_Puglia_2023,
+                   by = c("ITTER107", "Territorio", "SEXISTAT1", "ETA1")) %>% 
+  dplyr::left_join(Popolazione_Puglia_2024,
+                   by =  c("ITTER107",  "SEXISTAT1", "ETA1"))
 
 names(Pop_f_15) <-  c("PRO_COM", "Comune", "Sesso", "Eta", 
-                      "Popolazione",  "Year")
+                      "Popolazione_21", "Popolazione_22", "Popolazione_23", "Popolazione_24")
 
 Pop_f_15 <- Pop_f_15 %>% dplyr::filter(.data$Sesso == 2) %>% 
   dplyr::filter(.data$Eta > 14) %>% 
-  dplyr::group_by(.data$Year, .data$PRO_COM, .data$Comune) %>% 
-  dplyr::summarise(nn = sum(.data$Popolazione)) %>%
+  dplyr::group_by(.data$PRO_COM, .data$Comune) %>% 
+  dplyr::summarise(nn_2021 = sum(.data$Popolazione_21),
+                   nn_2022 = sum(.data$Popolazione_22),
+                   nn_2023 = sum(.data$Popolazione_23),
+                   nn_2024 = sum(.data$Popolazione_24)) %>%
   dplyr::ungroup()
+
 
 # Tremiti Islands are a singleton --> need to remove them to perform spatial analysis
 suppressWarnings({
-  singletons <- which(unlist(lapply(spdep::poly2nb(Shp), function(x) x[1L] == 0)))
+  singletons <- Shp$PRO_COM[which(
+    unlist(lapply(spdep::poly2nb(Shp),
+                  function(x) x[1L] == 0)))]
 })
 
-Shp_con <- Shp[-singletons, ]
+load("input/dists_th_22.RData")
+load("input/dists_th_23.RData")
+load("input/dists_th_24.RData")
+names(dists_th_22)[2] <- names(dists_th_23)[2] <- names(dists_th_24)[2] <- "TEP_th"
+distances <- rbind(dists_th_22, dists_th_22, dists_th_23, dists_th_24) %>% 
+  dplyr::mutate(Year = c(rep("2021", nrow(dists_th_22)),
+                         rep("2022", nrow(dists_th_22)),
+                         rep("2023", nrow(dists_th_23)),
+                         rep("2024", nrow(dists_th_24))) )
 
+
+Shp_con <- dplyr::filter(Shp, !.data$PRO_COM %in% singletons)
 n <- nrow(Shp_con)
 
-dd <- Shp_con %>% 
+
+dd <- Shp_con %>% dplyr::left_join(Pop_f_15[, -2], by = "PRO_COM") %>% 
+  dplyr::left_join(dplyr::select(CAV_mun_21, -.data$comune),by = "PRO_COM") %>% 
+  dplyr::left_join(dplyr::select(CAV_mun_22, -.data$comune),by = "PRO_COM") %>% 
+  dplyr::left_join(dplyr::select(CAV_mun_23, -.data$comune),by = "PRO_COM") %>% 
+  dplyr::left_join(dplyr::select(CAV_mun_24, -.data$comune),by = "PRO_COM") %>% 
+  tidyr::pivot_longer(cols = tidyselect::starts_with("nn_") | 
+                        tidyselect::starts_with("N_ACC_"),
+                      names_to = c(".value", "Year"),
+                      names_pattern = "(nn|N_ACC)_(\\d+)" ) %>% 
   dplyr::left_join(dplyr::select(Indicators, -.data$Comune), by = "PRO_COM") %>% 
-  dplyr::bind_rows(list(., .)) %>% 
-  dplyr::mutate(Year = rep(c("2021", "2022", "2023"), each = nrow(.)/3)) %>% 
-  dplyr::left_join(dplyr::select(Pop_f_15, -.data$Comune), by = c("PRO_COM", "Year")) %>% 
-  dplyr::left_join(dplyr::select(CAV_mun, -.data$comune), by = c("PRO_COM", "Year")) %>% 
-  dplyr::left_join(TEP, by = c("PRO_COM", "Year")) %>% 
+  dplyr::arrange(.data$Year, .data$PRO_COM)  %>% 
+  dplyr::left_join(distances, by = c("PRO_COM", "Year")) %>% 
+  dplyr::mutate(CAV = as.numeric(.data$TEP_th == 0)) %>% 
+  dplyr::mutate(Y_2021 = as.numeric(.data$Year == "2021")) %>% 
+  dplyr::mutate(Y_2022 = as.numeric(.data$Year == "2022")) %>% 
+  dplyr::mutate(Y_2023 = as.numeric(.data$Year == "2023")) %>% 
+  dplyr::mutate(Y_2024 = as.numeric(.data$Year == "2024")) %>% 
   dplyr::mutate(TEP_th = as.vector(scale(.data$TEP_th))) %>% 
   dplyr::mutate(AES = as.vector(scale(.data$AES))) %>% 
   dplyr::mutate(MFI = as.vector(scale(.data$MFI)))  %>% 
@@ -124,10 +143,12 @@ dd <- Shp_con %>%
   dplyr::mutate(ER = as.vector(scale(.data$ER)))  %>% 
   dplyr::mutate(PGR = as.vector(scale(.data$PGR)))  %>% 
   dplyr::mutate(UIS = as.vector(scale(.data$UIS)))  %>% 
-  dplyr::mutate(ELI = as.vector(scale(.data$ELI))) %>% 
-  dplyr::mutate(Area = rep(c(1:n), 3)) %>% 
-  dplyr::mutate(Year = as.numeric(as.factor(.data$Year))) %>% 
-  dplyr::mutate(ID = .data$Area + (.data$Year-1)*n)
+  dplyr::mutate(ELI = as.vector(scale(.data$ELI)))  %>% 
+  dplyr::select(-.data$Year) %>% 
+  dplyr::mutate(ID = c(1:nrow(.))) %>% 
+  dplyr::mutate(Area = as.numeric(as.factor(.data$PRO_COM)))
+
+
 
 # Municipalities from which no woman reported violence --> count == 0
 dd$N_ACC[is.na(dd$N_ACC)] <- 0
@@ -135,22 +156,29 @@ dd$N_ACC[is.na(dd$N_ACC)] <- 0
 # "access ratio"
 dd$LN_ACC <- log(dd$N_ACC/dd$nn)
 
+#' neighbours list ------------------------------------------------------------#
+nb_con <- spdep::poly2nb(dd[c(1:n), ])
 
-# This is the dataset we will concretely work on.
-# Covariates are all scaled to zero mean and unit variance
-
-# neighbours list
-nb_con <- spdep::poly2nb(Shp_con)
-# neighbouring/adjacency matrix
+#' neighbouring/adjacency matrix ----------------------------------------------#
 W_con <- spdep::nb2mat(nb_con, style = "B")
-rownames(W_con) <- colnames(W_con) <- Shp_con$PRO_COM
+rownames(W_con) <- colnames(W_con) <- dd$PRO_COM[c(1:n)]
 
-# Laplacian matrix:
-Lapl_con <- diag(rowSums(W_con)) - W_con
+#' Laplacian matrix -----------------------------------------------------------#
+D_con <- Matrix::Diagonal(x=apply(W_con, MARGIN=1, FUN=function(x) sum(x)), n=n)
+Lapl_con <- D_con - W_con
 V_con <- eigen(Lapl_con)$vectors
 
-# row ID - needed for spatial models
-#dd$ID <- c(1:nrow(dd))
+constr <- INLA:::inla.bym.constr.internal(
+  Q = Lapl_con, adjust.for.con.comp = T)
+A_constr <- kronecker(Matrix::Diagonal(n=4,x=1), constr$constr$A)
+
+#'  Necessary to constrain the BYM model --------------------------------------#
+constr.BYM <- list(
+  A = cbind(Matrix::Matrix(0, nrow = nrow(A_constr), ncol = ncol(A_constr)), A_constr),
+  e=c(0,0,0,0) )
+
+
+
 
 
 zhat_plot <- function(mod){
@@ -159,7 +187,7 @@ zhat_plot <- function(mod){
   
   plot_map <- purrr::map(unique(dd$Year), function (t){
   dd %>% dplyr::mutate(zhat = mod$summary.random$ID$mean[c(1:n)]) %>% 
-    dplyr::filter(.data$Year == t) %>% 
+    dplyr::filter(as.numeric(.data$Year) == t) %>% 
     ggplot2::ggplot() +
     ggplot2::geom_sf(ggplot2::aes(fill = .data$zhat))+
     ggplot2::labs(title = paste("Year:", 2020+ t), 
@@ -168,7 +196,7 @@ zhat_plot <- function(mod){
     ggplot2::theme_classic()
   })
 
-do.call(gridExtra::grid.arrange, c(plot_map, nrow = 1, ncol = 3))
+do.call(gridExtra::grid.arrange, c(plot_map, nrow = 2, ncol = 2))
 
 }
 
@@ -180,7 +208,7 @@ yhat_plot <- function(mod ){
   
   plot_map <- purrr::map(unique(dd$Year), function (t){
     dd %>% dplyr::mutate(yhat = yhat) %>% 
-      dplyr::filter(.data$Year == t) %>% 
+      dplyr::filter(as.numeric(.data$Year) == t) %>% 
       ggplot2::ggplot() +
       ggplot2::geom_sf(ggplot2::aes(fill = .data$yhat)) +
       ggplot2::labs(title = paste("Year:", 2020+ t), 
@@ -188,7 +216,7 @@ yhat_plot <- function(mod ){
       ggplot2::scale_fill_viridis_c(na.value = "white", direction = -1, limits = rr) +
       ggplot2::theme_classic()
   })
-  do.call(gridExtra::grid.arrange, c(plot_map, nrow = 1, ncol = 3))
+  do.call(gridExtra::grid.arrange, c(plot_map, nrow = 2, ncol = 2))
 }
 
 etahat_plot <- function(mod, predictor = FALSE){
@@ -200,45 +228,28 @@ etahat_plot <- function(mod, predictor = FALSE){
   plot_map <- purrr::map(unique(dd$Year), function (t){
     dd %>% 
       dplyr::mutate(etahat = etahat) %>% 
-      dplyr::filter(.data$Year == t) %>% 
+      dplyr::filter(as.numeric(.data$Year) == t) %>% 
       ggplot2::ggplot() +
       ggplot2::geom_sf(ggplot2::aes(fill =  .data$etahat )) +
       ggplot2::labs(title = paste("Year:", 2020+ t),
                     fill = expression(E * "[" * eta * "]")) + 
       ggplot2::scale_fill_viridis_c(na.value = "white", direction = -1, limits = rr) +
       ggplot2::theme_classic()
-})
+    })
 
-do.call(gridExtra::grid.arrange, c(plot_map, nrow = 1, ncol = 3))
+do.call(gridExtra::grid.arrange, c(plot_map, nrow = 2, ncol = 2))
 
 }
 
 
-```
-
-
-```{r check 1, echo = FALSE}
-if(!all( rep(Shp_con$PRO_COM, 3) == dd$PRO_COM)){
-  problematics <- which( !rep(Shp_con$PRO_COM, 3) == dd$PRO_COM)
-  warning("Something went wrong! Check the ordering of municipality codes!! \n
-         ")
-  probl <- dd[problematics, ]
-  message("Problem for:")
-  print(head(probl))
-}
 ```
 
 
 In order to avoid singletons, i.e. municipalities with no neighbours, in the spatial structure of the dataset, the Tremiti Islands need to be removed from the list of municipalities included ($0$ accesses recorded so far).
 
-Therefore, the municipality-level dataset in scope consists of $256$ observations. 
+Therefore, the municipality-level dataset in scope consists of $256$ areas. 
 
-We can only take into account the accesses to support centers for which the origin municipality of victims is reported; therefore the total count of accesses in scope is $1477$, $1516$ and $1822$ for the three reference years respectively:
-```{r tot counts, message = FALSE, warning = FALSE}
-dd %>% sf::st_drop_geometry() %>% 
-  dplyr::group_by(.data$Year) %>%
-  dplyr::summarise(Tot_accesses = sum(.data$N_ACC))
-```
+We can only take into account the accesses to support centers for which the origin municipality of victims is reported; therefore the total count of accesses in scope is $1477$, $1516$, $1822$ and $1778$for the reference years respectively:
 
 
 Here, we plot the log-access rate per residence municipality, i.e. the logarithm of the ratio between access counts and female population. Blank areas correspond to municipalities from which zero women accessed support centers ($82$ municipalities).
@@ -247,7 +258,7 @@ Here, we plot the log-access rate per residence municipality, i.e. the logarithm
 
 
 ggy21 <- ggplot2::ggplot() +
-  ggplot2::geom_sf(data = dplyr::filter(dd, .data$Year == 1), 
+  ggplot2::geom_sf(data = dplyr::filter(dd, .data$Y_2021 == 1), 
                    ggplot2::aes(fill = .data$LN_ACC))+
   ggplot2::labs(fill = "Log-accesses, 2021")+
   ggplot2::scale_fill_viridis_c(na.value = "white",
@@ -256,7 +267,7 @@ ggy21 <- ggplot2::ggplot() +
   ggplot2::theme_classic()
 
 ggy22 <- ggplot2::ggplot() +
-  ggplot2::geom_sf(data = dplyr::filter(dd, .data$Year == 2), 
+  ggplot2::geom_sf(data = dplyr::filter(dd, .data$Y_2022 == 1), 
                    ggplot2::aes(fill = .data$LN_ACC))+
   ggplot2::labs(fill = "Log-accesses, 2022")+
   ggplot2::scale_fill_viridis_c(na.value = "white",
@@ -265,7 +276,7 @@ ggy22 <- ggplot2::ggplot() +
   ggplot2::theme_classic()
 
 ggy23 <- ggplot2::ggplot() +
-  ggplot2::geom_sf(data = dplyr::filter(dd, .data$Year == 3), 
+  ggplot2::geom_sf(data = dplyr::filter(dd, .data$Y_2023 == 1), 
                    ggplot2::aes(fill = .data$LN_ACC))+
   ggplot2::labs(fill = "Log-accesses, 2023")+
   ggplot2::scale_fill_viridis_c(na.value = "white",
@@ -273,7 +284,16 @@ ggy23 <- ggplot2::ggplot() +
                                 limits = c(-9.5, -4.5))+
   ggplot2::theme_classic()
 
-gridExtra::grid.arrange(ggy21, ggy22, ggy23, nrow = 3, ncol = 1)
+ggy24 <- ggplot2::ggplot() +
+  ggplot2::geom_sf(data = dplyr::filter(dd, .data$Y_2024 == 1), 
+                   ggplot2::aes(fill = .data$LN_ACC))+
+  ggplot2::labs(fill = "Log-accesses, 2024")+
+  ggplot2::scale_fill_viridis_c(na.value = "white",
+                                direction = -1,
+                                limits = c(-9.5, -4.5))+
+  ggplot2::theme_classic()
+
+gridExtra::grid.arrange(ggy21, ggy22, ggy23, ggy24, nrow = 2, ncol = 2)
 
 ```
 
@@ -343,15 +363,15 @@ To gain more insight on the role of all explanatory variables we show the poster
 ```{r glm results, warning = FALSE, message = FALSE, echo = FALSE, results = "asis"}
 
 
-cav_glm <- glm(N_ACC ~ 0 + as.factor(Year) + TEP_th + PDI + ELL + ER +
+cav_glm <- glm(N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + TEP_th + PDI + ELL + ER +
                    PGR + UIS + ELI + offset(log(nn)),
                  data = dd, family = "poisson")
 
 alphas.glm <- data.frame(
   Mean = summary(cav_glm)$coefficients[,1],
   Sd = summary(cav_glm)$coefficients[,2]) %>% 
-  dplyr::mutate(Effect = c("Int_2021", "Int_2022", "Int_2023",
-                           rownames(summary(cav_glm)$coefficients)[-c(1,2,3)])) %>% 
+  dplyr::mutate(Effect = c("Int_2021", "Int_2022", "Int_2023", "INT_2024",
+                           rownames(summary(cav_glm)$coefficients)[-c(1,2,3,4)])) %>% 
   dplyr::relocate(.data$Effect, .before = 1)
 
 #print(xtable::xtable(alphas.glm, num.digits = 3), include.rowname = FALSE)
@@ -360,20 +380,17 @@ alphas.glm <- data.frame(
 
 ```{r INLA nosp, warning = FALSE, echo = FALSE, message = FALSE, results = "asis"}
 cav_nosp_inla <- inla(
-  N_ACC ~ 0 +TEP_th + ELI + PGR + UIS + ELL + PDI + ER + 
-    f(Year, model = "iid"),
+  N_ACC ~0 + Y_2021 + Y_2022 +Y_2023 +Y_2024 +
+    TEP_th + ELI + PGR + UIS + ELL + PDI + ER  ,
   offset = log(nn),
   family = "poisson", data =dd,
-  #control.inla = list(strategy = "laplace", int.strategy = "grid"),
-  #inla.mode = "classic",
   num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
   verbose = T)
 
-alphas.nosp.inla <- dplyr::bind_rows(cav_nosp_inla$summary.random$Year[,-1],
-                                      cav_nosp_inla$summary.fixed) %>% 
+alphas.nosp.inla <-  cav_nosp_inla$summary.fixed %>% 
   dplyr::select(c(1,2,3,5)) %>% 
-  dplyr::mutate(Effect = c("Int_2021", "Int_2022", "Int_2023", 
-                           rownames(cav_nosp_inla$summary.fixed))) %>% 
+  dplyr::mutate(Effect = c("Int_2021", "Int_2022", "Int_2023", "Int_2024",
+                           rownames(cav_nosp_inla$summary.fixed)[-c(1:4)])) %>% 
   dplyr::relocate(.data$Effect, .before = 1) %>%  
   dplyr::rename(Mean = .data$mean, Sd = .data$sd)
   
@@ -408,14 +425,14 @@ We plot the log-residuals $\varepsilon$ of the nonspatial regression models, def
 ```{r glm residuals, echo = FALSE, warnings = FALSE, message = FALSE, output = FALSE}
 #L_block <- kronecker(diag(1, 3), Lapl_con)
 constr <- INLA:::inla.bym.constr.internal(Lapl_con, adjust.for.con.comp = T)
-A_constr <- kronecker(Matrix::Diagonal(x=1, n=3), constr$constr$A)
+A_constr <- kronecker(Matrix::Diagonal(x=1, n=4), constr$constr$A)
 resids_glm <- log(dd$N_ACC) - log(cav_glm$fitted.values)
 
 rr <- range(resids_glm[which(is.finite(resids_glm))])
 
 ggr21 <- dd %>% 
   dplyr::mutate(log_resids_2021 = resids_glm) %>% 
-  dplyr::filter(.data$Year == 1) %>% 
+  dplyr::filter(.data$Y_2021 == 1) %>% 
   ggplot2::ggplot() +
   ggplot2::geom_sf(ggplot2::aes(fill = .data$log_resids_2021))+
   ggplot2::labs("blank") +
@@ -424,7 +441,7 @@ ggr21 <- dd %>%
 
 ggr22 <- dd %>% 
   dplyr::mutate(log_resids_2022 = resids_glm) %>% 
-  dplyr::filter(.data$Year == 2) %>% 
+  dplyr::filter(.data$Y_2022 == 1) %>% 
   ggplot2::ggplot() +
   ggplot2::geom_sf(ggplot2::aes(fill = .data$log_resids_2022))+
   ggplot2::labs("blank") +
@@ -433,45 +450,64 @@ ggr22 <- dd %>%
 
 ggr23 <- dd  %>% 
   dplyr::mutate(log_resids_2023 = resids_glm) %>% 
-  dplyr::filter(.data$Year == 3) %>% 
+  dplyr::filter(.data$Y_2023 == 1) %>% 
   ggplot2::ggplot() +
   ggplot2::geom_sf(ggplot2::aes(fill = .data$log_resids_2023))+
   ggplot2::labs("blank") +
   ggplot2::scale_fill_viridis_c(na.value = "white", direction = -1, limits = rr) +
   ggplot2::theme_classic()
 
+ggr24 <- dd  %>% 
+  dplyr::mutate(log_resids_2024 = resids_glm) %>% 
+  dplyr::filter(.data$Y_2024 == 1) %>% 
+  ggplot2::ggplot() +
+  ggplot2::geom_sf(ggplot2::aes(fill = .data$log_resids_2024))+
+  ggplot2::labs("blank") +
+  ggplot2::scale_fill_viridis_c(na.value = "white", direction = -1, limits = rr) +
+  ggplot2::theme_classic()
 
 #' Problem: cannot apply Moran test to infinite values!
 #' Hence we need to only test autocorrelation across nonzero records.
 #' This strongly limits the relevance of the test, if I have a better idea I'll implememnt it.
-nonzero_21 <- which(dd$N_ACC > 0 & dd$Year == 1)
-nonzero_22 <- which(dd$N_ACC > 0 & dd$Year == 2)
-nonzero_23 <- which(dd$N_ACC > 0 & dd$Year == 3)
+nonzero_21 <- which(dd$N_ACC > 0 & dd$Y_2021 == 1)
+nonzero_22 <- which(dd$N_ACC > 0 & dd$Y_2022 == 1)
+nonzero_23 <- which(dd$N_ACC > 0 & dd$Y_2023 == 1)
+nonzero_24 <- which(dd$N_ACC > 0 & dd$Y_2024 == 1)
+
 
 spdep::set.ZeroPolicyOption(TRUE)
 suppressWarnings(nb_nonzero_21 <- spdep::poly2nb(dd[nonzero_21, ]))
 suppressWarnings(nb_nonzero_22 <- spdep::poly2nb(dd[nonzero_22, ]))
 suppressWarnings(nb_nonzero_23 <- spdep::poly2nb(dd[nonzero_23, ]))
+suppressWarnings(nb_nonzero_24 <- spdep::poly2nb(dd[nonzero_24, ]))
+
 
 nonzero_singletons_21 <- which(unlist(lapply(nb_nonzero_21, function(X) X[1L]==0)))
 nonzero_singletons_22 <- which(unlist(lapply(nb_nonzero_22, function(X) X[1L]==0)))
 nonzero_singletons_23 <- which(unlist(lapply(nb_nonzero_23, function(X) X[1L]==0)))
+nonzero_singletons_24 <- which(unlist(lapply(nb_nonzero_24, function(X) X[1L]==0)))
+
 
 if(length(nonzero_singletons_21 > 0)){
   nonzero_con_21 <- nonzero_21[-nonzero_singletons_21]
   } else nonzero_con_21 <- nonzero_21
 nonzero_con_22 <- nonzero_22[-nonzero_singletons_22]
 nonzero_con_23 <- nonzero_23[-nonzero_singletons_23]
+if(length(nonzero_singletons_24 > 0)){
+  nonzero_con_24 <- nonzero_24[-nonzero_singletons_24]
+  } else nonzero_con_24 <- nonzero_24
 
 nb_con_nonzero_21 <- spdep::poly2nb(dd[nonzero_con_21, ])
 nb_con_nonzero_22 <- spdep::poly2nb(dd[nonzero_con_22, ])
 nb_con_nonzero_23 <- spdep::poly2nb(dd[nonzero_con_23, ])
+nb_con_nonzero_24 <- spdep::poly2nb(dd[nonzero_con_24, ])
+
 
 
 ```
 ```{r Log residuals, echo=FALSE, fig.cap = "Log-residuals in GLM regression", message=FALSE, warning=FALSE}
 
-gridExtra::grid.arrange(ggr21, ggr22, ggr23, nrow = 3, ncol = 1)
+gridExtra::grid.arrange(ggr21, ggr22, ggr23, ggr24, nrow = 2, ncol = 2)
 
 
 ```
@@ -479,1448 +515,6 @@ gridExtra::grid.arrange(ggr21, ggr22, ggr23, nrow = 3, ncol = 1)
 
 Residuals may exhibit spatial structure. To assess it, we employ the Moran and Geary tests. Since 
 
-Please notice that log-residuals only take finite values across the municipalities whose female citizens have reported at least one case of violence in 2022.
+Please notice that log-residuals only take finite values across the municipalities whose female citizens have reported at least one case of violence.
 
-Additionally, this set of municipalities may include some singletons, which we remove to assess the value of the Moran and Geary statistics. Thus, for each year we have defined the indexes set `nonzero_con` as the set of municipalities from which at least one case of gender-based violence has been reported, *and* which have at least one neighbouring municipality from which at least one case of gender-based violence was reported as well. For brevity, we only show the standardised $I$ values, which under the null hypothesis should be distributed as $N(0,1)$. The Geary's test is also included for completeness.
 
-```{r moran residuals, echo = F, message = F, warning = F, results = "asis"}
-
-autocorrel.tests <- as.data.frame(
-  do.call(rbind,  lapply(list(nonzero_con_21, nonzero_con_22, nonzero_con_23), function(NN){
-    rbind(
-      round(unlist(spdep::moran.test(resids_glm[NN],
-                                     listw = spdep::nb2listw( 
-                                       spdep::poly2nb(dd[NN, ])))[c("statistic", "p.value")]), 3),
-      round(unlist(spdep::geary.test(resids_glm[NN],
-                                     listw = spdep::nb2listw(
-                                       spdep::poly2nb(dd[NN, ])))[c("statistic", "p.value")]), 3))
-               }))) %>% 
-  dplyr::mutate(test = rep(c("Moran", "Geary"), 3)) %>% 
-  dplyr::mutate(year = rep(c("2021", "2022", "2023"), each = 2)) %>% 
-  dplyr::select(c(4,3,1,2))
-names(autocorrel.tests) <- c("Year", "Test", "Statistic_std", "p.value")
-
-print(xtable::xtable(autocorrel.tests), include.rowname = F, n.digits = 3)                 
-               
-```
-
-We find evidence for spatial autocorrelation. However, we must stress out that this result does not refer to all the regional territory, but only to a subset of all municipalities.
-
-Based on the autocorrelation evidence, though it has only been assessed for a subset of all municipalities, we try implementing some simple spatial models by adding a conditionally autoregressive latent effect, say $z$, to the linear predictor
-
-\begin{equation}
-\eta_{it} = X_{it}^{\top} \alpha + z_{it} 
-\label{eq:mspat}
-\end{equation}
-
-
-We test a total of four models, all of which have a prior distribution depending on the spatial structure of the underlying graph, in this case the Apulia region. 
-
-In the following, the area-specific latent field is denoted as $z_i = (z_{i, 2021} \, z_{i, 2022} \, z_{i, 2023} )^{\top}$
-
-We describe the spatial structure starting from municipalities neighbourhood, and introduce the neighbourhood matrix $W$, whose generic element $w_{ij}$ takes value $1$ if municipalities $i$ and $j$ are neighbours and $0$ otherwise. For each $i \in [1,n]$, $d_i:= \sum_{j=1}^n w_{ij}$ is the number of neigbours of $i$-th municipality. Please notice we have have $n = 256$.
-
-For all models, we define $\Lambda$ as the precision parameter of the latent effect, and assign it a Wishart prior. Additionally, $\Sigma = \Lambda^{-1}$ is the covariance matrix of $z$, and its off-diagonal entries describe dependence in $z$ between different years.
-
-Spatial models are computed by approximating the marginal posteriors of interest via the Integrated Nested Laplace Approximation (INLA), adopting the novel Variational Bayes Approach [@INLAVB].
-
-Priors for spatial effects have been defined using the \texttt{INLAMSM} \texttt{R} package [@INLAMSM].
-
-#### ICAR model
-
-The Intrinsic CAR model is the simplest formulation among spatial autoregressive models. The conditional distribution of each value $z_i \mid z_{-i}$ is:
-
-\begin{equation}
-z_i \mid z_{-i} \sim \mathcal{N} \left( \sum_{j=1}^n \frac{w_{ij}}{d_i} z_j \,, \frac{1}{d_i} \Lambda^{-1} \right)
-\label{eq:icar_loc}
-\end{equation}
-
-And the joint prior distribution is:
-
-\begin{equation}
-z \mid \Sigma \sim \mathcal{N} \left( 0, \Sigma \otimes (D - W)^{+} \right)
-\label{eq:icar_joint}
-\end{equation}
-
-Where $z$ is a $256 \times 3$ matrix. Since the joint distribution of $z$ is improper, a sum-to-zero constraint, i.e. $\sum_{i=1}^n z_{it} = 0$ for $t = 2021, 2022, 2023$ is required for identifiability.
-
- 
-
-```{r inla icar, echo = FALSE, message = FALSE, warning = FALSE}
-
-cav_IMCAR_inla <- inla(
-  N_ACC ~ 0 + TEP_th + ELI + PGR + UIS + ELL + PDI + ER + 
-    f(Year, model = "iid", hyper = list(prec = list(initial = 1e-3, fixed = TRUE)))  + 
-    f(ID, model = inla.IMCAR.model(k = 3, W = W_con), extraconstr = list(
-      A = A_constr, e = c(rep(0, nrow(A_constr))))),
-  offset = log(nn),
-  family = "poisson", data =dd,
-  #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
-  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
-  verbose = T)
-```
-
-#### PCAR model
-
-The intrinsic autoregressive model is relatively simple to interpret and to implement, 
-while also requiring the minimum number of additional parameters (either the scale or the precision).
-
-
-The drawback, however, is that we implicitly assume a deterministic spatial autocorrelation coefficient equal to 1.
-When the autocorrelation is weak, setting an ICAR prior may be a form of misspecification.
-
-A generalisation of this model is the PCAR (proper CAR), which introduces an autocorrelation parameter $\rho$:
-
-\begin{equation}
-z_i \mid z_{-i} \sim \mathcal{N} \left( \sum_{j=1}^n \rho \frac{w_{ij}}{d_i} z_j \,, \frac{1}{d_i} \Lambda^{-1}\right)
-\label{eq:pcar_loc}
-\end{equation}
-
-
-```{r pcar run, message = FALSE, echo = FALSE, output = FALSE}
-
-cav_PMCAR_inla <- inla(
-  N_ACC ~ 1 +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
-    f(ID, model = inla.MCAR.model(k = 3, W = W_con, alpha.min = 0, alpha.max = 1)),
-  offset = log(nn),
-  family = "poisson", data =dd,
-  #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
-  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T, dic = T), 
-  verbose = T)
-
-```
-
-We show the posterior summary for the autocorrelation coefficient, obtained with the data at hand. 
-
-```{r rho pcar, echo = FALSE, fig.height = 3, fig.cap = "Posterior marginal of the PCAR autocorrelation parameter"}
-rho_marg_pcar <- inla.tmarginal(
-  fun = function(X) 1/(1 + exp(-X)),
-  marginal = cav_PMCAR_inla$marginals.hyperpar[[1]])
-
-plot(rho_marg_pcar, type = 'l', xlab = expression(rho), ylab = expression(pi (rho ~ "|" ~ y)  ))
-
-unlist(inla.zmarginal(rho_marg_pcar, silent = TRUE))
-```
- 
- The credible interval for $\rho$ is quite pushed towards unity, denoting the model estimates a strong spatial autocorrelation. 
-
-
-
-#### Leroux model
-
-As an alternative to take into account both structured and unstructured latent effects, we also test the Leroux autoregressive model [@Leroux]; throughout this report, this model will be referred to as the LCAR. In this case, the local prior for $z_i$ is
-
-\begin{equation}
-z_i \mid z_{-i} \sim \mathcal{N} \left( \sum_{j=1}^n \frac{\xi w_{ij}}{1 - \xi + \xi d_i}   z_j \,, \Lambda^{-1} \frac{1}{1 - \xi + \xi d_i}\right)
-\label{eq:leroux_loc}
-\end{equation}
-
-Where $\xi \in [0, 1]$ is labelled as the mixing parameter. A more interesting representation of the Leroux model is the joint prior
-$$
-z \mid \Lambda, \xi \sim \mathcal{N}(0, [ \Lambda \otimes (\xi L + (1-\xi)I)]^{-1})
-$$
-where $L := D-W$ is the graph Laplacian matrix, $W$ is the neighbourhood matrix and $D$ is the corresponding degree matrix. We can clearly see how the mixing parameter allocates variability between two precision components, i.e. the Laplacian matrix for the spatial part and the the identity matrix for the noise.
-
-The drawback of this model is the scarce interpretability with respect to more sophisticated ones like the BYM, but the multivariate framework complicates the definition of the BYM model (and it does not seem to be possible to reparametrise it in such a way to have a sparse precision, hence computations are unfeasible) and hampers the use of PC priors, which would have indeed been a useful tool to prevent overfitting.
-
-
-```{r INLA Leroux, echo = FALSE}
-
-inla.rgeneric.MLCAR.model <- 
-  function (cmd = c("graph", "Q", "mu", "initial", "log.norm.const", 
-                    "log.prior", "quit"), theta = NULL) 
-  {
-    interpret.theta <- function() {
-      alpha <-  1/(1 + exp(-theta[1L]))
-      mprec <- sapply(theta[as.integer(2:(k + 1))], function(x) {
-        exp(x)
-      })
-      corre <- sapply(theta[as.integer(-(1:(k + 1)))], function(x) {
-        (2 * exp(x))/(1 + exp(x)) - 1
-      })
-      param <- c(alpha, mprec, corre)
-      n <- (k - 1) * k/2
-      M <- diag(1, k)
-      M[lower.tri(M)] <- param[k + 2:(n + 1)]
-      M[upper.tri(M)] <- t(M)[upper.tri(M)]
-      st.dev <- 1/sqrt(param[2:(k + 1)])
-      st.dev.mat <- matrix(st.dev, ncol = 1) %*% matrix(st.dev, 
-                                                        nrow = 1)
-      M <- M * st.dev.mat
-      PREC <- solve(M)
-      return(list(alpha = alpha, param = param, VACOV = M, 
-                  PREC = PREC))
-    }
-    graph <- function() {
-      PREC <- matrix(1, ncol = k, nrow = k)
-      G <- kronecker(PREC, Matrix::Diagonal(nrow(W), 1) + 
-                       W)
-      return(G)
-    }
-    Q <- function() {
-      param <- interpret.theta()
-      Lapl <- Matrix::Diagonal(nrow(W), apply(W, 1, sum)) -  W
-      #Sigma.u <- MASS::ginv(as.matrix(Lapl))
-      #Sigma <- param$alpha * Sigma.u + (1-param$alpha)*diag(1, nrow(W))
-      R <- param$alpha*Lapl + (1-param$alpha)*diag(1, nrow(W))
-      Q <- kronecker(param$PREC, R)
-      return(Q)
-    }
-    mu <- function() {
-      return(numeric(0))
-    }
-    log.norm.const <- function() {
-      val <- numeric(0)
-      return(val)
-    }
-    log.prior <- function() {
-      param <- interpret.theta()
-      # Uniform prior on \lambda
-      # val <- -theta[1L] - 2 * log(1 + exp(-theta[1L]))
-      # Normal prior on \lambda, in analogy with the univariate default case
-      val <- log(dnorm(theta[1L], mean = 0, sd = sqrt(1/0.45))) 
-      val <- val + log(MCMCpack::dwish(
-        W = param$PREC, v = k, S = diag(rep(1, k)))) +
-        sum(theta[as.integer(2:(k + 1))]) + 
-        sum(log(2) + theta[-as.integer(1:(k + 1))] - 
-              2 * log(1 + exp(theta[-as.integer(1:(k + 1))])))
-      return(val)
-    }
-    initial <- function() {
-      return(c(0, rep(0, k), rep(0, (k * (k - 1)/2))))
-    }
-    quit <- function() {
-      return(invisible())
-    }
-    if (as.integer(R.version$major) > 3) {
-      if (!length(theta)) 
-        theta = initial()
-    }
-    else {
-      if (is.null(theta)) {
-        theta <- initial()
-      }
-    }
-    val <- do.call(match.arg(cmd), args = list())
-    return(val)
-  }
-
-inla.MLCAR.model <- function(...) INLA::inla.rgeneric.define(inla.rgeneric.MLCAR.model, ...)
-
-cav_MLCAR_inla <- inla(
-  N_ACC ~ 1 +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
-    f(ID, model = inla.MLCAR.model(k = 3, W = W_con)),
-  offset = log(nn),
-  family = "poisson", data =dd,
-  #control.fixed = list(prec = list(Intercept1 = 0, Intercept2 = 0, Intercept3 = 0)),
-  #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
-  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T, dic = T), 
-  verbose = T)
-
-```
-
-#### BYM model
-
-
-Another popular model to control for both spatial autocorrelation and random noise is the Besag, York and Mollié model. 
-We employ a simplified formulation, with a unique mixing parameter for all three years. Under this model the latent effect is defined as: 
-
-\begin{equation}
-z = \sqrt{\phi} u M + \sqrt{1-\phi} v M
-\label{eq:bym}
-\end{equation}
-
-
-
-Where: 
-
-  - $u \sim \mathcal{N}(0, I_p \otimes L_\mathrm{scaled})$ is an independent multivariate ICAR process whose precision matrix is scaled in order that the geometric mean of marginal variances (i.e. the diagonal entries of $L^{+}$) is one
-  - $v \sim \mathcal{N}(0, I_p \otimes I_n)$ is a Standard Normal variable
-  - $M$ is a positive definite matrix such that $M'M = \Lambda^{-1}$. It is not necessarily the Cholesky factor of the scale parameter; in fact, a convenient but not unique way to define it may be $M = D^{-\frac{1}{2}}E^{\top}$ where $E$ and $D$ are the eigenvector and eigenvalues matrices of $\Lambda$ [@Urdangarin]. 
-
-  - $\phi \in [0,1]$ is the mixing parameter.
-  
-Please notice that in the case of our data, $p=3$ and $n = 256$.
-We assign a Uniform prior on $\phi$ (but the PC-prior would be a more rigorous choice) and the usual Wishart prior to $\Lambda$.
-
-
-
-The BYM model features a mixing parameter as the LCAR does, but improves its interpretability by allowing to scale the ICAR and IID components. 
-
-We use a rather simplified BYM definition here. It could be improved in many directions: either defining a PC prior on the mixing parameter and employing a more elegant parametrisation allowing for sparse precision [@BYM2], or relaxing the naive hypothesis of a unique mixing parameter for all the $p=3$ years implementing an M-model.
-
-
-```{r BYM dense, echo = FALSE,   warning = FALSE, message = FALSE, output = FALSE}
-inla.rgeneric.MBYM.dense <- 
-  function (cmd = c("graph", "Q", "mu", "initial", "log.norm.const", 
-                    "log.prior", "quit"), theta = NULL ) {
-    envir <- parent.env(environment())
-    if(!exists("cache.done", envir=envir)){
-      starttime.scale <- Sys.time()
-      #' Unscaled Laplacian matrix (marginal precision of u_1, u_2 ... u_k)
-      L_unscaled <- Matrix::Diagonal(nrow(W), rowSums(W)) -  W
-      L_unscaled_block <- kronecker(diag(1,k), L_unscaled)
-      A_constr <- t(pracma::nullspace(as.matrix(L_unscaled_block)))
-      scaleQ <- INLA:::inla.scale.model.internal(
-        L_unscaled_block, constr = list(A = A_constr, e = rep(0, nrow(A_constr))))
-      #' Block Laplacian, i.e. precision of U = I_k \otimes L
-      n <- nrow(W)
-      L <- scaleQ$Q[c(1:n), c(1:n)]
-      Sigma.u <- MASS::ginv(as.matrix(L))
-      if(PC == TRUE){
-        #' Eigenvalues of the SCALED Laplacian, sufficient for trace and determinant entering the KLD
-        L_eigen_scaled <- eigen(scaleQ$Q)$values
-        #' PC prior on mixing parameter - definition should be fine.
-        log.dpc.phi.bym <- INLA:::inla.pc.bym.phi(eigenvalues = L_eigen_scaled, 
-                                                  marginal.variances = scaleQ$var,
-                                                  rankdef = nrow(A_constr),
-                                                  u = 0.5, alpha = 2/3)
-        assign("log.dpc.phi.bym", log.dpc.phi.bym, envir = envir)
-        
-      }
-      endtime.scale <- Sys.time()
-      cat("Time needed for scaling Laplacian matrix: ",
-          round(difftime(endtime.scale, starttime.scale), 3), " seconds \n")
-      assign("L", L, envir = envir)
-      assign("Sigma.u", Sigma.u, envir = envir)
-      assign("cache.done", TRUE, envir = envir)
-    }
-    interpret.theta <- function() {
-      alpha <-  1/(1 + exp(-theta[1L]))
-      mprec <- sapply(theta[as.integer(2:(k + 1))], function(x) {
-        exp(x)
-      })
-      corre <- sapply(theta[as.integer(-(1:(k + 1)))], function(x) {
-        (2 * exp(x))/(1 + exp(x)) - 1
-      })
-      param <- c(alpha, mprec, corre)
-      n <- (k - 1) * k/2
-      M <- diag(1, k)
-      M[lower.tri(M)] <- param[k + 2:(n + 1)]
-      M[upper.tri(M)] <- t(M)[upper.tri(M)]
-      st.dev <- 1/sqrt(param[2:(k + 1)])
-      st.dev.mat <- matrix(st.dev, ncol = 1) %*% matrix(st.dev, 
-                                                        nrow = 1)
-      M <- M * st.dev.mat
-      PREC <- solve(M)
-      return(list(alpha = alpha, param = param, VACOV = M, 
-                  PREC = PREC))
-    }
-    graph <- function() {
-      PREC <- matrix(1, ncol = k, nrow = k)
-      G <- kronecker(PREC, Matrix::Diagonal(nrow(W), 1) + 
-                       W)
-      return(G)
-    }
-    Q <- function() {
-      param <- interpret.theta()
-      #' Weighted average of ICAR and IID variables: variance is the sum of variances.
-      #' Precision here defined as inverse variance. Not
-      #' the best way to do it; still using sparse
-      #' parametrisation requires a latent effect of length 2*np
-      Sigma <- param$alpha * Sigma.u + (1-param$alpha)*diag(1, nrow(W))
-      Q <- kronecker(param$PREC, solve(Sigma))
-      return(Q)
-    }
-    mu <- function() {
-      return(numeric(0))
-    }
-    log.norm.const <- function() {
-      val <- numeric(0)
-      return(val)
-    }
-    log.prior <- function() {
-      param <- interpret.theta()
-      if(PC == TRUE){
-        #' PC prior implementation
-        val <- log.dpc.phi.bym(param$phi)- theta[1L] - 2 * log(1 + exp(-theta[1L]))
-      } else {
-        #' Uniform prior
-        val <- -theta[1L] - 2 * log(1 + exp(-theta[1L]))
-      }
-      #' Whishart prior on precision (inverse scale)
-      val <- val + log(MCMCpack::dwish(W = param$PREC, v = k,
-                                       S = diag(rep(1, k)))) +
-        #' This for the change of variable
-        #' (code from INLAMSM)
-        sum(theta[as.integer(2:(k +  1))]) +
-        sum(log(2) + theta[-as.integer(1:(k + 1))] - 2 * log(1 + exp(theta[-as.integer(1:(k + 1))])))
-      return(val)
-    }
-    initial <- function() {
-      if(!exists("init", envir = envir)){
-        return(c(0, rep(0, k), rep(0, (k * (k - 1)/2))))
-      } else{
-        return(init)
-      }
-    }
-    quit <- function() {
-      return(invisible())
-    }
-    if (as.integer(R.version$major) > 3) {
-      if (!length(theta)) 
-        theta = initial()
-    }
-    else {
-      if (is.null(theta)) {
-        theta <- initial()
-      }
-    }
-    val <- do.call(match.arg(cmd), args = list())
-    return(val)
-  }
-
-
-inla.MBYM.dense <- function(...) INLA::inla.rgeneric.define(inla.rgeneric.MBYM.dense, ...)
-
-cav_MBYM_inla  <- inla(
-  N_ACC ~ 0 +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
-    f(Year, model = "iid", hyper = list(prec = list(initial = 1e-3, fixed = TRUE)))  + 
-    f(ID, model = inla.MBYM.dense(k = 3, W = W_con,  PC = FALSE),
-      extraconstr = list(A = A_constr, e = rep(0, 3))) ,
-  offset = log(nn),
-  family = "poisson", data =dd,
-  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T, dic = T), 
-  verbose = T)
-
-
-```
-
-
-
-```{r BYM sparse, eval = FALSE, echo = FALSE, warning = FALSE, message = FALSE, output = FALSE}
-
-
-inla.rgeneric.BYM.sparse <- 
-  function (cmd = c("graph", "Q", "mu", "initial", "log.norm.const",
-                    "log.prior", "quit"), theta = NULL) {
-  
-  envir <- parent.env(environment())
-  if(!exists("cache.done", envir=envir)){
-    starttime.scale <- Sys.time()
-    #' Laplacian matrix scaling: only needs being done once
-    L_unscaled <- Matrix::Diagonal(nrow(W), rowSums(W)) -  W
-    constr <- INLA:::inla.bym.constr.internal(L_unscaled, adjust.for.con.comp = T)
-    scaleQ <- INLA:::inla.scale.model.internal(
-      L_unscaled, constr = list(A = constr$constr$A, e = constr$constr$e))
-    L <- scaleQ$Q
-    if(PC == TRUE){
-        #' Eigenvalues of the SCALED Laplacian, sufficient for trace and determinant entering the KLD
-        eigenvalues <- eigen(L)$values
-        #' PC prior on mixing parameter - definition should be fine.
-        log.dpc.phi.bym <- INLA:::inla.pc.bym.phi(eigenvalues = eigenvalues, 
-                                                  marginal.variances = scaleQ$var,
-                                                  rankdef = constr$rankdef,
-                                                  u = 0.5, alpha = 2/3)
-        assign("log.dpc.phi.bym", log.dpc.phi.bym, envir = envir)
-        
-      }
-    endtime.scale <- Sys.time()
-    cat("Time needed for scaling Laplacian matrix: ",
-        round(difftime(endtime.scale, starttime.scale), 3), " seconds \n")
-    assign("L", L, envir = envir)
-    assign("cache.done", TRUE, envir = envir)
-  }
-  interpret.theta <- function() {
-    #' Same as the dense version, plus the M-factorisation of the scale parameter
-    #' like in the M-models
-    phi <- 1/(1 + exp(-theta[1L]))
-    diag.N <- sapply(theta[as.integer(2:(k+1))], function(x) {
-      exp(x)
-    })
-    no.diag.N <- theta[as.integer(-(1:(k+1)))]
-    N <- diag(diag.N, k)
-    N[lower.tri(N, diag = FALSE)] <- no.diag.N
-    Sigma <- N %*% t(N)
-    e <- eigen(Sigma)
-    M <- t(e$vectors %*% diag(sqrt(e$values)))
-    invM.t <- diag(1/sqrt(e$values)) %*% t(e$vectors)
-    Lambda <- t(invM.t) %*% invM.t
-    return(list(phi = phi, Lambda = Lambda, invM.t = invM.t))
-  }
-  graph <- function() {
-    QQ <- Q()
-    G <- (QQ != 0) * 1
-    return(G)
-  }
-  #' Precision matrix. Multivariate generalisation of the 
-  Q <- function() {
-    param <- interpret.theta()
-    In <- Matrix::Diagonal(x=1, n=nrow(W))
-    #' Blocks of the sparse precision matrix, as in Riebler et al. (2016)
-    Q11 <- kronecker(1/(1-param$phi)*param$Lambda, In)
-    Q12 <- - kronecker(sqrt(param$phi)/(1 - param$phi) * t(param$invM.t), In)
-    Q21 <- Matrix::t(Q12)
-    Q22 <- kronecker(diag(k), (L + param$phi/(1-param$phi)*In))
-    #' Structure matrix. Problem: it is of size 2n * 2n
-    Q <- rbind(cbind(Q11, Q12), cbind(Q21, Q22))
-    return(Q)
-  }
-  mu <- function() {
-    return(numeric(0))
-  }
-  log.norm.const <- function() {
-    val <- numeric(0)
-    return(val)
-  }
-  log.prior <- function() {
-    #' As in the dense version
-    param <- interpret.theta()
-    if(PC == TRUE){
-      #' PC prior implementation
-      val <-  log.dpc.phi.bym(param$phi) - theta[1L] - 2 * log(1 + exp(-theta[1L]))
-    }else {
-      #' Uniform prior
-      val <- -theta[1L] - 2 * log(1 + exp(-theta[1L]))
-    }
-    val <- val + k * log(2) + 2 * sum(theta[1 + 1:k]) + 
-      sum(dchisq(exp(2 * theta[1 + 1:k]), df = (k + 2) - 
-                   1:k + 1, log = TRUE))
-    val <- val + sum(dnorm(theta[-as.integer(c(1:(k+1)))], mean = 0, sd = 1, log = TRUE))
-    return(val)
-  }
-  initial <- function() {
-    return(rep(0, k*(k+1)/2 + 1))
-  }
-  quit <- function() {
-    return(invisible())
-  }
-  if (as.integer(R.version$major) > 3) {
-    if (!length(theta))  theta <- initial()
-  }
-  else {
-    if (is.null(theta))  theta <- initial()
-  }
-  val <- do.call(match.arg(cmd), args = list())
-  return(val)
-}
-
-
-inla.MBYM.sparse <- function(...) INLA::inla.rgeneric.define(inla.rgeneric.MBYM.sparse, ...)
-
-constr.BYM.sparse <- list(
-  A = cbind(Matrix::Matrix(0, nrow = 3, ncol = 3*n), A_constr),
-  e = c(0,0,0)
-)
-
-cav_MBYM_inla.sparse <- inla(
-  N_ACC ~ 0 +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
-    f(Year, model = "iid", hyper = list(prec = list(initial = 1e-3, fixed = TRUE)))  + 
-    f(ID, model = inla.MBYM.sparse(k = 3, W = W_con,  PC = FALSE),
-      extraconstr = constr.BYM.sparse),
-  offset = log(nn), family = "poisson", data =dd,
-  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T, dic = T), 
-  verbose = T)
-
- 
-```
-
-
-
-#### Model assessment 
-
-We briefly compare the three models in scope through the WAIC [@GelmanWAIC]:
-
-```{r WAICs table, echo = F, results = "asis", message = FALSE}
-
-WAICS <- tibble::tibble(
-  Model = c("Null", "ICAR", "PCAR", "Leroux", "BYM"),
-  WAIC = round(c(
-    cav_nosp_inla$waic$waic,  cav_IMCAR_inla$waic$waic,  cav_PMCAR_inla$waic$waic, 
-    cav_MLCAR_inla$waic$waic, cav_MBYM_inla$waic$waic),3),
-  Eff_params = round(c(
-    cav_nosp_inla$waic$p.eff,   cav_IMCAR_inla$waic$p.eff,  cav_PMCAR_inla$waic$p.eff,
-     cav_MLCAR_inla$waic$p.eff, cav_MBYM_inla$waic$p.eff),3))
-
-print(xtable::xtable(WAICS, digits = 3),include.rowname = F)
-
-```
-
-As we can see, adding a spatial model is an improving element, not a waste of complexity.
-
-Here we show some posterior summaries for $\alpha$ under the BYM model.
-
- 
-```{r alphas bym, echo = FALSE, results = "asis", message = FALSE}
-alphas.MBYM.inla   <- cav_MBYM_inla$summary.random$Year %>% 
-  dplyr::bind_rows(cav_MBYM_inla$summary.fixed) %>% 
-  dplyr::select(.data$mean, .data$sd, .data$`0.025quant`, .data$`0.975quant`) %>%
-  dplyr::mutate(Effect = c("Int_2021", "Int_2022", "Int_2023",
-                rownames(cav_MBYM_inla$summary.fixed))) %>% 
-  dplyr::relocate(.data$Effect, .before = 1) %>%  
-  dplyr::rename(Mean = .data$mean, Sd = .data$sd,
-                Q_0.025 = .data$`0.025quant`, Q_0.975 = .data$`0.975quant`)
-
-
-print(xtable::xtable(alphas.MBYM.inla, digits = 3), include.rowname = FALSE)
-
-```
-
-
-Estimations of $\alpha$ differ slightly from the nonspatial model and credibility intervals are generally wider due to increased uncertainty. 
-
-  - `TEP_th_22` The effect of the distance from the closest support center remains similar in mean and the interpretation is not altered.
-
-  - `ELI`: The effect of the incidence of low-productivity economic units is utterly negligible
-
-  - `PGR`: The association with population growth rate can only be considered barely significant for 2022 data
-  
-  - `UIS`: The association with the density of productive units is negligible for 2021 and 2022 data, and can be considered slightly significant for 2023, bearing positive sign.  
-  
-  - `ELL`: The association with the incidence of low education levels, is even higher in mean than under the nonspatial model. We interpret this result as a strong *potential* impact of education on the chance that gender violence is reported
-  
-  - `PDI`: The effect of structural dependency index is utterly negligible, as for the GLM. 
-  
-  - `ER`: The effect associated with employment rate is increased for 2021 data,  more than doubled for 2022 data, and slightly increased for 2023 data. How to interpret this finding? Employment rate is clearly an indicator of economic development, hence the easiest interpretation is that - as it was with `ELI` under the nonspatial model - in more developed areas there is a higher chance that gender violence is reported.
-
-
-We show the expected latent effects:
-
-
-```{r zhat mbym, echo = FALSE, message = FALSE, warning = FALSE, output = FALSE, fig.cap = "Estimated BYM latent effect"}
-
-zhat_plot(cav_MBYM_inla)
-
-```
-
-
-As we can see, the behaviour of 2023 data is quite puzzling, since high values of the latent effect are observed in areas such as the Northern province of Foggia, which was previously characterised by low accesses.
-
-We additionally show the fitted values of the counts of accesses, rounded to the closest integer.
-
-
-```{r yhat mbym, echo = FALSE, message = FALSE, warning = FALSE, output = FALSE, fig.cap = "Fitted access counts, BYM model"}
-
-yhat_plot(cav_MBYM_inla)
-
-```
-
-We show the posterior median of the marginal variances of $z$, i.e. the diagonal entries of $\Sigma$:
-
-```{r Sigma BYM, echo = FALSE, eval = FALSE, message = FALSE, warning = FALSE}
-Sigma_diag_ls <- sapply(c(2,3,4), function(i){
-  inla.zmarginal(inla.tmarginal(fun = function(x) {
-    exp(-x)
-    },  marginal =  cav_MBYM_inla$marginals.hyperpar[[i]]),
-    silent = T)
-})
-
-
-Sigma_diag_mat <- rbind(
-  unlist(Sigma_diag_ls[c(1,2,3,5,7)]),
-  unlist(Sigma_diag_ls[7+c(1,2,3,5,7)]),
-  unlist(Sigma_diag_ls[14+c(1,2,3,5,7)])
-)
-
-Sigma_diag_df <- as.data.frame(Sigma_diag_mat) %>% 
-  dplyr::mutate(Year = c("2021", c("2022"), c("2023"))) %>% 
-  dplyr::relocate(.data$Year, .before = 1)
-names(Sigma_diag_df)[-1] <- c("Mean", "Sd", "Q0.025", "Median", "Q0.975")
-
-print(xtable::xtable(Sigma_diag_df, digits = 3), include.rowname = F)
-
-#Sigma_offdiag <- sapply(c(5, 6, 7), function(i){
-#  inla.zmarginal(inla.tmarginal(fun = function(x) {
-#    (2 * exp(x))/(1 + exp(x)) - 1
-#    }, marginal =  cav_MBYM_inla$marginals.hyperpar[[i]]),
-#    silent = T)$quant0.5
-#})
-
-#Sigma <- Matrix::Diagonal(x = Sigma_diagonal)
-#Sigma[lower.tri(Sigma)] <- Sigma_offdiag
-#Sigma[upper.tri(Sigma)] <- t(Sigma[lower.tri(Sigma)])
-#print(Sigma)
-
-```
-
-
-For more insight on the dependence structure between the three years, posterior summaries for correlations are shown in the following. In terms of point estimates, the only high correlation appears that of 2021-2022.
-
-
-```{r covariances, message = FALSE, warning = FALSE, echo = FALSE, results = "asis"}
-
-covars_ls <- sapply(c(5, 6, 7), function(i){
-  inla.zmarginal(inla.tmarginal(fun = function(x) {
-    (2 * exp(x))/(1 + exp(x)) - 1
-    }, marginal =  cav_PMCAR_inla$marginals.hyperpar[[i]]),
-    silent = T)
-})
-
-cov_mat <- rbind(
-  unlist(covars_ls[c(1,2,3,5,7)]),
-  unlist(covars_ls[7+c(1,2,3,5,7)]),
-  unlist(covars_ls[14+c(1,2,3,5,7)])
-)
-cov_df <- as.data.frame(cov_mat) %>% 
-  dplyr::mutate(Years = c("2021-22", c("2021-23"), c("2022-23"))) %>% 
-  dplyr::relocate(.data$Years, .before = 1)
-names(cov_df)[-1] <- c("Mean", "Sd", "Q0.025", "Median", "Q0.975")
-
-print(xtable::xtable(cov_df, digits = 3), include.rowname = F)
-
-
-```
-
-  
-Lastly, we have a look at the mixing parameter under both the Leroux and BYM models.
-
-
-```{r mixing leroux, echo = FALSE, fig.height = 3, fig.cap = "Posterior marginal of the LCAR mixing parameter"}
-xi_marg_lcar <- inla.tmarginal(
-  fun = function(X) 1/(1 + exp(-X)),
-  marginal = cav_MLCAR_inla$marginals.hyperpar[[1]])
-
-plot(xi_marg_lcar, type = 'l', xlab = expression(xi), ylab = expression(pi (xi ~ "|" ~ y)  ))
-
-unlist(inla.zmarginal(xi_marg_lcar, silent = TRUE))
-```
-
-As we see, the Leroux mixing parameter is not particularly high, but interpreting it properly is hampered by the difficulty in scaling the precision matrix, which is a drawback of non-intrinsic models. 
-
-```{r mixing bym, echo = FALSE, fig.height = 3, fig.cap = "Posterior marginal of the BYM mixing parameter"}
-phi_marg_bym <- inla.tmarginal(
-  fun = function(X) 1/(1 + exp(-X)),
-  marginal = cav_MBYM_inla$marginals.hyperpar[[1]])
-
-plot(phi_marg_bym, type = 'l', xlab = expression(phi), ylab = expression(pi (phi ~ "|" ~ y)  ))
-
-unlist(inla.zmarginal(phi_marg_bym, silent = TRUE))
-```
-
-```{r hyperpars mute, eval = FALSE, echo = FALSE}
-
-
-sigma_ls <- sapply(c(2,3,4), function (i){
-    inla.zmarginal(inla.tmarginal(fun = function(x) {
-    exp(-x)
-    }, marginal =  cav_MBYM_inla$marginals.hyperpar[[i]]),
-    silent = T)
-})
-
-phi_ls <- inla.zmarginal(inla.tmarginal(
-  fun = function(X) 1/(1 + exp(-X)),
-  marginal = cav_MBYM_inla$marginals.hyperpar[[1]]), silent = T)
-
-
-hyperpar_mat <- rbind(
-  unlist(phi_ls[c(1,3,5,7)]),
-  unlist(sigma_ls[c(1,3,5,7)]),
-  unlist(sigma_ls[7+c(1,3,5,7)]),
-  unlist(sigma_ls[14+c(1,3,5,7)]),
-  unlist(covars_ls[c(1,3,5,7)]),
-  unlist(covars_ls[7+c(1,3,5,7)]),
-  unlist(covars_ls[14+c(1,3,5,7)]))
-
-hyperpar_df <- as.data.frame(hyperpar_mat) %>% 
-  dplyr::mutate(Var = c("Phi",
-                        "Sigma_21", "Sigma_22", "Sigma_23",
-                        "rho_2122", "rho_2123", "rho_2223")) %>% 
-  dplyr::relocate(.data$Var, .before = 1)
-names(hyperpar_df)[-1] <- c("Mean", "Q0.025", "Median", "Q0.975")
-
-print(xtable::xtable(hyperpar_df, digits = 3), include.rowname = F)
-
-
-```
-
-
-#### M-models 
-Until now, we have been assuming the hyperparameter controlling for the strength spatial association is constant across the three years. We try to relax this hypothesis by allowing for year-specific hyperparameters, which can be achieved by using a more flexible class of multivariate models, i.e. the M-models [@Mmodels]. 
-
-Consider the scale parameter $\Sigma$, i.e. the marginal variance of the latent effect $z$, and let us define the definite-positive matrix $M$, such that $M \top M = \Sigma$.
-
-
-Starting with the PCAR model, if we allow the autocorrelation parameter $\rho$ to change over time, we introduce the matrix-valued parameter $R:= \mathrm{diag}(\rho_{2021}, \rho_{2022}, \rho_{2023})$ and the model becomes thus:
-\begin{equation}
-z \mid \Sigma, R \sim \mathcal{N} \left( 0,
-(M^\top \otimes I_n) [(I_p \otimes D) - (R \otimes W)]^{-1}
-\right)
-\label{eq:MMod_PCAR}
-\end{equation}
-
-Where $n=256$ and $p=3$, and the remainder of notation is equal to previous sections.
-Since the matrix $M$ has dimension $p^2$ and is not symmetric, modelling it directly would become burdensome. We therefore opt to make directly inference on $\Sigma$. In line with [@vicente2023high], we employ the Bartlett factorisation to $\Sigma$, which briefly means that we set $\Sigma:=AA^\top$, where $A$ is a lower-triangular matrix whose off-diagonal elements are assigned a Normal prior and the squares of its diagonal are assigned a $\chi^2$ distribution. This is equivalent to the assumption that $\Sigma$ follows a Wishart prior; for a proof see e.g. [@Kabe].
-
-For the time being, we employ the \texttt{bigDM} R package[@vicente2023high], which implements the M-model formulation of both the PCAR and LCAR models. Autoregressive parameters are assumed to be independent and follow a Uniform prior. 
-```{r MmodPCAR, message = FALSE, output = FALSE, warning = FALSE, echo = FALSE}
-inla.PMMCAR.bigDM <- function(...) INLA::inla.rgeneric.define(bigDM::Mmodel_pcar, ... )
-
-cav_PMMCAR_bigDM <- inla(
-  N_ACC ~ 1 +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
-    f(ID, model = inla.PMMCAR.bigDM(J = 3, W = W_con, 
-                                       alpha.min = 0,alpha.max = 1,
-                                       initial.values = rep(0, 6))),
-  offset = log(nn), family = "poisson", data =dd,
-  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
-  verbose = T)
-
-```
-
-
-Likewise, we test the LCAR model, which under the M-model formulation features a matrix-valued mixing parameter $\Xi := \mathrm{diag}(\xi_{2021}, \xi_{2022}, \xi_{2023}$
-
-\begin{equation}
-z \mid \Sigma, R \sim \mathcal{N} \left( 0,
-(M^\top \otimes I_n) [\Xi \otimes (D-W) + (I_p - \Xi) \otimes I_n]^{-1}
-\right)
-\label{eq:MMod_LCAR}
-\end{equation}
-
-```{r MmodLCAR, message = FALSE, output = FALSE, warning = FALSE, echo = FALSE}
-inla.LMMCAR.bigDM <- function(...) INLA::inla.rgeneric.define(bigDM::Mmodel_lcar, ... )
- 
-cav_LMMCAR_bigDM <- inla(
-  N_ACC ~ 1 +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
-    f(ID, model = inla.LMMCAR.bigDM(J = 3, W = W_con, 
-                                       alpha.min = 0,alpha.max = 1,
-                                       initial.values = rep(0, 6))),
-  offset = log(nn), family = "poisson", data =dd,
-  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
-  verbose = T)
-
-```
-
-
-For the sake of comparison, we also test the ICAR model with Bartlett decomposition of the scale parameter - which is equivalent to the ICAR discussed in the previous section, with the only difference that now it is the scale parameter and not the precision which is assumed to follow a Wishart distribution. 
-
-
-```{r MmodICAR, message = FALSE, output = FALSE, warning = FALSE, echo = FALSE}
-inla.IMMCAR.bigDM <- function(...) INLA::inla.rgeneric.define(bigDM::Mmodel_icar, ... )
- 
-constr <- INLA:::inla.bym.constr.internal(Q = (diag(rowSums(as.matrix(W_con))) - W_con), 
-                                          adjust.for.con.comp = T)
-A.constr <- kronecker(Matrix::Diagonal(n=3,x=1), constr$constr$A)
-
-
-cav_IMMCAR_bigDM <- inla(
-  N_ACC ~ 0 +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+
-    f(Year, model = "iid", hyper = list(prec = list(initial = 1e-3, fixed = TRUE)))  + 
-    f(ID, model = inla.IMMCAR.bigDM(J = 3, W = W_con, 
-                                       initial.values = rep(0, 6)),
-      extraconstr = list(A = A.constr, e = c(0,0,0))),
-  offset = log(nn), family = "poisson", data =dd,
-  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
-  verbose = T)
-
-```
-
-Though it is a simple model, \texttt{INLA} seems to have some crashes. It will need further investigation.
-
-
-Lastly, we propose the M-model extension of the BYM.
-
-If we define the matrix-valued mixing parameter$\Phi:=\mathrm{diag}( \phi_1, \phi_2, \dots  \phi_p )$ and $\bar{\Phi}:= \mathrm{diag} ( 1 - \phi_1,  1 - \phi_2 , \dots  1 - \phi_p) = (I_p -  \Phi )$, with $p=3$, the BYM field $\mathbf{Y}$ is given by:
-
-
-\begin{equation}
-\label{eq:Mmod_conv}
-Z =  U \Phi^{\frac{1}{2}} M  +  V \bar{\Phi}^{\frac{1}{2}}M
-\end{equation}
-
-Where  \begin{itemize}
-\item $U = (U_1, U_2, \dots U_p)$ is a multivariate and independent ICAR field, such that $U_j \sim \mathcal{N}_n(0, L^+)$ for $j = 1, 2 \dots p$, and $L^+$ is the pseudoinverse of the scaled graph Laplacian matrix
-\item $V = (V_1, V_2, \dots V_p)$ is a collection of $iid$ random Normal vectors, such that $V_j \sim \mathcal{N}_n(0, I_n)$ for $j = 1, 2 \dots p$.
-\item $M$ is a generic $p \times p$ full-rank matrix such that $M^\top M = \Sigma$, being $\Sigma$ is the scale parameter. For instance, $M$ can be defined as $D^{1/2} E^\top$, where $D$ is the diagonal matrix of the eigenvalues of $\Sigma$ and $E$ is the corresponding eigenvectors matrix.
-\end{itemize}
- 
-
- 
-
-```{r MMod BYM, message = FALSE, output = FALSE, warning = FALSE}
- Mmodel.bym2.bartlett.sparse <- 
-  function (cmd = c("graph", "Q", "mu", "initial", "log.norm.const",
-                    "log.prior", "quit"), theta = NULL) {
-    
-    envir <- parent.env(environment())
-    if(!exists("cache.done", envir=envir)){
-      starttime.scale <- Sys.time()
-      #' Laplacian matrix scaling: only needs being done once
-      L_unscaled <- Matrix::Diagonal(n=nrow(W), x=rowSums(as.matrix(W))) -  W
-      constr <- INLA:::inla.bym.constr.internal(L_unscaled, adjust.for.con.comp = T)
-      scaleQ <- INLA:::inla.scale.model.internal(
-        L_unscaled, constr = list(A = constr$constr$A, e = constr$constr$e))
-      L <- scaleQ$Q
-      endtime.scale <- Sys.time()
-      cat("Time needed for scaling Laplacian matrix: ",
-          round(difftime(endtime.scale, starttime.scale), 3), " seconds \n")
-      assign("L", L, envir = envir)
-      assign("cache.done", TRUE, envir = envir)
-    }
-    interpret.theta <- function() {
-      #' Same as the dense version, plus the M-factorisation of the scale parameter
-      #' like in the M-models
-      alpha <-  1/(1+exp(-theta[as.integer(1:J)]))
-      
-      diag.N <- sapply(theta[J+1:J], function(x) {exp(x)})
-      no.diag.N <- theta[2*J+1:(J*(J-1)/2)]
-      
-      N <- diag(diag.N) 
-      N[lower.tri(N)] <- no.diag.N
-      
-      Sigma <- N %*% t(N)    
-      e <- eigen(Sigma)
-      #M <- t(e$vectors %*% diag(sqrt(e$values)))
-      invM.t <- diag(1/sqrt(e$values)) %*% t(e$vectors)
-      Lambda <- t(invM.t) %*% invM.t
-      return(list(alpha = alpha, Lambda = Lambda, invM.t = invM.t))
-    }
-    graph <- function() {
-      QQ <- Q()
-      G <- (QQ != 0) * 1
-      return(G)
-    }
-    
-    Q <- function() {
-      param <- interpret.theta()
-      
-      In <- Matrix::Diagonal(nrow(W), 1)
-      
-      q11 <- t(param$invM.t) %*% Matrix::Diagonal(x = 1/(1 - param$alpha), n = J) %*% param$invM.t
-      q12 <- t(param$invM.t) %*% Matrix::Diagonal(x = sqrt(param$alpha)/(1 - param$alpha), n = J)
-      q22 <- Matrix::Diagonal(x = param$alpha/(1 - param$alpha), n = J)
-      
-      Q11 <- kronecker(q11, In)
-      Q12 <- - kronecker(q12, In)
-      Q21 <- Matrix::t(Q12)
-      Q22 <- kronecker(q22, In) + kronecker(Matrix::Diagonal(x=1, n=J), L)
-      #' Structure matrix. Problem: it is of size 2n * 2n
-      Q <- rbind(cbind(Q11, Q12), cbind(Q21, Q22))
-      return(Q)
-    }
-    mu <- function() {
-      return(numeric(0))
-    }
-    log.norm.const <- function() {
-      val <- numeric(0)
-      return(val)
-    }
-    log.prior <- function() {
-      #' As in the dense version
-      param <- interpret.theta()
-      val <-  sum(-theta[1:J] - 2*log(1+exp(-theta[1:J])))
-      # n^2_jj ~ chisq(J-j+1) (J degrees of freedom)
-      val <- val + J*log(2) + 2*sum(theta[J+1:J]) + sum(dchisq(exp(2*theta[J+1:J]), df=J-1:J+1, log=TRUE))
-      # n_ji ~ N(0,1)
-      val <- val + sum(dnorm(theta[(2*J)+1:(J*(J-1)/2)], mean=0, sd=1, log=TRUE))
-      return(val)
-    }
-    initial <- function(){
-      if(!exists("initial.values", envir= envir )){
-        return(c(rep(0, J*(J+3)/2)))
-      } else {
-        return(initial.values)
-      }
-    }
-    quit <- function() {
-      return(invisible())
-    }
-    if (as.integer(R.version$major) > 3) {
-      if (!length(theta))  theta <- initial()
-    }
-    else {
-      if (is.null(theta))  theta <- initial()
-    }
-    val <- do.call(match.arg(cmd), args = list())
-    return(val)
-  }
-
-inla.BYM.sparse <- function(...) INLA::inla.rgeneric.define(Mmodel.bym2.bartlett.sparse, ...)
-constr.BYM <- list(
-        A = cbind(Matrix::Matrix(0, nrow = nrow(A.constr), ncol = ncol(A.constr)), A.constr),
-        e=c(0,0,0) )
-
-cav_MMBYM_bigDM <- inla(
-  N_ACC ~ 0 +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
-    f(Year, model = "iid", hyper = list(prec = list(initial = 1e-3, fixed = TRUE)))  + 
-    f(ID, model = inla.BYM.sparse(J = 3, W = W_con),
-      extraconstr = constr.BYM),
-  offset = log(nn), family = "poisson", data =dd,
-  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
-  verbose = T)
-
-
-```
-
-
-Model comparison follows:
-```{r WAICs table MMod, echo = F, results = "asis", message = FALSE}
-
-WAICS.MMod <- tibble::tibble(
-  Model = c("Null", "ICAR", "PCAR", "Leroux", "BYM"),
-  WAIC = round(c(
-    cav_nosp_inla$waic$waic,  cav_IMMCAR_bigDM$waic$waic,  cav_PMMCAR_bigDM$waic$waic, 
-    cav_LMMCAR_bigDM$waic$waic, cav_MMBYM_bigDM$waic$waic),3),
-  Eff_params = round(c(
-    cav_nosp_inla$waic$p.eff,   cav_IMMCAR_bigDM$waic$p.eff,  cav_PMMCAR_bigDM$waic$p.eff,
-     cav_LMMCAR_bigDM$waic$p.eff, cav_MMBYM_bigDM$waic$p.eff),3))
-
-print(xtable::xtable(WAICS.MMod, digits = 3),include.rowname = F)
-
-```
-
-
-
-
-Here we show some posterior summaries for $\alpha$ under the BYM model.
-
- 
-```{r alphas MMbym, echo = FALSE, results = "asis", message = FALSE}
-alphas.MMBYM.inla   <- cav_MMBYM_bigDM$summary.random$Year %>% 
-  dplyr::bind_rows(cav_MMBYM_bigDM$summary.fixed) %>% 
-  dplyr::select(.data$mean, .data$sd, .data$`0.025quant`, .data$`0.975quant`) %>%
-  dplyr::mutate(Effect = c("Int_2021", "Int_2022", "Int_2023",
-                rownames(cav_MBYM_inla$summary.fixed))) %>% 
-  dplyr::relocate(.data$Effect, .before = 1) %>%  
-  dplyr::rename(Mean = .data$mean, Sd = .data$sd,
-                Q_0.025 = .data$`0.025quant`, Q_0.975 = .data$`0.975quant`)
-
-
-print(xtable::xtable(alphas.MMBYM.inla, digits = 3), include.rowname = FALSE)
-
-#clipr::write_clip(
-#  do.call(cbind, lapply(alphas.MMBYM.inla, function(x) {
-#  if(is.numeric(x)){
-#    format(x, decimal.mark = ",")
-#    } else x
-#  })))
-
- 
-
-```
-
-
-```{r  alphas MMBYM plot, echo = FALSE, fig.height = 3, fig.cap = "Posterior marginals of covariate effects, M-model BYM"}
-alphalimX <-range(do.call(c, lapply(cav_MMBYM_bigDM$marginals.fixed, FUN = function(x) x[,1])))
-alphalimY <-range(do.call(c, lapply(cav_MMBYM_bigDM$marginals.fixed, FUN = function(x) x[,2])))
-
-alphamarg <- as.data.frame(do.call(cbind, cav_MMBYM_bigDM$marginals.fixed))
-names(alphamarg) <- paste0(rep(names(cav_MMBYM_bigDM$marginals.fixed),each=2), c("__X", "__Y"))
-
-
-alphamarg_long <- tidyr::pivot_longer( alphamarg, cols = c(1:14),
-                                       names_to = c("Effect", ".value"),# Split names into "parameter" and value column names
-                                       names_sep = "__")
-
-ggplot2::ggplot(alphamarg_long, ggplot2::aes(x = .data$X, y = .data$Y, color = .data$Effect)) +
-  ggplot2::geom_line(size = 0.7) +
-  ggplot2::geom_vline(xintercept = 0)+
-  ggplot2::coord_cartesian(xlim = alphalimX, ylim = alphalimY) +
-  ggplot2::labs(
-    title = "Posterior Marginals of covariates effects",
-    x = expression(alpha),
-    y = expression(pi(alpha ~ "|" ~ y)),
-    color = "Effect") +
-  ggplot2::theme_classic()
-```
-
-We then show the expected latent effects.
-
-
-```{r zhat mmbym, echo = FALSE, message = FALSE, warning = FALSE, output = FALSE, fig.cap = "Estimated BYM latent effect using the M-model formulation"}
-zhat_plot(cav_MMBYM_bigDM)
-```
-
-As we can see, the behaviour of 2023 data is quite puzzling, since high values of the latent effect are observed in areas such as the Northern province of Foggia, which was previously characterised by low accesses.
-
-We additionally show the fitted values of the counts of accesses, rounded to the closest integer.
-
-
-```{r yhat mmbym, echo = FALSE, message = FALSE, warning = FALSE, output = FALSE, fig.cap = "Fitted access counts, BYM M-model"}
-
-yhat_plot(cav_MMBYM_bigDM)
-
-```
-
-  
-Lastly, we have a look at the autoregressive (PCAR) and mixing (LCAR, BYM) parameters.
-
-
-```{r mixing mmod summary, echo = FALSE, results = "asis"}
-
-rho_marg_PMMCAR <- lapply(c(1,2,3), function(x){
-  inla.tmarginal(fun = function(y) {1/(1 + exp(-y))},
-                   marginal = cav_PMMCAR_bigDM$marginals.hyperpar[[x]])
-})
-  
-  
-xi_marg_LMMCAR <- lapply(c(1,2,3), function(x){
-  inla.tmarginal(fun = function(y) {1/(1 + exp(-y))},
-                   marginal = cav_LMMCAR_bigDM$marginals.hyperpar[[x]])
-})
-
-phi_marg_MMBYM <- lapply(c(1,2,3), function(x){
-  inla.tmarginal(fun = function(y) {1/(1 + exp(-y))},
-                   marginal = cav_MMBYM_bigDM$marginals.hyperpar[[x]])
-})
-
-# PCAR autoregressive
-rho_marg_PMMCAR_summary <- t(sapply(c(1,2,3), function(x){
-  inla.zmarginal(rho_marg_PMMCAR[[x]], silent = T)
-}))
-
-xi_marg_LMMCAR_summary <- t(sapply(c(1,2,3), function(x){
-  inla.zmarginal(xi_marg_LMMCAR[[x]], silent = T)
-}))
-
-phi_marg_MMBYM_summary <- t(sapply(c(1,2,3), function(x){
-  inla.zmarginal(phi_marg_MMBYM[[x]], silent = T)
-}))
- 
-marg_hyper_summary <- (rbind(
-  rho_marg_PMMCAR_summary, xi_marg_LMMCAR_summary, phi_marg_MMBYM_summary
-))
-
-marg_hyper_summary <- as.data.frame(matrix(unlist(marg_hyper_summary[,c(1,2,3,5,7)]), ncol=5, byrow = F))
-
-names(marg_hyper_summary) <- c("Mean", "Sd", "Q0.50", "Q0.025", "Q0.975")
-marg_hyper_summary %<>%
-  dplyr::mutate(Model = rep(c("PCAR", "LCAR", "BYM"), each = 3)) %>% 
-  dplyr::relocate(.data$Model, .before = 1) %>% 
-  dplyr::mutate(Year = rep(c("2021", "2022", "2023"), 3)) %>% 
-  dplyr::relocate(.data$Year, .after = .data$Model)
-  
-
-#clipr::write_clip(
-#  do.call(cbind, lapply(marg_hyper_summary, function(x) {
-#  if(is.numeric(x)){
-#    return(format(x, decimal.mark = ","))
-#    } else return(x)
-#  })))
-
-
-
-```
- 
-Here we plot the marginal posterior of the BYM variance mixing parameter.
- 
-```{r mixing MMBYM plot, fig.height = 3, fig.cap = "Posterior marginal of the BYM mixing parameters", echo = FALSE}
-philimX <- range(0,1)
-philimY <- range(do.call(c, lapply(phi_marg_MMBYM, FUN = function(x) x[,2])))
-
-phimarg <- as.data.frame(do.call(cbind, phi_marg_MMBYM))
-names(phimarg) <- paste0(rep(c("phi_2021", "phi_2022", "phi_2023"), each=2), c("__X", "__Y"))
-
-
-phimarg_long <- tidyr::pivot_longer(phimarg, cols = c(1:6),
-                                       names_to = c("Year", ".value"),
-                                       names_sep = "__")
-
-ggplot2::ggplot(phimarg_long, ggplot2::aes(x = .data$X, y = .data$Y, color = .data$Year)) +
-  ggplot2::geom_line(size = 0.7) +
-  ggplot2::geom_vline(xintercept = 0)+
-  ggplot2::coord_cartesian(xlim = philimX, ylim = philimY) +
-  ggplot2::labs(
-    title = "Posterior Marginals of mixing parameters",
-    x = expression(phi),
-    y = expression(pi(phi ~ "|" ~ y)),
-    color = "Year") +
-  ggplot2::theme_classic()
-```
-
-The interpretation is quite clear: while for 2021 and 2022 data display a moderately strong spatial association, the spatial distribution of 2023 data is dominated by noise. 
-
-
-#### Appendix: sparse parametrisation of the BYM
-
-Recall the BYM as defined in equation \ref{eq:Mmod_conv}; the prior variance of $Z$ is:
-$$
-\mathrm{Var}\left[ \mathrm{vec}(Z) \mid \Sigma, \Phi \right] = 
-\left( M^\top \otimes I_n\right) 
-\mathrm{diag}\left(S_1,\ldots,S_p\right)
-\left( M \otimes I_n \right)
-$$
-Where each diagonal block $S_j$ is the variance of $U_j \Phi + V_j \bar{\Phi}$, i.e. $S_j = \phi_j L^+ + (1-\phi_j) I_n$. 
-
-
-
-Extending the approach of [@BYM2] to the multivariate case, we know that:
-
-$$
-\mathbb{E} [\mathrm{vec}(Z) \mid U, \Phi , \Sigma] = \mathrm{vec}(U \Phi^{\frac{1}{2}}M) =
-[( M^{\top}\Phi^{\frac{1}{2}}) \otimes I_n] \mathrm{vec}(U)
-$$
-
-and similarly
-
-$$
-\mathrm{Var} [\mathrm{vec}(Z) \mid  U, \Phi , \Sigma] =
-\left[( M^{\top} \bar{\Phi}^{\frac{1}{2}}) \otimes I_n \right] 
-\mathbb{E} \left[
-\mathrm{vec}(V)
-\mathrm{vec}(V)^\top \right]
-\left[(\bar{\Phi}^{\frac{1}{2}} M) \otimes I_n \right] = 
-\left(
- M^\top \bar{\Phi}  M \right) \otimes I_n
-$$
-
-
-The distribution of $Z \mid U, \Sigma, \Phi$ then reads:
-\begin{align*}
--2 \ln \pi \left(\mathrm{vec}(Z) \mid U, \Sigma, \phi \right) 
-%
-\mathrm{vec}(Z)^{\top}
-\left[ \left(
- M^{-1} \bar{\Phi}^{-1}{M^{-1}}^\top
-\right) \otimes I_n \right] 
-\mathrm{vec}(Z) \\ 
-%
-- 2\mathrm{vec}(Z)^{\top} 
-\left[ \left( 
- M^{-1} \bar{\Phi}^{-1}{M^{-1}}^\top\right) \otimes I_n \right] 
-\left[ \left( M^\top \Phi^{\frac{1}{2}} \right) \otimes I_n \right] \,\mathrm{vec}(U)   \\
-%
-+  \mathrm{vec}(U)^{\top}
-    \left[ \left(\Phi^{\frac{1}{2}} M \right) \otimes I_n \right]
-    \left[ \left(  M^{-1} \bar{\Phi}^{-1}{M^{-1}}^\top\right) \otimes I_n \right]
-    \left[ (M^\top\Phi^{\frac{1}{2}} ) \otimes I_n \right]
-   \mathrm{vec}(U) \\
-%
-= C + \mathrm{vec}(Z)^{\top}
-\left[ \left(
- M^{-1} \bar{\Phi}^{-1}{M^{-1}}^\top
-\right) \otimes I_n \right] 
-\mathrm{vec}(Z) \\ 
-%
-- 2\mathrm{vec}(Z)^{\top} 
-\left[ \left(  M^{-1} \bar{\Phi}^{-1} \Phi^{\frac{1}{2}} M^{\top} \right)
-\otimes I_n \right]  \,\mathrm{vec}(U)   \\
-%
-+  \mathrm{vec}(U)^{\top}
-    \left[ \left(  \Phi  \bar{\Phi}^{-1}  \right) \otimes I_n \right]
-   \mathrm{vec}(U)
-\end{align*}
-
-Now, for brevity let us define the following $p \times p$ matrices:
-\begin{align*}
-q_{11} :=  M^{-1} \bar{\Phi}^{-1}{M^{-1}}^\top; \quad
-q_{12} :=  M^{-1} \bar{\Phi}^{-1} \Phi^{\frac{1}{2}}; \quad
-q_{22} := \Phi \bar{\Phi}^{-1}
-\end{align*}
-Hence 
-\begin{align*}
--2 \ln \pi \left(\mathrm{vec}(Z) \mid U, \Sigma, \Phi \right) 
-= C + \mathrm{vec}(Z)^{\top}
-\left(q_{11} \otimes I_n \right) 
-\mathrm{vec}(Z) \\
-%
-- 2\mathrm{vec}(Z)^{\top} 
-\left(  q_{12} \otimes I_n \right)  \,\mathrm{vec}(U)\\
-%
-+  \mathrm{vec}(U)^{\top}
-    \left(q_{22} \otimes I_n \right)
-   \mathrm{vec}(U)
-\end{align*}
-Then, we have 
-\begin{align*}
--2 \ln \pi \left(\mathrm{vec}(Z), \mathrm{vec}(U) \mid \Sigma, \phi \right)  
-= C + \mathrm{vec}(Z)^{\top}
-\left(q_{11} \otimes I_n \right) 
-\mathrm{vec}(Z)\\ 
-%
-- 2\mathrm{vec}(Z)^{\top} 
-\left(  q_{12} \otimes I_n \right)  \,\mathrm{vec}(U)\\  
-%
-+  \mathrm{vec}(U)^{\top}
-    \left(q_{12} \otimes I_n + I_p \otimes L\right)
-   \mathrm{vec}(U)
-\end{align*}
-Hence, with some straightforward algebra, it can be concluded that:
-\begin{equation} \label{eq:joint_bym_mmod}
-    \begin{pmatrix}
-        \mathrm{vec} (Z) \\ \mathrm{vec} (U) 
-    \end{pmatrix}
-    \sim \mathcal{N}_{2np} \left( 0, \begin{pmatrix}
-            q_{11} \otimes I_n \, & 
-            \, - q_{12} \otimes I_n \\
-            - q_{12}^\top\otimes I_n \, & \,
-             q_{22} \otimes I_n + I_p \otimes L
-        \end{pmatrix}^{-1} \right)
-\end{equation}
-Which generalises to the multivariate case the sparse precision derived by [@BYM2]. 
-
-## Further development: pogit model for underreporting
-
-The observed counts of accesses to AVCs clearly show that only a minority of women victims of gender-based violence seeks AVC help. Now, even though help seeking is not equivalent to reporting violence, we can follow a conceptual analogy when modelling the phenomenon of AVC accesses. 
-
-If the low counts of accesses do not provide a valid reason to model the under-accessing process explicitly - as there are not any data to assess the spatial distribution of true VAW incindents counts at *this* level of granularity, it is still needful to consider that some risk factors with a strong negative association have same-sign effects on accesses counts. 
-
-More specifically, employment rate and low-education incidence have a very high negative correlation, as it is reasonable to expect. Notwithstanding this, both appear to have a negative impact on access counts. A possible explanation for this finding is that these two variables impact on two different processes, which we do not observe, but whose interaction yields to the observed response variable, namely accesses counts. 
-
-We therefore attempt at implementing a Poisson - logistic model [@Pogit] to explicitly account for the propensity to report violence by turning to AVCs or not. Importantly, this methodology has already been established to model under-reporting of VAW incidents [@Polettini].
-
-
-
-Given the scarce information at our disposal, we can only guess which variable enter either of the two predictor components, i.e. the VAW reporting and the actual occurrence Specifically, we assign distance from closest AVC and low education incidence to the former component and all other variables plus the spatial effect to the latter. 
-
-The model is thus defined:
-\begin{equation}
-y_{i,t} \sim \mathrm{Poisson}(E_{it} \, \lambda_{it} \, \pi_{it}) \quad \forall i \in [1,256], t \in \lbrace 2021, 2022, 2023 \rbrace
-\end{equation}
-Where $E_{i,t}$ is the offset, $\lambda_{it}$ is the expected count of incidents $\pi_{it}$ is the expected reporting rate. 
-We will denote $\alpha$ as the $k+1$ covariate effects entering $\lambda_{it}$ and $\beta$ the $m+1$ covariate effects entering $\pi_{it}$ for two integers $k$ and $m$.
-
-
-We would thus have, for each year $t$ and municipality $i$;
-$$
-\lambda_{it} = e^{\displaystyle{\alpha_{0t} + \alpha_{1} X_{i1,t} + ... + \alpha_{k} X_{ik,t}} + z_{it}}
-$$
-And
-$$
-\pi_{it} = \left[1 + e^{- \displaystyle{(\beta_{0} + \beta_{1} X_{k+1,t} + ... + \beta_{m} X_{i (k+m),t})}} \right]^{-1}
-$$
-Hence the predictor is not linear anymore. 
-
-We approximate the predictor through first-order Taylor expansion, which is made possible by the \texttt{inlabru R} package [@lindgren2024inlabru]. To define the nonlinear predictor component, we follow [@Wollo].
-
-Here, we show the \texttt{R} code we propose to achieve this. Due to the computational burden, for the time being we are not testing M-models.  
-
-```{r inlabru setting, message = FALSE, warning = FALSE, output = FALSE}
-logexpit <- function(x, beta){
-  pred <- beta[[1]] +
-    rowSums(do.call(cbind, lapply(c(1:length(x)), function(n){
-      beta[[n+1]]*x[[n]]
-      })))
-  return(-log(1+exp(-pred)))
-}
-
-cmp_spatial <- function(spatial_expr, st_expr = NULL, t_expr = NULL) {
-  
-  spatial <- function(id, ...) INLA::f(id, ...)
-  spatiotemporal <- function(id, ...) INLA::f(id, ...)
-  intercept <- function(id, ...) INLA::f(id, ...)
-  
-  f2 <- substitute(spatial_expr)
-  f3 <- substitute(t_expr)
-  f4 <- substitute(st_expr)
-  f1 <- bquote(
-    ~ 0 +
-      beta_0(main = 1,  model = "linear",
-                  mean.linear = -2.2,
-                  prec.linear = 1e+2) +
-      myoffset(log(nn), model = "offset") +
-      alpha_ELI(ELI) + 
-      alpha_PGR(PGR) + 
-      alpha_UIS(UIS) + 
-      alpha_PDI(PDI) + 
-      alpha_ER(ER) + 
-      beta_TEP(main = 1, model = "linear", 
-               mean.linear = 0,
-               prec.linear = 1e-3) +
-      beta_ELL(main = 1, model = "linear", 
-               mean.linear = 0, 
-               prec.linear = 1e-3) )
-  ff <- f1[[2]]
-  if (!is.null(f2)) ff <- as.call(c(quote(`+`), ff, f2))
-  if (!is.null(f3)) ff <- as.call(c(quote(`+`), ff, f3))
-  if (!is.null(f4)) ff <- as.call(c(quote(`+`), ff, f4))
-  final_formula <- as.formula(bquote(~ .(ff)))
-  return(final_formula)
-}
-
-cmp_nosp <- cmp_spatial(
-  spatial_expr = NULL,
-  intercept(1, model = "iid", hyper = list(prec = list(initial = 1e-3, fixed = TRUE))))
-
-cmp_IMCAR <- cmp_spatial(
-  spatial(ID, model = inla.IMCAR.model(k = 3, W = W_con), extraconstr = list(
-      A = A_constr, e = c(rep(0, nrow(A_constr))))),
-  intercept(Year, model = "iid", hyper = list(prec = list(initial = 1e-3, fixed = TRUE))))
-
-cmp_PMCAR <- cmp_spatial(
-  spatial(ID, model = inla.MCAR.model(k = 3, W = W_con, alpha.min = 0, alpha.max = 1)),
-  intercept(1, model = "iid", hyper = list(prec = list(initial = 1e-3, fixed = TRUE))))
-
-cmp_MLCAR <- cmp_spatial(
-  spatial(ID, model = inla.MLCAR.model(k = 3, W = W_con)),
-  intercept(1, model = "iid", hyper = list(prec = list(initial = 1e-3, fixed = TRUE))))
-
-cmp_BYM <- cmp_spatial(
-  spatial(ID, model = inla.MBYM.dense(k = 3, W = W_con,  PC = FALSE),
-          extraconstr = list(A = A_constr, e = rep(0, 3))),
-  intercept(Year, model = "iid", hyper = list(prec = list(initial = 1e-3, fixed = TRUE))))
-
-library(inlabru)
-
-cav_bru <- function(model_cmp, data = dd){
-
-  terms <- c("0", "myoffset", 
-             "alpha_ELI",  "alpha_PGR",  "alpha_UIS", 
-             "alpha_PDI", "alpha_ER", 
-             paste0("logexpit(x = list(TEP_th, ELL),",
-                    "beta = list(beta_0, beta_TEP, beta_ELL))"))
-  
-  if (any(grepl("spatial", as.character(model_cmp)))) terms <- c(terms, "spatial")
-  if (any(grepl("intercept", as.character(model_cmp)))) terms <- c(terms, "intercept")
-  if (any(grepl("spatiotemporal", as.character(model_cmp)))) terms <- c(terms, "spatiotemporal")
-  
-  formula <- as.formula(paste("N_ACC ~", paste(terms, collapse = " + ")))
-  
-  res <- inlabru::bru(
-    components = model_cmp,
-    lik = inlabru::like(family = "poisson", formula = formula, data = data),
-    options = list(verbose = T, num.threads = 1,
-                   control.compute = list(
-                     waic = T, cpo = T, dic = T, internal.opt = F),
-                   control.predictor = list(compute =  T)))
-  return(res)
-}
-
-```
-
-
-```{r inlabru nosp run, message = F, echo = F, output = F, warning = F}
-cav_nosp_inlabru <- cav_bru(cmp_nosp)
-```
-
-```{r inlabru ICAR run, message = F, echo = F, output = F, warning = F}
-cav_IMCAR_inlabru <- cav_bru(cmp_IMCAR)
-```
-
-```{r inlabru PCAR run, message = F, echo = F, output = F, warning = F}
-cav_PMCAR_inlabru <- cav_bru(cmp_PMCAR)
-```
-
-```{r inlabru LCAR run, message = F, echo = F, output = F, warning = F}
-cav_MLCAR_inlabru <- cav_bru(cmp_MLCAR)
-```
-
-```{r inlabru BYM run, message = F, echo = F, output = F, warning = F}
-cav_MBYM_inlabru <- cav_bru(cmp_BYM)
-```
-
-
-```{r WAICs table bru, echo = F, results = "asis", message = FALSE}
-
-WAICS_bru <- tibble::tibble(
-  Model = c("Null", "ICAR", "PCAR", "Leroux", "BYM"),
-  WAIC = round(c(
-    cav_nosp_inlabru$waic$waic,  cav_IMCAR_inlabru$waic$waic,  cav_PMCAR_inlabru$waic$waic, 
-    cav_MLCAR_inlabru$waic$waic, cav_MBYM_inlabru$waic$waic),3),
-  Eff_params = round(c(
-    cav_nosp_inlabru$waic$p.eff,   cav_IMCAR_inlabru$waic$p.eff,  cav_PMCAR_inlabru$waic$p.eff,
-     cav_MLCAR_inlabru$waic$p.eff, cav_MBYM_inlabru$waic$p.eff),3))
-
-print(xtable::xtable(WAICS_bru),include.rowname = F)
-
-```
-
-
-
-Here we show some posterior summaries for covariate effects, using the BYM model.
-
-```{r alphas bym inlabru, echo = FALSE, message = FALSE, results = "asis"}
-
-alphas.MBYM.inlabru <- cav_MBYM_inlabru$summary.random$intercept %>% 
-  dplyr::bind_rows(cav_MBYM_inlabru$summary.fixed) %>% 
-  dplyr::select(.data$mean, .data$sd, .data$`0.025quant`, .data$`0.975quant`) %>%
-  dplyr::mutate(Effect = c("Int_2021", "Int_2022", "Int_2023",
-                rownames(cav_MBYM_inlabru$summary.fixed))) %>% 
-  dplyr::relocate(.data$Effect, .before = 1) %>%  
-  dplyr::rename(Mean = .data$mean, Sd = .data$sd,
-                Q_0.05 = .data$`0.025quant`, Q_0.975 = .data$`0.975quant`)
-
-print(xtable::xtable(alphas.MBYM.inlabru, num.digits = 3), include.rowname = FALSE)
-
-```
-
-Model results are quite similar to the linear model, as it is reasonable to expect. 

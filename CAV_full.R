@@ -618,7 +618,7 @@ cav_bym_INLA_2024 <- inla(
 
 cav_IMCAR_inla <- inla(
   N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
-    f(ID, model = inla.IMCAR(k = 4, W = W_con, df=6), 
+    f(ID, model = inla.IMCAR.Bartlett(k = 4, W = W_con, df=6), 
       extraconstr = list(A = A_constr, e = c(0,0,0,0))),
   offset = log(nn), family = "poisson", data =dd_con,
   #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
@@ -649,7 +649,7 @@ cav_IMCAR_inla_ls <- inla(
 
 
 #' For correlations. Change model ---------------------------------------------#
-Mmodel_compute_cor_bigDM(cav_IMCAR_inla, J=4)[c(1,3)]
+vcov_summary(cav_IMCAR_inla )
 
 #' ----------------------------------------------------------------------------#
 #' The simplest way to take into account the three different years
@@ -733,25 +733,24 @@ inla.zmarginal(inla.tmarginal(
 cav_MBYM_inla <- inla(
   N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 +
     TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
-    f(ID, model = inla.MBYM.Bartlett(k = 4, W = W_con,  df = 6,
-                                     sparse = TRUE),
+    f(ID, model = inla.MBYM.Bartlett(k = 4, W = W_con, df = 6 ),
       extraconstr = constr.BYM) ,
   offset = log(nn),
   family = "poisson", data =dd_con,
-  #control.inla = list(stupid.search = FALSE, h = 5e-5),
+  control.inla = list(stupid.search = FALSE), safe = FALSE,
   num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
   verbose = T)
+vcov_summary(cav_MBYM_inla)
 #' Very bad. 
 
-cav_MBYM_inla_PC <- inla(
+cav_MBYM_inla.IW <- inla(
   N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 +
     TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
-    f(ID, model = inla.MBYM.Bartlett(k = 4, W = W_con,  df = 6,
-                                     sparse = TRUE, PC = TRUE),
+    f(ID, model = inla.MBYM.Bartlett(k = 4, W = W_con, df = 8, Wishart.on.scale = F),
       extraconstr = constr.BYM) ,
   offset = log(nn),
   family = "poisson", data =dd_con,
-  control.inla = list(stupid.search =FALSE, h = 5e-5, verbose = TRUE),
+  control.inla = list(stupid.search = FALSE), safe = FALSE,
   num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
   verbose = T)
 
