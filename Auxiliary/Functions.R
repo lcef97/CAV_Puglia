@@ -161,7 +161,8 @@ inla.rgeneric.IMCAR.Bartlett  <-
 
 inla.IMCAR.Bartlett  <- function(...){
   INLA::inla.rgeneric.define(inla.rgeneric.IMCAR.Bartlett,
-                             Bartlett = TRUE, Wishart.on.scale = TRUE, ...)
+                             Bartlett = TRUE, Wishart.on.scale = TRUE,
+                             scale.model = TRUE, ...)
 } 
 
 ##' PMCAR model ---------------------------------------------------------------#
