@@ -284,7 +284,9 @@ inla.rgeneric.PMCAR.Bartlett <-
     return(val)
   }
 
-inla.PMCAR.Bartlett <- function(...) INLA::inla.rgeneric.define(inla.rgeneric.PMCAR.Bartlett, ...)
+inla.PMCAR.Bartlett <- function(...) {
+  INLA::inla.rgeneric.define(inla.rgeneric.PMCAR.Bartlett,
+                             Wishart.on.scale = TRUE, ...)}
 
 
 ##' LMCAR model ---------------------------------------------------------------#
@@ -408,7 +410,9 @@ inla.rgeneric.LMCAR.Bartlett <-
     return(val)
   }
 
-inla.LMCAR.Bartlett <- function(...) INLA::inla.rgeneric.define(inla.rgeneric.LMCAR.Bartlett, ...)
+inla.LMCAR.Bartlett <- function(...) {
+  INLA::inla.rgeneric.define(inla.rgeneric.LMCAR.Bartlett,
+                             Wishart.on.scale = TRUE, ...)}
 
 ##' BYM -----------------------------------------------------------------------#
 
@@ -466,24 +470,15 @@ inla.rgeneric.MBYM.Bartlett <- function(
     assign("cache.done", TRUE, envir = envir)
   }
   interpret.theta <- function() {
-    phi <-  1/(1 + exp(-theta[1L]))
+    phi <- 1/(1 + exp(-theta[1L]))
     diag.N <- sapply(theta[as.integer(2:(k+1))], function(x) {exp(x)})
     no.diag.N <- theta[as.integer( (k+1):(k*(k+1)/2) +1)]
     N <- diag(diag.N, k)
     N[lower.tri(N, diag = FALSE)] <- no.diag.N
     N <- scale.fac %*% N
     Wish.mat <-  N %*% t(N)
-    if(Wishart.on.scale) {
-      Sigma <- Wish.mat
-      PREC <- solve(Sigma)
-    } else  {
-      Sigma <- solve(Wish.mat)
-      PREC <-  Wish.mat
-    }
-    e <- eigen(Sigma)
-    M <- diag(sqrt(e$values)) %*% t(e$vectors)
-    invM <-  solve(M)
-    return(list(phi = phi, PREC = PREC, M=M, invM = invM))
+    e <- eigen(Wish.mat)
+    return(list(phi = phi, Wish.mat = Wish.mat, e=e))
   }
   graph <- function() {
     QQ <- Q()
@@ -492,15 +487,23 @@ inla.rgeneric.MBYM.Bartlett <- function(
   }
   Q <- function() {
     param <- interpret.theta()
+    if(Wishart.on.scale){
+      PREC <- solve(param$Wish.mat)
+      invM <- param$e$vectors %*% diag(1/sqrt(param$e$values))
+    } else{
+      PREC <- param$Wish.mat
+      invM <- param$e$vectors %*% diag(sqrt(param$e$values))  
+    }
     In <- Matrix::Diagonal(nrow(W), 1)
     if(!sparse){
-      R <- eigenvectors %*% 
-        solve(param$phi * Matrix::Diagonal(x = eigenvalues, n = length (eigenvalues)) +
-                (1 - param$phi) * In) %*% t(eigenvectors)
-      Q <- kronecker(param$PREC, R)
+      #R <- eigenvectors %*% 
+      #  solve(param$phi * Matrix::Diagonal(x = eigenvalues, n = length (eigenvalues)) +
+      #          (1 - param$phi) * In) %*% t(eigenvectors)
+      R <- solve( param$phi * invL + (1-param$phi) * In )
+      Q <- kronecker(PREC, R)
     } else {
-      q11 <- 1/(1-param$phi) * param$PREC
-      q12 <- sqrt(param$phi)/(1-param$phi) * param$invM
+      q11 <- 1/(1-param$phi) * PREC
+      q12 <- sqrt(param$phi)/(1-param$phi) * invM
       q22 <- param$phi/(1-param$phi) * Matrix::Diagonal(x=1, n=k)
       
       Q11 <- kronecker(q11, In)
@@ -552,7 +555,10 @@ inla.rgeneric.MBYM.Bartlett <- function(
   val <- do.call(match.arg(cmd), args = list())
   return(val)
 }
-inla.MBYM.Bartlett <- function(...) INLA::inla.rgeneric.define(inla.rgeneric.MBYM.Bartlett, ...)
+inla.MBYM.Bartlett <- function(...) {
+  INLA::inla.rgeneric.define(inla.rgeneric.MBYM.Bartlett,
+                             Bartlett = TRUE, Wishart.on.scale = TRUE, 
+                             sparse = TRUE, ...)}
 
 
 
@@ -1113,11 +1119,12 @@ inla.rgeneric.Mmodel.BYM <-
     param <- interpret.theta()
     In <- Matrix::Diagonal(nrow(W), 1)
     if(!sparse){
+      
       MI <- kronecker(param$invM, In)
       BlockIW <- Matrix::bdiag(lapply(1:k, function(i) {
         solve(param$phi[i]*invL + (1-param$phi[i])*In)
       }))
-      Q <- (MI %*% BlockIW) %*% kronecker(param$invM.t, In)
+      Q <- MI %*% BlockIW %*% Matrix::t(MI)
     } else {
       q11 <- param$invM  %*% Matrix::Diagonal(x = 1/(1 - param$phi), n = k) %*% t(param$invM)
       q12 <- param$invM %*% Matrix::Diagonal(x = sqrt(param$phi)/(1 - param$phi), n = k)
