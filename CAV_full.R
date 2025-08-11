@@ -861,8 +861,7 @@ cav_PMMCAR_unif <- inla(
 cav_PMMCAR_pc <- inla(
   N_ACC ~  0+ Y_2021 + Y_2022 + Y_2023 + Y_2024 +
     TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
-    f(ID, model = inla.PMMCAR.model(k = 4, W = W_con, df = 6, PC = T, 
-                                    initial.values = c(0, 0, 0, 0, cav_IMCAR_inla$summary.hyperpar$mode)  )),
+    f(ID, model = inla.PMMCAR.model(k = 4, W = W_con, df = 6, PC = T   )),
   offset = log(nn),
   family = "poisson", data =dd_con,
   num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
@@ -906,8 +905,7 @@ cav_LMMCAR_unif <- inla(
 cav_LMMCAR_pc  <- inla(
   N_ACC ~ 0+ Y_2021 + Y_2022 + Y_2023 + Y_2024+
     TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
-    f(ID, model = inla.LMMCAR.model(k = 4, W = W_con,  df = 6, PC = T,
-                                    initial.values = c(0, 0, 0, 0, cav_IMCAR_inla$summary.hyperpar$mode))),
+    f(ID, model = inla.LMMCAR.model(k = 4, W = W_con,  df = 6, PC = T)),
   offset = log(nn),
   family = "poisson", data =dd_con, 
   num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 

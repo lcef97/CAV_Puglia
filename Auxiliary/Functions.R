@@ -55,9 +55,9 @@ inla.rgeneric.IMCAR.AR1  <-
     log.prior <- function() {
       #' Exponential prior on the sd
       val <- sum(theta[1:k] + dexp(exp(theta[c(1:k)]), rate=sd.rate, log=T))
-      #' Uniform prior on the correlation
-      #val <- val + log(2) - theta[k+1] - log(1+exp(-theta[k+1]))
-      val <- val + dnorm(theta[k+1], sd = sqrt(10))
+      #' Uniform prior on the correlation --> use Normal for time being
+      #val <- val + log(2) - theta[k+1] - log(1+exp(-theta[k+1]))  
+        dnorm(theta[k+1], sd = sqrt(10))
       return(val)
     }
     initial <- function(){
@@ -171,7 +171,7 @@ inla.rgeneric.PMCAR.AR1 <-
           theta[1L] - 2 * log(1 + exp(-theta[1L]))
       }
       val <- val + sum(theta[1+c(1:k)] + dexp(exp(theta[1+c(1:k)]), rate=sd.rate, log=T))
-      #' Uniform prior on the correlation
+      #' Uniform prior on the correlation --> Use Gaussan 4n
       #val <- val + log(2) - theta[k+1] - log(1+exp(-theta[k+1]))
       val <- val + dnorm(theta[k+2], sd = sqrt(10))
       return(val)
@@ -1219,6 +1219,133 @@ inla.rgeneric.Mmodel.LCAR <-
     return(val)
   }
 
+# #'  INLA code for ST M-Model LCAR --------------------------------------------
+
+inla.LMMCAR.AR1 <- function(...) INLA::inla.rgeneric.define(inla.rgeneric.Mmodel.AR1, ...)
+
+inla.rgeneric.Mmodel.AR1 <- 
+  function(cmd = c("graph", "Q", "mu", "initial", "log.norm.const", 
+                   "log.prior", "quit"), theta = NULL){
+    
+    envir <- parent.env(environment())
+    if(!exists("PC", envir = envir)) assign("PC", FALSE, envir = envir)
+    if(!exists("cache.done", envir=envir)){
+      L <- Matrix::Diagonal(n=nrow(W), x=rowSums(as.matrix(W))) -  W
+      In <- Matrix::Diagonal(n = nrow(W), x = 1)
+      if(PC) {
+        eigenvalues <- eigen(L - In)$values
+        inla.pc.lmmcar.lambda <- function(lambda, eigenvalues, alpha = 2/3, U = 1/2){
+          n <- length(eigenvalues)
+          In <- Matrix::Diagonal(n = n, x = 1)
+          log.p <- numeric(length(lambda))
+          KLD <- function(lambda, eigenvalues){
+            res <-  1/2 * sum(log(1 + lambda*eigenvalues)) +
+              1/2 * sum(1/(1 + lambda * eigenvalues) - 1)
+            return(res)
+          }
+          for(j in c(1:length(lambda))){
+            KLD_j <- KLD(lambda = lambda[j], eigenvalues = eigenvalues)
+            if(KLD_j <= 0){
+              message("!!! PROBLEM !!!! \n!!! NEGATIVE OR NULL KLD - MUST FIX MODEL !!!")
+              return(NULL)
+            }
+            derivative <- 1/2 * sum( (lambda[j]*eigenvalues^2)/(1 + lambda[j]*eigenvalues)^2 )
+            rate <- -1/sqrt(2*KLD(U, eigenvalues = eigenvalues)) * log(1 - alpha)
+            log.p[j] <- dexp(x=sqrt(2*KLD_j), rate = rate, log = T) -log(2) +
+              log(1/sqrt(2*KLD_j)) + log(abs(derivative))
+          }
+          return(sum(log.p))
+        }
+        assign("inla.pc.lmmcar.lambda", inla.pc.lmmcar.lambda, envir = envir)
+        assign("eigenvalues", eigenvalues, envir = envir)
+      }
+      assign("L", L, envir = envir)
+      assign("cache.done", TRUE, envir = envir)
+    }
+    interpret.theta <- function() {
+      lambda <- 1/(1 + exp(-theta[as.integer(1:k)]))
+      sd <- sapply(theta[k+c(1:k)], function(x) exp(x))
+      corr  <-   2/(1 + exp(-theta[2*k+1])) - 1
+      R <- diag(k)
+      for(i in c(1:k)){
+        for(j in c(1:k)) {
+          R[i,j] <- corr^abs(i-j)
+        }
+      } 
+      #Sigma <- diag(sd) %*% R %*% diag(sd)
+      evalR <- eigen(R)
+      M <-   diag(sqrt(evalR$values)) %*% t(evalR$vectors) %*% diag(sd)
+      invM <- solve(M)
+      #PREC <- solve(Sigma)
+      #e <- eigen(Sigma)
+      #M <- t(e$vectors %*% diag(sqrt(e$values)))
+      invM <- solve(M)#e$vectors %*% diag(sqrt(1/e$values))
+      return(list(lambda = lambda, M = M, invM = invM))
+    }
+    graph <- function() {
+      QQ <- Q()
+      G <- (QQ != 0) * 1
+      return(G)
+    }
+    Q <- function() {
+      param <- interpret.theta()
+      In <- Matrix::Diagonal(nrow(W), 1)
+      MI <- kronecker(param$invM, In)
+      BlockIW <- kronecker(diag(param$lambda), L) + kronecker(diag(1 -  param$lambda), In)
+      Q <- MI %*% BlockIW %*% Matrix::t(MI)
+      return(Q)
+    }
+    mu <- function() {
+      return(numeric(0))
+    }
+    log.norm.const <- function() {
+      val <- numeric(0)
+      return(val)
+    }
+    log.prior <- function() {
+      param <- interpret.theta()
+      if(!PC){
+        #' Uniform prior
+        val <- sum(-theta[as.integer(1:k)] - 2 * log(1 + exp(-theta[as.integer(1:k)])))
+      } else{
+        #' PC-prior
+        if(!exists("alpha", envir = envir)) alpha <- 2/3
+        if(!exists("U" , envir = envir)) U <- 1/2
+        val <- inla.pc.lmmcar.lambda(eigenvalues = eigenvalues, lambda = param$lambda, alpha = alpha, U = U) +
+          sum(-theta[as.integer(1:k)] - 2 * log(1 + exp(-theta[as.integer(1:k)])))
+      }
+ 
+      #' Exponential prior on the log-stdevs
+      val <- val + sum(  theta[k + 1:k]/2 )  +
+        sum(dexp(exp(theta[k + 1:k]), rate=log(100), log=T)) +
+        #' Uniform prior on the logit-correlation
+        #log(2) + theta[(2*k)+1] - 2*log(1+exp(theta[(2*k)+1])) 
+        dnorm(theta[(2*k)+1], sd=sqrt(10))
+      
+      return(val)
+    }
+    initial <- function(){
+      if(!exists("initial.values", envir= envir )){
+        return(c(rep(-3, k), rep(-2, k), -4))
+      } else {
+        return(initial.values)
+      }
+    }
+    quit <- function() {
+      return(invisible())
+    }
+    if (as.integer(R.version$major) > 3) {
+      if (!length(theta))  theta <- initial()
+    }
+    else {
+      if (is.null(theta))  theta <- initial()
+    }
+    val <- do.call(match.arg(cmd), args = list())
+    return(val)
+  }
+
+
+
 
 # #'  INLA code for M-model PCAR (based on bigDM)  -----------------------------
 
@@ -1966,6 +2093,12 @@ inla.pc.pmmcar.rho <- function(rho, eigenvalues, alpha = 2/3, U = 1/2){
 
 #' This is basically a bigDM:: function, ie.
 #' bigDM::Mmodel_compute_cor, generalised to work with models run manually.
+
+#' These function do not work for ST models. 
+#' ST models, on the other hand, would not require to resample from the
+#' posterior and simulate a distribution of hyperparameters outside 
+#' the internal scale since ALL HYPERPARAMETERS are treated independently,
+#' hence inla.tmarginal does everything.
 
 Mmodel_compute_cor_bigDM <- function (model, n.sample = 10000, J) {
   o <- tryCatch({
