@@ -7,13 +7,21 @@ load(url("https://github.com/lcef97/CAV_Puglia/raw/main/input/Replication/W.RDat
 devtools::source_url("https://raw.githubusercontent.com/lcef97/CAV_Puglia/refs/heads/main/Auxiliary/Functions.R")
 
 n <- nrow(W)
-#' number of variables --------------------------------------------------------#
-k <- 3
+k <- 4
 #' Hyperparameters ------------------------------------------------------------#
-phi.true <- c(0.6, 0.4, 0.9)
-sigma.true <- c(0.7, 1.1, 0.6)
-corr.true <- c(0.9, 0.7, 0.5)
-Scale.true <- varcov(c(sigma.true, corr.true), tri=F)
+#' Mixing
+phi.true <- c(0.6, 0.4, 0.9,  0.7)
+#' Standard deviations
+sigma.true <- c(0.7, 1.1, 0.8, 0.6)
+# Correlations
+rho.true <- 0.8
+R.true <- diag(k)
+for(i in c(1:k)) for(j in c(1:k)){
+  R.true[i,j] <- rho.true^abs(i-j)
+}
+#' Variance-covariance matrix
+Scale.true <- diag(sigma.true) %*% R.true %*% diag(sigma.true)
+#' M-matrix
 M.true <- diag(sqrt(eigen(Scale.true)$values)) %*% t(eigen(Scale.true)$vectors)
 
 #' Add covariate --------------------------------------------------------------#
@@ -28,7 +36,7 @@ L <- INLA:::inla.scale.model.bym.internal(L.unscaled)$Q
 constr <- INLA:::inla.bym.constr.internal(L)
 constr.BYM <- list(A = cbind(Matrix::Matrix(0, nrow=k, ncol = k*n), 
                              kronecker(diag(k), constr$constr$A)),
-                   e = rep(0, k))
+                   e = c(0, 0, 0, 0))
 #' Change seed!
 set.seed(11)
 #' IID component
@@ -61,17 +69,17 @@ dd <- data.frame(Y = y.sim, ID = c(1:(k*n)), X=X, group=rep(c(1:k), each=n))
 
 mod.IMCAR <- inla(
   Y ~ 1 + X +
-    f(ID, model = inla.IMCAR.Bartlett(k = 3, W = W, df=6, scale.model = T ),
-      extraconstr = list(A=constr.BYM$A[,-c(1:(k*n))], e = rep(0, k)) ),
+    f(ID, model = inla.IMCAR.Bartlett(k = 4, W = W, df=8, scale.model = T ),
+      extraconstr = list(A=constr.BYM$A[,-c(1:(k*n))], e = rep(0,k)) ),
   family = "poisson", data = dd, num.threads = 1, 
   control.inla = list(tolerance=1e-7, h=1e-5),
   control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
   verbose = T)
 
 #' Hyperparameters posterior.
-#' Variance ==> Overestimated, like 2x  (not true DGP...)
+#' Variance ==> Overestimated, like 2.5x   
 vcov_summary(mod.IMCAR)$var
-#' Correlations: good, maybe a little underestimated
+#' Correlations: perfect
 vcov_summary(mod.IMCAR)$cor
  
 
@@ -83,16 +91,16 @@ vcov_summary(mod.IMCAR)$cor
 #' 
 mod.INDMMBYM  <- inla(
   Y ~ 1+ X+
-    f(ID, model = inla.INDMMBYM.model(k = 3, W = W, df=6, PC = T),
+    f(ID, model = inla.INDMMBYM.model(k = 4, W = W, df=8, PC = T),
       extraconstr = constr.BYM),
   family = "poisson", data = dd, num.threads = 1,
   control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
   verbose = T)
-# Mixing parameter ==> perfect
+# Mixing parameter ==> ok
 Mmodel_compute_mixing(mod.INDMMBYM) 
-#' Variances ==> literally perfect
+#' Variances ==> almost perfect
 data.frame( do.call(rbind, lapply(
-  lapply(mod.INDMMBYM$marginals.hyperpar[-c(1:k)], function(f){
+  lapply(mod.INDMMBYM$marginals.hyperpar[k+1:k], function(f){
     inla.tmarginal(fun = function(X) exp(-X), marginal = f)
   }), function(x) unlist(inla.zmarginal(x, silent = TRUE)))))[,c(1,2,3,5,7)]
 
@@ -102,18 +110,19 @@ data.frame( do.call(rbind, lapply(
 #' A priori, again, var-cov ~ Wishart(2k, I_k), while the mixing parameter
 #' follows a multivariate Uniform distribution 
 #' WARNING: slow - falls into `Enable early_stop`` 
-mod.MMBYM <- inla(
-  Y ~ 1+ X+ f(ID, model = inla.MMBYM.model(
-    k = 3, W = W, df=6 ),
+mod.MMBYM.ST <- inla(
+  Y ~ 1+ X+ f(ID, model = inla.MMBYM.ST(
+    k = 4, W = W),
       extraconstr = constr.BYM),
   family = "poisson", data = dd, num.threads = 1,
-  control.inla = list(tolerance = 1e-7),
+  #control.inla = list(tolerance = 1e-7),
   control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
   verbose = T)
   
-
-#' Correlations: definitively out of the way; variance: messy.
-vcov_summary(mod.MMBYM)
+#' Variances: strange
+vcov_summary(mod.MMBYM)$var
+#' Correlations: definitively messy
+vcov_summary(mod.MMBYM)$cor
 #' mixing: also quite messy
 Mmodel_compute_mixing(mod.MMBYM)
  
@@ -123,7 +132,7 @@ Mmodel_compute_mixing(mod.MMBYM)
 
 mod.MMBYM.guided <- inla(
   Y ~ 1+ X+  f(ID, model = inla.MMBYM.model(
-    k = 3, W = W, df=6,    
+    k = 4, W = W, df=8,    
     initial.values = c(rep(-3, 4), mod.IMCAR$summary.hyperpar$mode)),
       extraconstr = constr.BYM),
   family = "poisson", data = dd, num.threads = 1,
@@ -142,10 +151,31 @@ Mmodel_compute_mixing(mod.MMBYM.guided)
 #' Core issue: same priors, same data yet the mode seems different:
 
 #' -2 and 0 as starting log-standard deviation and correlation:
-mod.MMBYM$mode$log.posterior.mode
-mod.MMBYM$misc$configs$max.log.posterior
+mode.idx <- which.max(unlist(lapply(mod.MMBYM$misc$configs$config, function(x) x$log.posterior)))
+mode.default <- mod.MMBYM$misc$configs$config[[mode.idx]]$theta
+#' Joint posterior = -5.76
+mod.MMBYM$misc$configs$config[[mode.idx]]$log.posterior
 
 #' starting values from ICAR:
-mod.MMBYM.guided$mode$log.posterior.mode
-mod.MMBYM.guided$misc$configs$max.log.posterior
+mode.idx.guided <- which.max(unlist(lapply(mod.MMBYM.guided$misc$configs$config, function(x) x$log.posterior)))
+mode.guided <- mod.MMBYM.guided$misc$configs$config[[mode.idx.guided]]$theta
+#' Joint posterior = -10.03 ==> Definitively not the mode!
+mod.MMBYM.guided$misc$configs$config[[mode.idx.guided]]$log.posterior
 
+#' True values of theta -------------------------------------------------------#
+phi.true.internal <- sapply(phi.true, function(x) log(x) - log(1-x))
+fac.true <- t(chol(Scale.true))
+fac.true.internal <- c(log(diag(fac.true)), Scale.true[lower.tri(fac.true)])
+theta.true <- c(phi.true.internal, fac.true.internal)
+
+#' Arrange the true values and the modes obtained with the two models, 
+#' i.e. the one with default initial values and the one with 
+#' initial values taken from IMCAR posterior mode -----------------------------#
+
+theta.df <- data.frame(true = round(theta.true, 4), default = round(mode.default, 4),
+                       guided = round(mode.guided, 4))
+rownames(theta.df) <- c("logit.phi1", "logit.phi2", "logit.phi3", "logit.phi4",
+                       "diag.N1", "diag.N2", "diag.N3", "diag.N4",
+                       "no.diag.N21", "no.diag.N31", "no.diag.N41",
+                       "no.diag.N32", "no.diag.N42", "no.diag.N43")
+theta.df

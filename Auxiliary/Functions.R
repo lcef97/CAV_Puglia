@@ -935,6 +935,19 @@ inla.rgeneric.MBYM.Bartlett <- function(
     assign("inla.pc.mbym.phi", inla.pc.mbym.phi, envir = envir)
     assign("eigenvalues", eigenvalues, envir = envir)
     assign("eigenvectors", eigenvectors, envir = envir)
+    if(!exists("initial.values", envir = envir)){
+      r0 <- 2*exp(-4)/(1+exp(-4)) - 1
+      R0 <- diag(k)
+      for(i in c(1:k)) for(j in c(1:k)) R0[i,j] <- r0^abs(i-j)
+      sd0 <- diag(x=exp(-2), nrow=k)
+      S0 <- sd0 %*% R0 %*% sd0
+      c0 <- t(chol(S0))
+      diag.N.init <- log(diag(c0))
+      offdiag.N.init <- c0[lower.tri(c0, diag=F)]
+      N.init <- c(diag.N.init, offdiag.N.init)
+      assign("N.init", N.init, envir = envir)
+    }  
+    
     assign("cache.done", TRUE, envir = envir)
   }
   interpret.theta <- function() {
@@ -1007,7 +1020,11 @@ inla.rgeneric.MBYM.Bartlett <- function(
   }
   initial <- function(){
     if(!exists("initial.values", envir= envir )){
-      return(  c(-3, rep(-2, k), rep(0, k*(k-1)/2)) )
+      if(Bartlett) {
+        return(  c(-3, N.init ) )
+      } else{
+          return(c(rep(-3, k), rep(-2, k), rep(0, k*(k-1)/2)))
+        }
     } else {
       return(initial.values)
     }
@@ -1076,6 +1093,18 @@ inla.rgeneric.Mmodel.LCAR <-
         assign("inla.pc.lmmcar.lambda", inla.pc.lmmcar.lambda, envir = envir)
         assign("eigenvalues", eigenvalues, envir = envir)
       }
+      if(!exists("initial.values", envir = envir) & Bartlett==TRUE){
+        r0 <- 2*exp(-4)/(1+exp(-4)) - 1
+        R0 <- diag(k)
+        for(i in c(1:k)) for(j in c(1:k)) R0[i,j] <- r0^abs(i-j)
+        sd0 <- diag(x=exp(-2), nrow=k)
+        S0 <- sd0 %*% R0 %*% sd0
+        c0 <- t(chol(S0))
+        diag.N.init <- log(diag(c0))
+        offdiag.N.init <- c0[lower.tri(c0, diag=F)]
+        N.init <- c(diag.N.init, offdiag.N.init)
+        assign("N.init", N.init, envir = envir)
+      }  
       assign("L", L, envir = envir)
       assign("cache.done", TRUE, envir = envir)
     }
@@ -1168,7 +1197,11 @@ inla.rgeneric.Mmodel.LCAR <-
     }
     initial <- function(){
       if(!exists("initial.values", envir= envir )){
-        return(c(rep(-3, k), rep(-2, k), rep(0, k*(k-1)/2))) #changes wrt bigDM's log(9)
+        if(Bartlett){ 
+          return(c(rep(-3, k), N.init))
+        } else{
+          return(c(rep(-3, k), rep(-2, k), rep(0, k*(k-1)/2)))
+        }
       } else {
         return(initial.values)
       }
@@ -1232,6 +1265,18 @@ inla.rgeneric.Mmodel.PCAR <-
         assign("inla.pc.pmmcar.rho", inla.pc.pmmcar.rho, envir = envir)
         assign("eigenvalues", eigenvalues, envir = envir)
       }
+      if(!exists("initial.values", envir = envir) & Bartlett){
+        r0 <- 2*exp(-4)/(1+exp(-4)) - 1
+        R0 <- diag(k)
+        for(i in c(1:k)) for(j in c(1:k)) R0[i,j] <- r0^abs(i-j)
+        sd0 <- diag(x=exp(-2), nrow=k)
+        S0 <- sd0 %*% R0 %*% sd0
+        c0 <- t(chol(S0))
+        diag.N.init <- log(diag(c0))
+        offdiag.N.init <- c0[lower.tri(c0, diag=F)]
+        N.init <- c(diag.N.init, offdiag.N.init)
+        assign("N.init", N.init, envir = envir)
+      }  
       assign("D", D, envir = envir)
       assign("cache.done", TRUE, envir = envir)
     }
@@ -1325,7 +1370,11 @@ inla.rgeneric.Mmodel.PCAR <-
     }
     initial <- function(){
       if(!exists("initial.values", envir= envir )){
-        return(c(rep(-3, k), rep(-2, k), rep(0, k*(k-1)/2))) #changes wrt bigDM's log(9)
+        if(Bartlett){
+          return(c(rep(-3, k),  N.init))
+        } else {
+            return(c(rep(-3, k), rep(-2, k), rep(0, k*(k-1)/2)))
+          }
       } else {
         return(initial.values)
       }
@@ -1541,7 +1590,7 @@ inla.rgeneric.Mmodel.BYM <-
       }
       return(sum(log.p))
     }
-    if(!exists("initial.values", envir = envir)){
+    if(!exists("initial.values", envir = envir) & Bartlett){
       r0 <- 2*exp(-4)/(1+exp(-4)) - 1
       R0 <- diag(k)
       for(i in c(1:k)) for(j in c(1:k)) R0[i,j] <- r0^abs(i-j)
@@ -1549,11 +1598,10 @@ inla.rgeneric.Mmodel.BYM <-
       S0 <- sd0 %*% R0 %*% sd0
       c0 <- t(chol(S0))
       diag.N.init <- log(diag(c0))
-      no.diag.N.init <- c0[lower.tri(c0, diag=F)]
-      assign("diag.N.init", diag.N.init, envir = envir)
-      assign("no.diag.N.init", diag.N.init, envir = envir)
-    } else print(initial.values)
-    
+      offdiag.N.init <- c0[lower.tri(c0, diag=F)]
+      N.init <- c(diag.N.init, offdiag.N.init)
+      assign("N.init", N.init, envir = envir)
+    }  
     assign("L", L, envir = envir)
     assign("invL", invL, envir = envir)
     assign("inla.pc.mbym.phi", inla.pc.mbym.phi, envir = envir)
@@ -1561,7 +1609,6 @@ inla.rgeneric.Mmodel.BYM <-
     assign("cache.done", TRUE, envir = envir)
   }
   interpret.theta <- function() {
-
     phi <-  1/(1+exp(-theta[c(1:k)]))
     diag.N <- sapply(theta[ k+(1:k)], function(x) exp(x) )
     no.diag.N <- theta[2*k + 1:(k * (k - 1)/2)]
@@ -1585,7 +1632,6 @@ inla.rgeneric.Mmodel.BYM <-
       R[lower.tri(R)] <- rho
       R <- R + t(R) +diag(k)
       Sigma <- diag(sd) %*% R %*% diag(sd)
-      
     }
     e <- eigen(Sigma)
     if(any(e$values <= 0 )){
@@ -1667,7 +1713,11 @@ inla.rgeneric.Mmodel.BYM <-
   }
   initial <- function(){
     if(!exists("initial.values", envir= envir )){
-      return(c(rep(-3, k),diag.N.init, no.diag.N.init))
+      if(Bartlett){
+        return(c(rep(-3, k), N.init ))
+      } else{
+          return(c(rep(-3, k), rep(-2, k), rep(0, k*(k-1)/2)))
+        }
      } else {
       return(initial.values)
     }
@@ -1677,8 +1727,7 @@ inla.rgeneric.Mmodel.BYM <-
   }
   if (as.integer(R.version$major) > 3) {
     if (!length(theta))  theta <- initial()
-  }
-  else {
+  } else {
     if (is.null(theta))  theta <- initial()
   }
   val <- do.call(match.arg(cmd), args = list())
