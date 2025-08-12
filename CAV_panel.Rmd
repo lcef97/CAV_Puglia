@@ -33,6 +33,8 @@ load("input/CAV_input_mun_2022.RData")
 load("input/CAV_input_mun_2023.RData")
 load("input/CAV_input_mun_2024.RData")
 
+source("Auxiliary/Functions.R")
+
 CAV_mun_21 <- CAV_mun_21 %>% dplyr::rename(N_ACC_2021 = .data$N_ACC)
 CAV_mun_22 <- CAV_mun_22 %>% dplyr::rename(N_ACC_2022 = .data$N_ACC)
 CAV_mun_23 <- CAV_mun_23 %>% dplyr::rename(N_ACC_2023 = .data$N_ACC)
@@ -178,12 +180,15 @@ constr.BYM <- list(
   e=c(0,0,0,0) )
 
 
-
-
-
 zhat_plot <- function(mod){
   n <- nrow(mod$.args$data)
   rr <- range(mod$summary.random$ID$mean[c(1:n)])
+  dd$Year <- ifelse(
+    dd$Y_2021==1, 1, ifelse(
+      dd$Y_2022==1, 2, ifelse(
+        dd$Y_2023==1, 3, 4
+      )
+  ))
   
   plot_map <- purrr::map(unique(dd$Year), function (t){
   dd %>% dplyr::mutate(zhat = mod$summary.random$ID$mean[c(1:n)]) %>% 
@@ -203,7 +208,12 @@ do.call(gridExtra::grid.arrange, c(plot_map, nrow = 2, ncol = 2))
 yhat_plot <- function(mod ){
   
   yhat <- round(mod$summary.fitted.values$mean, 0)
-
+  dd$Year <- ifelse(
+    dd$Y_2021==1, 1, ifelse(
+      dd$Y_2022==1, 2, ifelse(
+        dd$Y_2023==1, 3, 4
+      )
+  ))
   rr <- c(0, max(yhat))
   
   plot_map <- purrr::map(unique(dd$Year), function (t){
@@ -319,9 +329,6 @@ All covariates are quantitative variables and to ease model interpretation are s
 First, we visualise the correlations among these explanatory variables:
 
 ```{r correls, echo = F, warning = F, fig.height = 3, fig.cap = "Correlations in explanatory variables"}
-
-
-
 glm_all_X <- glm(N_ACC ~ 1 + TEP_th + MFI + AES + PDI + ELL + ER +
                    PGR + UIS + ELI + offset(log(nn)),
                  data = dd, family = "poisson")
@@ -351,43 +358,33 @@ We regress the counts of accesses $y$ to support centers on the aforementioned e
 
 \begin{equation}
 y_{it} \mid \eta_{it} \sim \mathrm{Poisson}(E_{it} \, e^{\eta_{it}}) \quad \text{where} \quad
-\eta_{it} = X_{it}^{\top} \alpha
+\eta_{it} = X_{it}^{\top} \beta
 \label{eq:glm}
 \end{equation}
 
-Where $X$ are the covariates defined earlier, $\alpha$ are covariate effects, and $E_{it}$ is the female population aged $\geq 15$ in municipality $i$ and year $t$.
+Where $X$ are the covariates defined earlier, $\beta$ are covariate effects, and $E_{it}$ is the female population aged $\geq 15$ in municipality $i$ and year $t$.
 
-To gain more insight on the role of all explanatory variables we show the posterior summaries of the regression model; the posterior distribution is approximated with the INLA [@INLA].
+To gain more insight on the role of all explanatory variables we show the posterior summaries of the regression model; the posterior distribution is approximated with the INLA [@INLAVB].
  
 
-```{r glm results, warning = FALSE, message = FALSE, echo = FALSE, results = "asis"}
+ 
 
+```{r INLA nosp, warning = FALSE, echo = FALSE, message = FALSE, results = "asis"}
 
-cav_glm <- glm(N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + TEP_th + PDI + ELL + ER +
+cav_glm <- glm(N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + 
+                 TEP_th + PDI + ELL + ER +
                    PGR + UIS + ELI + offset(log(nn)),
                  data = dd, family = "poisson")
 
-alphas.glm <- data.frame(
-  Mean = summary(cav_glm)$coefficients[,1],
-  Sd = summary(cav_glm)$coefficients[,2]) %>% 
-  dplyr::mutate(Effect = c("Int_2021", "Int_2022", "Int_2023", "INT_2024",
-                           rownames(summary(cav_glm)$coefficients)[-c(1,2,3,4)])) %>% 
-  dplyr::relocate(.data$Effect, .before = 1)
-
-#print(xtable::xtable(alphas.glm, num.digits = 3), include.rowname = FALSE)
-```
-
-
-```{r INLA nosp, warning = FALSE, echo = FALSE, message = FALSE, results = "asis"}
 cav_nosp_inla <- inla(
   N_ACC ~0 + Y_2021 + Y_2022 +Y_2023 +Y_2024 +
     TEP_th + ELI + PGR + UIS + ELL + PDI + ER  ,
   offset = log(nn),
   family = "poisson", data =dd,
   num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
-  verbose = T)
+  verbose = F)
 
-alphas.nosp.inla <-  cav_nosp_inla$summary.fixed %>% 
+betas.nosp.inla <-  cav_nosp_inla$summary.fixed %>% 
   dplyr::select(c(1,2,3,5)) %>% 
   dplyr::mutate(Effect = c("Int_2021", "Int_2022", "Int_2023", "Int_2024",
                            rownames(cav_nosp_inla$summary.fixed)[-c(1:4)])) %>% 
@@ -395,7 +392,7 @@ alphas.nosp.inla <-  cav_nosp_inla$summary.fixed %>%
   dplyr::rename(Mean = .data$mean, Sd = .data$sd)
   
 
-print(xtable::xtable(alphas.nosp.inla, digits = 3), include.rowname  = F)
+print(xtable::xtable(betas.nosp.inla, digits = 3), include.rowname  = F)
 
 ```
 
@@ -426,7 +423,8 @@ We plot the log-residuals $\varepsilon$ of the nonspatial regression models, def
 #L_block <- kronecker(diag(1, 3), Lapl_con)
 constr <- INLA:::inla.bym.constr.internal(Lapl_con, adjust.for.con.comp = T)
 A_constr <- kronecker(Matrix::Diagonal(x=1, n=4), constr$constr$A)
-resids_glm <- log(dd$N_ACC) - log(cav_glm$fitted.values)
+resids_glm <- resids_nosp <- log(dd$N_ACC) - log(cav_nosp_inla$summary.fitted.values$mean)
+
 
 rr <- range(resids_glm[which(is.finite(resids_glm))])
 
@@ -516,5 +514,286 @@ gridExtra::grid.arrange(ggr21, ggr22, ggr23, ggr24, nrow = 2, ncol = 2)
 Residuals may exhibit spatial structure. To assess it, we employ the Moran and Geary tests. Since 
 
 Please notice that log-residuals only take finite values across the municipalities whose female citizens have reported at least one case of violence.
+
+
+Additionally, this set of municipalities may include some singletons, which we remove to assess the value of the Moran and Geary statistics. Thus, for each year we have defined the indexes set `nonzero_con` as the set of municipalities from which at least one case of gender-based violence has been reported, *and* which have at least one neighbouring municipality from which at least one case of gender-based violence was reported as well. For brevity, we only show the standardised $I$ values, which under the null hypothesis should be distributed as $N(0,1)$. The Geary's test is also included for completeness.
+
+```{r moran residuals, echo = F, message = F, warning = F, results = "asis"}
+
+autocorrel.tests <- as.data.frame(
+  do.call(rbind,  lapply(list(nonzero_con_21, nonzero_con_22, 
+                              nonzero_con_23, nonzero_con_24), function(NN){
+    rbind(
+      round(unlist(spdep::moran.test(resids_glm[NN],
+                                     listw = spdep::nb2listw( 
+                                       spdep::poly2nb(dd[NN, ])))[c("statistic", "p.value")]), 3),
+      round(unlist(spdep::geary.test(resids_glm[NN],
+                                     listw = spdep::nb2listw(
+                                       spdep::poly2nb(dd[NN, ])))[c("statistic", "p.value")]), 3))
+               }))) %>% 
+  dplyr::mutate(test = rep(c("Moran", "Geary"), 4)) %>% 
+  dplyr::mutate(year = rep(c("2021", "2022", "2023", "2024"), each = 2)) %>% 
+  dplyr::select(c(4,3,1,2))
+names(autocorrel.tests) <- c("Year", "Test", "Statistic_std", "p.value")
+
+print(xtable::xtable(autocorrel.tests), include.rowname = F, n.digits = 3)                 
+               
+```
+
+We find evidence for spatial autocorrelation. However, we must stress out that this result does not refer to all the regional territory, but only to a subset of all municipalities.
+
+Based on the autocorrelation evidence, though it has only been assessed for a subset of all municipalities, we try implementing some simple spatial models by adding a conditionally autoregressive latent effect, say $z$, to the linear predictor
+
+\begin{equation}
+\eta_{it} = X_{it}^{\top} \beta + z_{it} 
+\label{eq:mspat}
+\end{equation}
+
+
+We test a total of four models, all of which have a prior distribution depending on the spatial structure of the underlying graph, in this case the Apulia region. 
+
+In the following, the area-specific latent field is denoted as $z_i = (z_{i, 2021} \, z_{i, 2022} \, z_{i, 2023}, z_{i, 2024} )^{\top}$
+
+We describe the spatial structure starting from municipalities neighbourhood, and introduce the neighbourhood matrix $W$, whose generic element $w_{ij}$ takes value $1$ if municipalities $i$ and $j$ are neighbours and $0$ otherwise. For each $i \in [1,n]$, $d_i:= \sum_{j=1}^n w_{ij}$ is the number of neigbours of $i$-th municipality. Please notice we have have $n = 256$.
+
+For all models, we define $\Sigma$ as the covariance matrix of the latent effect $z$; its off-diagonal entries describe dependence in $z$ between different years. 
+Spatial models are computed by approximating the marginal posteriors of interest via the Integrated Nested Laplace Approximation (INLA), adopting the novel Variational Bayes Approach [@INLAVB].
+Before proceeding with model structure, we need a short digression on how `R-INLA` works. The INLA framework is hierarchical and is based on a distinction between latent Gaussian fields (GFs) and hyperparameters. In our case, the former include intercepts, covariate effects and the spatial latent field. In the INLA literature latent Gaussian fields are frequently labelled as $x$ but we avoid doing so in order not to introduce notation ambiguity with respect to covariates. Hyperparameters in our case coincide with the parameters of $z$. Then, it is necessary to approximate the posterior distribution of both hyperparameters and latent GFs.  
+INLA follows a framework of numerical integration over a grid of hyperparameters, which is centered at the mode. Locating the posterior mode of hyperparameters is thus the first, crucial task to approximate all posterior distributions involved in the model. `R-INLA` employs an exploration strategy over the whole real axis [@INLA]. For this reason, hyperparameters need be re-parametrised in such a way to be defined over all $\mathbb{R}$, and the priors are thus actually written on the so-called internal scale of hyperparameters. This approach may be hiding a trick if specifical constraints are required on hyperparameters. For instance, $\Sigma$ needs to be positive-definite and symmetric. If the hyperparameter exploration is carried out on the whole real axis, nothing ensures, in principle, that the values of the single entries in $\Sigma$ ensure it is positive definite. For instance, consider the case the hyperparameter exploration procedure comes across this correlation matrix
+$$
+\Sigma_{\mathrm{ND}}
+\begin{pmatrix}
+1 & 0.4 & 0.9\\
+0.4 & 1 & -0.4\\
+0.9 & -0.4 & 1
+\end{pmatrix}
+$$
+
+It can be seen that $\Sigma_{\mathrm{ND}}$ has one negative eigenvalue, and is thus indefinite: it cannot be a valid correlation matrix and would cause trouble if, e.g., the covariance matrix is assigned a Wishart prior. A trivial solution is to define the correlation matrix as a quadratic form, say $\Sigma := B B^\top$, and setting a prior distribution on $B$. Of course, it is convenient to define triangular $B$ matrix - otherwise, both a high number of parameters would be required, and the prior on $\Sigma$ could not be calculated (could it?) starting from the prior on $B$ as the Jacobian matrix would \textit{not} be squared. 
+
+
+Priors for spatial effects and hyperparameters are defined in [this R script](https://github.com/lcef97/CAV_Puglia/blob/main/Auxiliary/Functions.R). The general structure follows the framework of the `bigDM` R package [@vicente2023high].
+
+
+#### ICAR model
+
+The Intrinsic CAR model is the simplest formulation among spatial autoregressive models. The conditional distribution of each value $z_i \mid z_{-i}$ is:
+
+\begin{equation}
+z_i \mid z_{-i} \sim \mathcal{N} \left( \sum_{j=1}^n \frac{w_{ij}}{d_i} z_j \,, \frac{1}{d_i} \Lambda^{-1} \right)
+\label{eq:icar_loc}
+\end{equation}
+
+And the joint prior distribution is:
+
+\begin{equation}
+z \mid \Sigma \sim \mathcal{N} \left( 0, \Sigma \otimes (D - W)^{+} \right)
+\label{eq:icar_joint}
+\end{equation}
+
+Where $z$ is a $256 \times 4$ matrix. Since the joint distribution of $z$ is improper, a sum-to-zero constraint, i.e. $\sum_{i=1}^n z_{it} = 0$ for $t = 2021, 2022, 2023, 2024$ is required for identifiability.
+
+
+```{r inla icar, echo = FALSE, message = FALSE, warning = FALSE}
+
+cav_IMCAR_inla <- inla(
+  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 +
+    TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.IMCAR.Bartlett(k = 4, W = W_con, df=6), 
+      extraconstr = list(A = A_constr, e = c(0,0,0,0))),
+  offset = log(nn), family = "poisson", data =dd,
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  verbose = F)
+
+#' summary, just for a check
+#vcov_summary(cav_IMCAR_inla)
+```
+
+#### PCAR model
+
+The intrinsic autoregressive model is relatively simple to interpret and to implement, 
+while also requiring the minimum number of additional parameters (either the scale or the precision).
+
+
+The drawback, however, is that we implicitly assume a deterministic spatial autocorrelation coefficient equal to 1.
+When the autocorrelation is weak, setting an ICAR prior may be a form of misspecification.
+
+A generalisation of this model is the PCAR (proper CAR), which introduces an autocorrelation parameter $\rho$. We assign a penalised complexity (PC) prior to $\rho$, and, following the thumb-rule proposed by [@PC] and [@BYM2] for the Besag-York-Mollié model (see after) we assume \textit{a priori} that $\pi (\rho \leq \frac{1}{2}) = \frac{2}{3}$.
+
+\begin{equation}
+z_i \mid z_{-i} \sim \mathcal{N} \left( \sum_{j=1}^n \rho \frac{w_{ij}}{d_i} z_j \,, \frac{1}{d_i} \Lambda^{-1}\right)
+\label{eq:pcar_loc}
+\end{equation}
+
+
+```{r pcar run, message = FALSE, echo = FALSE, output = FALSE}
+
+cav_PMCAR_inla <- inla(
+  N_ACC ~  0+ Y_2021 + Y_2022 + Y_2023 + Y_2024 +
+    TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.PMCAR.Bartlett(k = 4, W = W_con, df = 4, PC = T)),
+  offset = log(nn), control.inla = list(stupid.search = F),
+  family = "poisson", data =dd, safe = F,
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  verbose = F)
+
+```
+
+We show the posterior summary for the autocorrelation coefficient, obtained with the data at hand. 
+
+```{r rho pcar, echo = FALSE, fig.height = 3, fig.cap = "Posterior marginal of the PCAR autocorrelation parameter"}
+rho_marg_pcar <- inla.tmarginal(
+  fun = function(X) 1/(1 + exp(-X)),
+  marginal = cav_PMCAR_inla$marginals.hyperpar[[1]])
+
+plot(rho_marg_pcar, type = 'l', xlab = expression(rho), ylab = expression(pi (rho ~ "|" ~ y)  ))
+
+unlist(inla.zmarginal(rho_marg_pcar, silent = TRUE))
+```
+ 
+ The credible interval for $\rho$ is quite pushed towards unity, denoting the model estimates a strong spatial autocorrelation. 
+
+
+
+#### Leroux model
+
+As an alternative to take into account both structured and unstructured latent effects, we also test the Leroux autoregressive model [@Leroux]; throughout this report, this model will be referred to as the LCAR. In this case, the local prior for $z_i$ is
+
+\begin{equation}
+z_i \mid z_{-i} \sim \mathcal{N} \left( \sum_{j=1}^n \frac{\xi w_{ij}}{1 - \xi + \xi d_i}   z_j \,, \Lambda^{-1} \frac{1}{1 - \xi + \xi d_i}\right)
+\label{eq:leroux_loc}
+\end{equation}
+
+Where $\xi \in [0, 1]$ is labelled as the mixing parameter. A more interesting representation of the Leroux model is the joint prior
+$$
+z \mid \Lambda, \xi \sim \mathcal{N}(0, [ \Lambda \otimes (\xi L + (1-\xi)I)]^{-1})
+$$
+where $L := D-W$ is the graph Laplacian matrix, $W$ is the neighbourhood matrix and $D$ is the corresponding degree matrix. We can clearly see how the mixing parameter allocates variability between two precision components, i.e. the Laplacian matrix for the spatial part and the the identity matrix for the noise.
+
+The drawback of this model is the scarce interpretability with respect to more sophisticated ones like the BYM.
+
+
+```{r INLA Leroux, echo = FALSE, message = FALSE}
+
+cav_LMCAR_inla <- inla(
+  N_ACC ~  0+ Y_2021 + Y_2022 + Y_2023 + Y_2024 +
+    TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.LMCAR.Bartlett(k = 4, W = W_con, df = 6, PC = T)),
+  offset = log(nn), control.inla = list(stupid.search = F),
+  family = "poisson", data =dd, safe = F,
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  verbose = F)
+
+```
+
+#### BYM model
+
+
+Another popular model to control for both spatial autocorrelation and random noise is the Besag, York and Mollié model. 
+We employ a simplified formulation, with a unique mixing parameter for all three years. Under this model the latent effect is defined as: 
+
+\begin{equation}
+z = \sqrt{\phi} u M + \sqrt{1-\phi} v M
+\label{eq:bym}
+\end{equation}
+
+
+
+Where: 
+
+  - $u \sim \mathcal{N}(0, I_p \otimes L_\mathrm{scaled})$ is an independent multivariate ICAR process whose precision matrix is scaled in order that the geometric mean of marginal variances (i.e. the diagonal entries of $L^{+}$) is one
+  - $v \sim \mathcal{N}(0, I_p \otimes I_n)$ is a Standard Normal variable
+  - $M$ is a positive definite matrix such that $M'M = \Lambda^{-1}$. It is not necessarily the Cholesky factor of the scale parameter; in fact, a convenient but not unique way to define it may be $M = D^{-\frac{1}{2}}E^{\top}$ where $E$ and $D$ are the eigenvector and eigenvalues matrices of $\Lambda$ [@Urdangarin]. 
+
+  - $\phi \in [0,1]$ is the mixing parameter.
+  
+Please notice that in the case of our data, $p=3$ and $n = 256$.
+We assign a Uniform prior on $\phi$ (but the PC-prior would be a more rigorous choice) and the usual Wishart prior to $\Lambda$.
+
+The BYM model features a variance mixing parameter, whose interpretation is eased by allowing to scale the ICAR and IID components. 
+
+
+```{r BYM, echo = FALSE,   warning = FALSE, message = FALSE, output = FALSE}
+
+cav_MBYM_inla <- inla(
+  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 +
+    TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.MBYM.Bartlett(k = 4, W = W_con, df = 6, PC = T ),
+      extraconstr = constr.BYM) ,
+  offset = log(nn),
+  family = "poisson", data =dd,
+  control.inla = list(stupid.search = FALSE), safe = FALSE,
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  verbose = F)
+
+
+```
+
+
+
+We briefly compare the three models in scope through the WAIC [@GelmanWAIC]:
+
+```{r WAICs table, echo = F, results = "asis", message = FALSE}
+
+WAICS <- tibble::tibble(
+  Model = c("Null", "ICAR", "PCAR", "Leroux", "BYM"),
+  WAIC = round(c(
+    cav_nosp_inla$waic$waic,  cav_IMCAR_inla$waic$waic,  cav_PMCAR_inla$waic$waic, 
+    cav_LMCAR_inla$waic$waic, cav_MBYM_inla$waic$waic),3),
+  Eff_params = round(c(
+    cav_nosp_inla$waic$p.eff,   cav_IMCAR_inla$waic$p.eff,  cav_PMCAR_inla$waic$p.eff,
+     cav_LMCAR_inla$waic$p.eff, cav_MBYM_inla$waic$p.eff),3))
+
+print(xtable::xtable(WAICS, digits = 3),include.rowname = F)
+
+```
+
+As we can see, adding a spatial model is an improving element, not a waste of complexity.
+
+Here we show some posterior summaries for $\beta$ under the BYM model.
+
+```{r betas bym, echo = FALSE, results = "asis", message = FALSE}
+betas.MBYM.inla   <- cav_MBYM_inla$summary.fixed %>% 
+  dplyr::select(.data$mean, .data$sd, .data$`0.025quant`, .data$`0.975quant`) %>%   
+  dplyr::rename(Mean = .data$mean, Sd = .data$sd,
+                Q_0.025 = .data$`0.025quant`, Q_0.975 = .data$`0.975quant`)
+
+
+print(xtable::xtable(betas.MBYM.inla, digits = 3), include.rowname = FALSE)
+
+```
+
+
+Estimations of $\beta$ differ slightly from the nonspatial model and credibility intervals are generally wider due to increased uncertainty. 
+
+  - `TEP_th_22` The effect of the distance from the closest support center remains similar in mean and the interpretation is not altered.
+
+  - `ELI`: The effect of the incidence of low-productivity economic units is utterly negligible
+
+  - `PGR`: The association with population growth rate can only be considered barely significant for 2022 data
+  
+  - `UIS`: The association with the density of productive units is negligible for 2021 and 2022 data, and can be considered slightly significant for 2023, bearing positive sign.  
+  
+  - `ELL`: The association with the incidence of low education levels, is even higher in mean than under the nonspatial model. We interpret this result as a strong *potential* impact of education on the chance that gender violence is reported
+  
+  - `PDI`: The effect of structural dependency index is utterly negligible, as for the GLM. 
+  
+  - `ER`: The effect associated with employment rate is increased for 2021 data,  more than doubled for 2022 data, and slightly increased for 2023 data. How to interpret this finding? Employment rate is clearly an indicator of economic development, hence the easiest interpretation is that - as it was with `ELI` under the nonspatial model - in more developed areas there is a higher chance that gender violence is reported.
+
+
+We show the expected latent effects:
+
+
+```{r zhat mbym, echo = FALSE, message = FALSE, warning = FALSE, output = FALSE, fig.cap = "Estimated BYM latent effect"}
+
+zhat_plot(cav_MBYM_inla)
+
+```
+
+
+
+
+
+
 
 
