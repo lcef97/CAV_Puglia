@@ -110,10 +110,10 @@ load("input/dists_th_23.RData")
 load("input/dists_th_24.RData")
 names(dists_th_22)[2] <- names(dists_th_23)[2] <- names(dists_th_24)[2] <- "TEP_th"
 distances <- rbind(dists_th_22, dists_th_22, dists_th_23, dists_th_24) %>% 
-  dplyr::mutate(Year = c(rep("2021", nrow(dists_th_22)),
-                         rep("2022", nrow(dists_th_22)),
-                         rep("2023", nrow(dists_th_23)),
-                         rep("2024", nrow(dists_th_24))) )
+  dplyr::mutate(Year = c(rep(2021, nrow(dists_th_22)),
+                         rep(2022, nrow(dists_th_22)),
+                         rep(2023, nrow(dists_th_23)),
+                         rep(2024, nrow(dists_th_24))) )
 
 
 Shp_con <- dplyr::filter(Shp, !.data$PRO_COM %in% singletons)
@@ -129,14 +129,15 @@ dd <- Shp_con %>% dplyr::left_join(Pop_f_15[, -2], by = "PRO_COM") %>%
                         tidyselect::starts_with("N_ACC_"),
                       names_to = c(".value", "Year"),
                       names_pattern = "(nn|N_ACC)_(\\d+)" ) %>% 
+  dplyr::mutate(Year=as.numeric(.data$Year)) %>% 
   dplyr::left_join(dplyr::select(Indicators, -.data$Comune), by = "PRO_COM") %>% 
   dplyr::arrange(.data$Year, .data$PRO_COM)  %>% 
   dplyr::left_join(distances, by = c("PRO_COM", "Year")) %>% 
   dplyr::mutate(CAV = as.numeric(.data$TEP_th == 0)) %>% 
-  dplyr::mutate(Y_2021 = as.numeric(.data$Year == "2021")) %>% 
-  dplyr::mutate(Y_2022 = as.numeric(.data$Year == "2022")) %>% 
-  dplyr::mutate(Y_2023 = as.numeric(.data$Year == "2023")) %>% 
-  dplyr::mutate(Y_2024 = as.numeric(.data$Year == "2024")) %>% 
+  dplyr::mutate(Y_2021 = as.numeric(.data$Year == 2021)) %>% 
+  dplyr::mutate(Y_2022 = as.numeric(.data$Year == 2022)) %>% 
+  dplyr::mutate(Y_2023 = as.numeric(.data$Year == 2023)) %>% 
+  dplyr::mutate(Y_2024 = as.numeric(.data$Year == 2024)) %>% 
   dplyr::mutate(TEP_th = as.vector(scale(.data$TEP_th))) %>% 
   dplyr::mutate(AES = as.vector(scale(.data$AES))) %>% 
   dplyr::mutate(MFI = as.vector(scale(.data$MFI)))  %>% 
@@ -146,7 +147,7 @@ dd <- Shp_con %>% dplyr::left_join(Pop_f_15[, -2], by = "PRO_COM") %>%
   dplyr::mutate(PGR = as.vector(scale(.data$PGR)))  %>% 
   dplyr::mutate(UIS = as.vector(scale(.data$UIS)))  %>% 
   dplyr::mutate(ELI = as.vector(scale(.data$ELI)))  %>% 
-  dplyr::select(-.data$Year) %>% 
+  #dplyr::select(-.data$Year) %>% 
   dplyr::mutate(ID = c(1:nrow(.))) %>% 
   dplyr::mutate(Area = as.numeric(as.factor(.data$PRO_COM)))
 
@@ -183,19 +184,13 @@ constr.BYM <- list(
 zhat_plot <- function(mod){
   n <- nrow(mod$.args$data)
   rr <- range(mod$summary.random$ID$mean[c(1:n)])
-  dd$Year <- ifelse(
-    dd$Y_2021==1, 1, ifelse(
-      dd$Y_2022==1, 2, ifelse(
-        dd$Y_2023==1, 3, 4
-      )
-  ))
   
   plot_map <- purrr::map(unique(dd$Year), function (t){
   dd %>% dplyr::mutate(zhat = mod$summary.random$ID$mean[c(1:n)]) %>% 
     dplyr::filter(as.numeric(.data$Year) == t) %>% 
     ggplot2::ggplot() +
     ggplot2::geom_sf(ggplot2::aes(fill = .data$zhat))+
-    ggplot2::labs(title = paste("Year:", 2020+ t), 
+    ggplot2::labs(title = paste("Year:", t), 
                   fill = expression(E * "[" * z * "]")) +
     ggplot2::scale_fill_viridis_c(na.value = "white", direction = -1, limits = rr) +
     ggplot2::theme_classic()
@@ -208,12 +203,7 @@ do.call(gridExtra::grid.arrange, c(plot_map, nrow = 2, ncol = 2))
 yhat_plot <- function(mod ){
   
   yhat <- round(mod$summary.fitted.values$mean, 0)
-  dd$Year <- ifelse(
-    dd$Y_2021==1, 1, ifelse(
-      dd$Y_2022==1, 2, ifelse(
-        dd$Y_2023==1, 3, 4
-      )
-  ))
+
   rr <- c(0, max(yhat))
   
   plot_map <- purrr::map(unique(dd$Year), function (t){
@@ -221,7 +211,7 @@ yhat_plot <- function(mod ){
       dplyr::filter(as.numeric(.data$Year) == t) %>% 
       ggplot2::ggplot() +
       ggplot2::geom_sf(ggplot2::aes(fill = .data$yhat)) +
-      ggplot2::labs(title = paste("Year:", 2020+ t), 
+      ggplot2::labs(title = paste("Year:", t), 
                     fill = expression(E * "[" * hat(y) * "]") )+
       ggplot2::scale_fill_viridis_c(na.value = "white", direction = -1, limits = rr) +
       ggplot2::theme_classic()
@@ -398,7 +388,7 @@ print(xtable::xtable(betas.nosp.inla, digits = 3), include.rowname  = F)
 
 
 
-  - `TEP_th_22`: The distance from the closest support center appears to play an important role. The easiest interpretation is that the physical distance represents a barrier to violence reporting. This is quite intuitive if we think of the material dynamics of reporting gender-based violence: one could reasonably expect violent men to prevent their partners to take a long rout and come out to report the violence suffered.
+  - `TEP_th`: The distance from the closest support center appears to play an important role. The easiest interpretation is that the physical distance represents a barrier to violence reporting. This is quite intuitive if we think of the material dynamics of reporting gender-based violence: one could reasonably expect violent men to prevent their partners to take a long rout and come out to report the violence suffered.
   
   - `ELI`: The (ventile of the distribution of the) share of employees in low productivity economic units is a clear indicator of (relative) economic underdevelopment. The most naive interpretation would be that in underdeveloped areas reporting gender violence is somewhat harder than in developed ones.
 
@@ -406,7 +396,7 @@ print(xtable::xtable(betas.nosp.inla, digits = 3), include.rowname  = F)
   
   <!-- is harder to interpret. This association is most likely influenced by several demographic instrumental variables we are not keeping into account and would indeed deserve a more dedicated focus. --> 
   
-  - `UIS`: The (ventile of the distribution of the) density of production units does not appear to have a significantly $\neq 0$ association with VAW reporting.
+  - `UIS`: The (ventile of the distribution of the) density of production units appears to have a positive association with VAW reporting, though it is not very high in absolute value if compared to coariates such as `TEP_th`.
 
   - `ELL`: The association with the proportion of people with low educational level has negative sign and is high in absolute value. The interpretation seems quite easy: cultural development, in general, would encourage reporting violence.
   
@@ -561,7 +551,7 @@ Spatial models are computed by approximating the marginal posteriors of interest
 Before proceeding with model structure, we need a short digression on how `R-INLA` works. The INLA framework is hierarchical and is based on a distinction between latent Gaussian fields (GFs) and hyperparameters. In our case, the former include intercepts, covariate effects and the spatial latent field. In the INLA literature latent Gaussian fields are frequently labelled as $x$ but we avoid doing so in order not to introduce notation ambiguity with respect to covariates. Hyperparameters in our case coincide with the parameters of $z$. Then, it is necessary to approximate the posterior distribution of both hyperparameters and latent GFs.  
 INLA follows a framework of numerical integration over a grid of hyperparameters, which is centered at the mode. Locating the posterior mode of hyperparameters is thus the first, crucial task to approximate all posterior distributions involved in the model. `R-INLA` employs an exploration strategy over the whole real axis [@INLA]. For this reason, hyperparameters need be re-parametrised in such a way to be defined over all $\mathbb{R}$, and the priors are thus actually written on the so-called internal scale of hyperparameters. This approach may be hiding a trick if specifical constraints are required on hyperparameters. For instance, $\Sigma$ needs to be positive-definite and symmetric. If the hyperparameter exploration is carried out on the whole real axis, nothing ensures, in principle, that the values of the single entries in $\Sigma$ ensure it is positive definite. For instance, consider the case the hyperparameter exploration procedure comes across this correlation matrix
 $$
-\Sigma_{\mathrm{ND}}
+\Sigma_{\mathrm{ND}} =
 \begin{pmatrix}
 1 & 0.4 & 0.9\\
 0.4 & 1 & -0.4\\
@@ -766,19 +756,19 @@ print(xtable::xtable(betas.MBYM.inla, digits = 3), include.rowname = FALSE)
 
 Estimations of $\beta$ differ slightly from the nonspatial model and credibility intervals are generally wider due to increased uncertainty. 
 
-  - `TEP_th_22` The effect of the distance from the closest support center remains similar in mean and the interpretation is not altered.
+  - `TEP_th` The effect of the distance from the closest support center remains similar in mean and the interpretation is not altered.
 
   - `ELI`: The effect of the incidence of low-productivity economic units is utterly negligible
 
-  - `PGR`: The association with population growth rate can only be considered barely significant for 2022 data
+  - `PGR`: The association with population growth rate is positive as in the nonspatial model, though it is lesser in absolute value
   
-  - `UIS`: The association with the density of productive units is negligible for 2021 and 2022 data, and can be considered slightly significant for 2023, bearing positive sign.  
+  - `UIS`: The association with the density of productive units is positive and double, on average, with respect to the nonspatial model. Interpreting this association is complex, as it bears opposite sign with the employment rate, which should be another indicator of economic development.
   
-  - `ELL`: The association with the incidence of low education levels, is even higher in mean than under the nonspatial model. We interpret this result as a strong *potential* impact of education on the chance that gender violence is reported
+  - `ELL`: The association with the incidence of low education levels, is even higher in mean than under the nonspatial model. We interpret this result as a strong *potential* impact of education on the chance that gender violence is reported.
   
-  - `PDI`: The effect of structural dependency index is utterly negligible, as for the GLM. 
+  - `PDI`: The effect of structural dependency index is utterly negligible, as for the nonspatial model. 
   
-  - `ER`: The effect associated with employment rate is increased for 2021 data,  more than doubled for 2022 data, and slightly increased for 2023 data. How to interpret this finding? Employment rate is clearly an indicator of economic development, hence the easiest interpretation is that - as it was with `ELI` under the nonspatial model - in more developed areas there is a higher chance that gender violence is reported.
+  - `ER`: The effect associated with employment rate is negative and relatively high in absolute value. How to interpret this finding? Employment rate is clearly an indicator of economic development, hence the easiest interpretation is that in more developed areas there is a higher chance that gender violence is reported.
 
 
 We show the expected latent effects:
@@ -790,9 +780,412 @@ zhat_plot(cav_MBYM_inla)
 
 ```
 
+We additionally show the fitted values of the counts of accesses, rounded to the closest integer.
+
+
+```{r yhat mbym, echo = FALSE, message = FALSE, warning = FALSE, output = FALSE, fig.cap = "Fitted access counts, BYM model"}
+
+yhat_plot(cav_MBYM_inla)
+
+```
+
+We show the posterior median of the marginal variances of $z$, i.e. the diagonal entries of $\Sigma$:
+
+```{r Sigma BYM, echo = FALSE, message = FALSE, warning = FALSE}
+vcov.BYM <- vcov_summary(cav_MBYM_inla)
+
+Sigma_diag_df <- as.data.frame(vcov.BYM$var) %>% 
+  dplyr::mutate(Year = c("2021", "2022", "2023", "2024")) %>% 
+  dplyr::relocate(.data$Year, .before = 1)
+names(Sigma_diag_df)[-1] <- c("Mean", "Sd", "Q0.025", "Median", "Q0.975")
+
+print(xtable::xtable(Sigma_diag_df, digits = 3), include.rowname = F)
+```
+
+
+For more insight on the dependence structure between the three years, posterior summaries for correlations are shown in the following. In terms of point estimates, the only high correlation appears that of 2021-2022.
+
+
+```{r correlations, message = FALSE, warning = FALSE, echo = FALSE, results = "asis"}
+cov_df <- as.data.frame(vcov.BYM$cor) %>% 
+  dplyr::mutate(Years = c("2021-22", "2021-23", "2021-24",
+                          "2022-23", "2022-24", "2023-24")) %>% 
+  dplyr::relocate(.data$Years, .before = 1)
+names(cov_df)[-1] <- c("Mean", "Sd", "Q0.025", "Median", "Q0.975")
+
+print(xtable::xtable(cov_df, digits = 3), include.rowname = F)
+```
+
+  
+Lastly, we have a look at the mixing parameter under the Leroux and BYM models.
+
+```{r mixing leroux, echo = FALSE, fig.height = 3, fig.cap = "Posterior marginal of the LCAR mixing parameter"}
+xi_marg_lcar <- inla.tmarginal(
+  fun = function(X) 1/(1 + exp(-X)),
+  marginal = cav_LMCAR_inla$marginals.hyperpar[[1]])
+
+plot(xi_marg_lcar, type = 'l', xlab = expression(xi), ylab = expression(pi (xi ~ "|" ~ y)  ))
+
+unlist(inla.zmarginal(xi_marg_lcar, silent = TRUE))
+```
+
+As we see, the Leroux mixing parameter is not particularly high, but interpreting it properly is hampered by the difficulty in scaling the precision matrix, which is a drawback of non-intrinsic models. 
+
+```{r mixing bym, echo = FALSE, fig.height = 3, fig.cap = "Posterior marginal of the BYM mixing parameter"}
+phi_marg_bym <- inla.tmarginal(
+  fun = function(X) 1/(1 + exp(-X)),
+  marginal = cav_MBYM_inla$marginals.hyperpar[[1]])
+
+plot(phi_marg_bym, type = 'l', xlab = expression(phi), ylab = expression(pi (phi ~ "|" ~ y)  ))
+
+unlist(inla.zmarginal(phi_marg_bym, silent = TRUE))
+```
+
+
+ #### M-models 
+Until now, we have been assuming the hyperparameter controlling for the strength spatial association is constant across the three years. We try to relax this hypothesis by allowing for year-specific hyperparameters, which can be achieved by using a more flexible class of multivariate models, i.e. the M-models [@Mmodels]. 
+
+Consider the scale parameter $\Sigma$, i.e. the marginal variance of the latent effect $z$, and let us define the definite-positive matrix $M$, such that $M \top M = \Sigma$.
+
+
+Starting with the PCAR model, if we allow the autocorrelation parameter $\rho$ to change over time, we introduce the matrix-valued parameter $R:= \mathrm{diag}(\rho_{2021}, \rho_{2022}, \rho_{2023})$ and the model becomes thus:
+\begin{equation}
+z \mid \Sigma, R \sim \mathcal{N} \left( 0,
+(M^\top \otimes I_n) [(I_p \otimes D) - (R \otimes W)]^{-1}
+\right)
+\label{eq:MMod_PCAR}
+\end{equation}
+
+Where $n=256$ and $p=4$, and the remainder of notation is equal to previous sections.
+Since the matrix $M$ has dimension $p^2$ and is not symmetric, modelling it directly would become burdensome. We therefore opt to make directly inference on $\Sigma$. In line with [@vicente2023high], we employ the Bartlett factorisation to $\Sigma$, which briefly means that we set $\Sigma:=BB^\top$, where $B$ is a lower-triangular matrix whose off-diagonal elements are assigned a Normal prior and the squares of its diagonal are assigned a $\chi^2$ distribution. This is equivalent to the assumption that $\Sigma$ follows a Wishart prior; for a proof see e.g. [@Kabe].
+
+As we previously mentioned, we loosely follow the workflow underlying the \texttt{bigDM} R package[@vicente2023high], which implements the M-model formulation of the PCAR, LCAR and BYM models. 
+
+The autoregressive and mixing parameters follow a multivariate and independent PC-prior; for the time being, 
+we keep assuming $\pi(\psi \leq \frac{1}{2}) = \frac{2}{3}$, where $\psi$ is a generic hyperparameter. More detail on PC-prior
+definition can be found in my PhD thesis or in the notes of the shared overleaf project.
+
+```{r MmodPCAR, message = FALSE, output = FALSE, warning = FALSE, echo = FALSE}
+cav_PMMCAR_inla <- inla(
+  N_ACC ~  0+ Y_2021 + Y_2022 + Y_2023 + Y_2024 +
+    TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.PMMCAR.model(k = 4, W = W_con, df = 6, PC = T)),
+  offset = log(nn),
+  family = "poisson", data =dd,
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  verbose = F)
+
+
+```
+
+
+Likewise, we test the LCAR model, which under the M-model formulation features a matrix-valued mixing parameter $\Xi := \mathrm{diag}(\xi_{2021}, \xi_{2022}, \xi_{2023}$
+
+\begin{equation}
+z \mid \Sigma, R \sim \mathcal{N} \left( 0,
+(M^\top \otimes I_n) [\Xi \otimes (D-W) + (I_p - \Xi) \otimes I_n]^{-1}
+\right)
+\label{eq:MMod_LCAR}
+\end{equation}
+
+```{r MmodLCAR, message = FALSE, output = FALSE, warning = FALSE, echo = FALSE}
+
+cav_LMMCAR_inla  <- inla(
+  N_ACC ~ 0+ Y_2021 + Y_2022 + Y_2023 + Y_2024+
+    TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.LMMCAR.model(k = 4, W = W_con,  df = 6, PC = T)),
+  offset = log(nn),
+  family = "poisson", data =dd, 
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  verbose = F)
+```
 
 
 
+Lastly, we propose the M-model extension of the BYM.
+
+If we define the matrix-valued mixing parameter$\Phi:=\mathrm{diag}( \phi_1, \phi_2, \dots  \phi_p )$ and $\bar{\Phi}:= \mathrm{diag} ( 1 - \phi_1,  1 - \phi_2 , \dots  1 - \phi_p) = (I_p -  \Phi )$, with $p=3$, the BYM field $\mathbf{Y}$ is given by:
+
+
+\begin{equation}
+\label{eq:Mmod_conv}
+Z =  U \Phi^{\frac{1}{2}} M  +  V \bar{\Phi}^{\frac{1}{2}}M
+\end{equation}
+
+Where  \begin{itemize}
+\item $U = (U_1, U_2, \dots U_p)$ is a multivariate and independent ICAR field, such that $U_j \sim \mathcal{N}_n(0, L^+)$ for $j = 1, 2 \dots p$, and $L^+$ is the pseudoinverse of the scaled graph Laplacian matrix
+\item $V = (V_1, V_2, \dots V_p)$ is a collection of $iid$ random Normal vectors, such that $V_j \sim \mathcal{N}_n(0, I_n)$ for $j = 1, 2 \dots p$.
+\item $M$ is a generic $p \times p$ full-rank matrix such that $M^\top M = \Sigma$, being $\Sigma$ is the scale parameter. For instance, $M$ can be defined as $D^{1/2} E^\top$, where $D$ is the diagonal matrix of the eigenvalues of $\Sigma$ and $E$ is the corresponding eigenvectors matrix.
+\end{itemize}
+ 
+```{r MMod BYM, message = FALSE, output = FALSE, warning = FALSE}
+ 
+cav_MMBYM_inla <- inla(
+  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 +
+    TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.MMBYM.model(k = 4, W = W_con,  PC= T, df = 6) , 
+      extraconstr = constr.BYM),
+  offset = log(nn), #control.inla = list(h = 1e-5),
+  family = "poisson", data =dd,
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  verbose = F)
+
+
+
+```
+Model comparison follows:
+```{r WAICs table MMod, echo = F, results = "asis", message = FALSE}
+WAICS.MMod <- tibble::tibble(
+  Model = c("Null", "ICAR", "PCAR", "Leroux", "BYM"),
+  WAIC = round(c(
+    cav_nosp_inla$waic$waic,  cav_IMCAR_inla$waic$waic,  cav_PMMCAR_inla$waic$waic, 
+    cav_LMMCAR_inla$waic$waic, cav_MMBYM_inla$waic$waic),3),
+  Eff_params = round(c(
+    cav_nosp_inla$waic$p.eff,   cav_IMCAR_inla$waic$p.eff,  cav_PMMCAR_inla$waic$p.eff,
+     cav_LMMCAR_inla$waic$p.eff, cav_MMBYM_inla$waic$p.eff),3))
+
+print(xtable::xtable(WAICS.MMod, digits = 3),include.rowname = F)
+
+```
+
+
+Here we show some posterior summaries for $\alpha$ under the BYM model.
+
+ 
+```{r alphas MMbym, echo = FALSE, results = "asis", message = FALSE}
+
+betas.MMBYM.inla   <- cav_MMBYM_inla$summary.fixed %>% 
+  dplyr::select(.data$mean, .data$sd, .data$`0.025quant`, .data$`0.975quant`) %>%
+  dplyr::mutate(Effect = rownames(cav_MBYM_inla$summary.fixed)) %>% 
+  dplyr::relocate(.data$Effect, .before = 1) %>%  
+  dplyr::rename(Mean = .data$mean, Sd = .data$sd,
+                Q_0.025 = .data$`0.025quant`, Q_0.975 = .data$`0.975quant`)
+
+print(xtable::xtable(betas.MMBYM.inla, digits = 3), include.rowname = FALSE)
+
+```
+
+
+```{r  betas MMBYM plot, echo = FALSE, fig.height = 3, fig.cap = "Posterior marginals of covariate effects, M-model BYM"}
+
+plot.beta.posterior(cav_MMBYM_inla, offset=4)
+```
+
+We then show the expected latent effects.
+
+```{r zhat mmbym, echo = FALSE, message = FALSE, warning = FALSE, output = FALSE, fig.cap = "Estimated BYM latent effect using the M-model formulation"}
+zhat_plot(cav_MMBYM_inla)
+```
+
+We additionally show the fitted values of the counts of accesses, rounded to the closest integer.
+```{r yhat mmbym, echo = FALSE, message = FALSE, warning = FALSE, output = FALSE, fig.cap = "Fitted access counts, BYM M-model"}
+
+yhat_plot(cav_MMBYM_inla)
+
+```
+
+Differences with respect to the scalar-mixing model are hardly noticeable in terms of
+both $\beta$, $\eta$ and $z$
+Lastly, we have a look at the autoregressive (PCAR) and mixing (LCAR, BYM) parameters.
+
+
+```{r mixing mmod summary, echo = FALSE, results = "asis"}
+
+rho_marg_PMMCAR <- lapply(c(1:4), function(x){
+  inla.tmarginal(fun = function(y) {1/(1 + exp(-y))},
+                   marginal = cav_PMMCAR_inla$marginals.hyperpar[[x]])
+})
+  
+  
+xi_marg_LMMCAR <- lapply(c(1:4), function(x){
+  inla.tmarginal(fun = function(y) {1/(1 + exp(-y))},
+                   marginal = cav_LMMCAR_inla$marginals.hyperpar[[x]])
+})
+
+phi_marg_MMBYM <- lapply(c(1:4), function(x){
+  inla.tmarginal(fun = function(y) {1/(1 + exp(-y))},
+                   marginal = cav_MMBYM_inla$marginals.hyperpar[[x]])
+})
+
+# PCAR autoregressive
+rho_marg_PMMCAR_summary <- t(sapply(c(1:4), function(x){
+  inla.zmarginal(rho_marg_PMMCAR[[x]], silent = T)
+}))
+
+xi_marg_LMMCAR_summary <- t(sapply(c(1:4), function(x){
+  inla.zmarginal(xi_marg_LMMCAR[[x]], silent = T)
+}))
+
+phi_marg_MMBYM_summary <- t(sapply(c(1:4), function(x){
+  inla.zmarginal(phi_marg_MMBYM[[x]], silent = T)
+}))
+ 
+marg_hyper_summary <- (rbind(
+  rho_marg_PMMCAR_summary, xi_marg_LMMCAR_summary, phi_marg_MMBYM_summary
+))
+
+marg_hyper_summary <- as.data.frame(matrix(unlist(marg_hyper_summary[,c(1,2,3,5,7)]), ncol=5, byrow = F))
+
+names(marg_hyper_summary) <- c("Mean", "Sd", "Q0.50", "Q0.025", "Q0.975")
+marg_hyper_summary %<>%
+  dplyr::mutate(Model = rep(c("PCAR", "LCAR", "BYM"), each = 4)) %>% 
+  dplyr::relocate(.data$Model, .before = 1) %>% 
+  dplyr::mutate(Year = rep(c("2021", "2022", "2023", "2024"), 3)) %>% 
+  dplyr::relocate(.data$Year, .after = .data$Model)
+  
+
+print(xtable::xtable(marg_hyper_summary, digits = 3), include.rowname  = F)
+
+```
+ 
+ 
+
+Here we plot the marginal posterior of the BYM variance mixing parameter.
+ 
+```{r mixing MMBYM plot, fig.height = 3, fig.cap = "Posterior marginal of the BYM mixing parameters", echo = FALSE}
+philimX <- range(0,1)
+philimY <- range(do.call(c, lapply(phi_marg_MMBYM, FUN = function(x) x[,2])))
+
+phimarg <- as.data.frame(do.call(cbind, phi_marg_MMBYM))
+names(phimarg) <- paste0(rep(c("phi_2021", "phi_2022", "phi_2023", "phi_2024"), each=2), c("__X", "__Y"))
+
+
+phimarg_long <- tidyr::pivot_longer(phimarg, cols = c(1:ncol(phimarg)),
+                                       names_to = c("Year", ".value"),
+                                       names_sep = "__")
+
+ggplot2::ggplot(phimarg_long, ggplot2::aes(x = .data$X, y = .data$Y, color = .data$Year)) +
+  ggplot2::geom_line(size = 0.7) +
+  ggplot2::geom_vline(xintercept = 0)+
+  ggplot2::coord_cartesian(xlim = philimX, ylim = philimY) +
+  ggplot2::labs(
+    title = "Posterior Marginals of mixing parameters",
+    x = expression(phi),
+    y = expression(pi(phi ~ "|" ~ y)),
+    color = "Year") +
+  ggplot2::theme_classic()
+```
+
+The interpretation is that while spatial association is moderate in 2021 data, the spatial distribution of 2023 data is dominated by noise; 2022 and 2024 data instead display a rather strong spatial association. For 2023 data, the PC prior penalises indeed the departure from the nonspatial model quite strongly.
+
+
+#### Appendix: sparse parametrisation of the BYM
+
+Recall the BYM as defined in equation \ref{eq:Mmod_conv}; the prior variance of $Z$ is:
+$$
+\mathrm{Var}\left[ \mathrm{vec}(Z) \mid \Sigma, \Phi \right] = 
+\left( M^\top \otimes I_n\right) 
+\mathrm{diag}\left(S_1,\ldots,S_p\right)
+\left( M \otimes I_n \right)
+$$
+Where each diagonal block $S_j$ is the variance of $U_j \Phi + V_j \bar{\Phi}$, i.e. $S_j = \phi_j L^+ + (1-\phi_j) I_n$. 
+
+
+
+Extending the approach of [@BYM2] to the multivariate case, we know that:
+
+$$
+\mathbb{E} [\mathrm{vec}(Z) \mid U, \Phi , \Sigma] = \mathrm{vec}(U \Phi^{\frac{1}{2}}M) =
+[( M^{\top}\Phi^{\frac{1}{2}}) \otimes I_n] \mathrm{vec}(U)
+$$
+
+and similarly
+
+$$
+\mathrm{Var} [\mathrm{vec}(Z) \mid  U, \Phi , \Sigma] =
+\left[( M^{\top} \bar{\Phi}^{\frac{1}{2}}) \otimes I_n \right] 
+\mathbb{E} \left[
+\mathrm{vec}(V)
+\mathrm{vec}(V)^\top \right]
+\left[(\bar{\Phi}^{\frac{1}{2}} M) \otimes I_n \right] = 
+\left(
+ M^\top \bar{\Phi}  M \right) \otimes I_n
+$$
+
+
+The distribution of $Z \mid U, \Sigma, \Phi$ then reads:
+\begin{align*}
+-2 \ln \pi \left(\mathrm{vec}(Z) \mid U, \Sigma, \phi \right) 
+%
+\mathrm{vec}(Z)^{\top}
+\left[ \left(
+ M^{-1} \bar{\Phi}^{-1}{M^{-1}}^\top
+\right) \otimes I_n \right] 
+\mathrm{vec}(Z) \\ 
+%
+- 2\mathrm{vec}(Z)^{\top} 
+\left[ \left( 
+ M^{-1} \bar{\Phi}^{-1}{M^{-1}}^\top\right) \otimes I_n \right] 
+\left[ \left( M^\top \Phi^{\frac{1}{2}} \right) \otimes I_n \right] \,\mathrm{vec}(U)   \\
+%
++  \mathrm{vec}(U)^{\top}
+    \left[ \left(\Phi^{\frac{1}{2}} M \right) \otimes I_n \right]
+    \left[ \left(  M^{-1} \bar{\Phi}^{-1}{M^{-1}}^\top\right) \otimes I_n \right]
+    \left[ (M^\top\Phi^{\frac{1}{2}} ) \otimes I_n \right]
+   \mathrm{vec}(U) \\
+%
+= C + \mathrm{vec}(Z)^{\top}
+\left[ \left(
+ M^{-1} \bar{\Phi}^{-1}{M^{-1}}^\top
+\right) \otimes I_n \right] 
+\mathrm{vec}(Z) \\ 
+%
+- 2\mathrm{vec}(Z)^{\top} 
+\left[ \left(  M^{-1} \bar{\Phi}^{-1} \Phi^{\frac{1}{2}} M^{\top} \right)
+\otimes I_n \right]  \,\mathrm{vec}(U)   \\
+%
++  \mathrm{vec}(U)^{\top}
+    \left[ \left(  \Phi  \bar{\Phi}^{-1}  \right) \otimes I_n \right]
+   \mathrm{vec}(U)
+\end{align*}
+
+Now, for brevity let us define the following $p \times p$ matrices:
+\begin{align*}
+q_{11} :=  M^{-1} \bar{\Phi}^{-1}{M^{-1}}^\top; \quad
+q_{12} :=  M^{-1} \bar{\Phi}^{-1} \Phi^{\frac{1}{2}}; \quad
+q_{22} := \Phi \bar{\Phi}^{-1}
+\end{align*}
+Hence 
+\begin{align*}
+-2 \ln \pi \left(\mathrm{vec}(Z) \mid U, \Sigma, \Phi \right) 
+= C + \mathrm{vec}(Z)^{\top}
+\left(q_{11} \otimes I_n \right) 
+\mathrm{vec}(Z) \\
+%
+- 2\mathrm{vec}(Z)^{\top} 
+\left(  q_{12} \otimes I_n \right)  \,\mathrm{vec}(U)\\
+%
++  \mathrm{vec}(U)^{\top}
+    \left(q_{22} \otimes I_n \right)
+   \mathrm{vec}(U)
+\end{align*}
+Then, we have 
+\begin{align*}
+-2 \ln \pi \left(\mathrm{vec}(Z), \mathrm{vec}(U) \mid \Sigma, \phi \right)  
+= C + \mathrm{vec}(Z)^{\top}
+\left(q_{11} \otimes I_n \right) 
+\mathrm{vec}(Z)\\ 
+%
+- 2\mathrm{vec}(Z)^{\top} 
+\left(  q_{12} \otimes I_n \right)  \,\mathrm{vec}(U)\\  
+%
++  \mathrm{vec}(U)^{\top}
+    \left(q_{12} \otimes I_n + I_p \otimes L\right)
+   \mathrm{vec}(U)
+\end{align*}
+Hence, with some straightforward algebra, it can be concluded that:
+\begin{equation} \label{eq:joint_bym_mmod}
+    \begin{pmatrix}
+        \mathrm{vec} (Z) \\ \mathrm{vec} (U) 
+    \end{pmatrix}
+    \sim \mathcal{N}_{2np} \left( 0, \begin{pmatrix}
+            q_{11} \otimes I_n \, & 
+            \, - q_{12} \otimes I_n \\
+            - q_{12}^\top\otimes I_n \, & \,
+             q_{22} \otimes I_n + I_p \otimes L
+        \end{pmatrix}^{-1} \right)
+\end{equation}
+Which generalises to the multivariate case the sparse precision derived by [@BYM2]. 
 
 
 

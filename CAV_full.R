@@ -825,7 +825,7 @@ cav_PMMCAR_bigDM <- inla(
 cav_PMMCAR_unif <- inla(
   N_ACC ~  0+ Y_2021 + Y_2022 + Y_2023 + Y_2024 +
     TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
-    f(ID, model = inla.PMMCAR.model(k = 4, W = W_con, df = 4, PC = F)),
+    f(ID, model = inla.PMMCAR.model(k = 4, W = W_con, df = 6, PC = F)),
   offset = log(nn), control.inla = list(stupid.search = F),
   family = "poisson", data =dd_con, safe = F,
   num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
