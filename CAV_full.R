@@ -613,8 +613,20 @@ cav_bym_INLA_2024 <- inla(
 ## Spatial analysis: Block-factorisable models ---------------------
 
 #' Simplest spatial model: ICAR -----------------------------------------------#
-#' For the time being we opt for panel analysis.
 
+#' For the time being we opt for panel analysis.
+#' 
+#' ST-version -----------------------------------------------------------------#
+#' This is the simplest spatial model tested here: only 5 parameters
+cav_IMCAR_inla.AR1 <- inla(
+  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.IMCAR.AR1(k = 4, W = W_con), 
+      extraconstr = list(A = A_constr, e = c(0,0,0,0))),
+  offset = log(nn), family = "poisson", data =dd_con,
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  verbose = T)
+
+vcov_summary_ST(cav_IMCAR_inla.AR1, k=4)
 
 cav_IMCAR_inla <- inla(
   N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
@@ -624,6 +636,7 @@ cav_IMCAR_inla <- inla(
   #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
   num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
   verbose = T)
+vcov_summary(cav_IMCAR_inla)
 
 #' Matrix-valued parameter for the Bartlett factors of the covariance
 #' set in order that E[\sigma_ii] = 1 a priori
@@ -664,22 +677,18 @@ vcov_summary(cav_IMCAR_inla )
 #' PMCAR model ----------------------------------------------------------------# 
 
 
-#' CRASH 
-
- 
 
 cav_PMCAR_inla <- inla(
   N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + 
-    ELI + PGR + UIS + ELL + PDI + ER+ 
+    TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
     f(ID, model = inla.PMCAR.Bartlett(W = W_con, k = 4,  df = 6 )),
   offset = log(nn), family = "poisson", data = dd_con,
-  #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
   num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T, dic = T), 
   verbose = T)
 
 cav_PMCAR_inla_PC <- inla(
   N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + 
-    ELI + PGR + UIS + ELL + PDI + ER+ 
+    TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
     f(ID, model = inla.PMCAR.Bartlett(W = W_con, k = 4,  df = 6, PC = TRUE)),
   offset = log(nn), family = "poisson", data = dd_con,
   #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
@@ -720,12 +729,6 @@ cav_LMCAR_inla_PC <- inla(
   verbose = T)
  
 
-#' Mixing parameter (hard to interpret etcetera) ------------------------------#
-
-inla.zmarginal(inla.tmarginal(
-  fun = function(X) 1/(1 + exp(-X)),
-  marginal = cav_LMCAR_inla$marginals.hyperpar[[1]]))
-
 ## ----------------------------------------------------------------------------#
 
 #' Multivariate BYM ATTEMPT --------------------------------------------------#
@@ -740,9 +743,9 @@ cav_MBYM_inla <- inla(
   control.inla = list(stupid.search = FALSE), safe = FALSE,
   num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
   verbose = T)
-vcov_summary(cav_MBYM_inla)
-#' Very bad. 
 
+vcov_summary(cav_MBYM_inla)
+ 
 cav_MBYM_inla.IW <- inla(
   N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 +
     TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
@@ -761,35 +764,6 @@ inla.zmarginal(inla.tmarginal(
   fun = function(X) 1/(1 + exp(-X)),
   marginal = cav_MBYM_inla.W$marginals.hyperpar[[1]]))
 
-#' Nasty:
-#' 
-alphalimX <-range(do.call(c, lapply(cav_MBYM_inla$marginals.fixed[-c(1:3)], FUN = function(x) x[,1])))
-alphalimY <-range(do.call(c, lapply(cav_MBYM_inla$marginals.fixed[-c(1:3)], FUN = function(x) x[,2])))
-
-alphamarg <- as.data.frame(do.call(cbind, cav_MBYM_inla$marginals.fixed[-c(1:3)]))
-names(alphamarg) <- paste0(rep(names(cav_MBYM_inla$marginals.fixed[-c(1:3)]),each=2), c("__X", "__Y"))
-names(alphamarg) <- 
-  gsub("1__", "_._2021__", gsub("2__", "_._2022__", gsub("3__", "_._2023__",
-                                                       names(alphamarg))))
-
-alphamarg_long <- tidyr::pivot_longer(alphamarg, cols = c(1:42),
-                                       names_to = c("Effect", ".value"),
-                                       names_sep = "__") %>% 
-  tidyr::separate(.data$Effect, into = c("Effect", "Year"), sep = "_._")
-
-#' If we do not indulge into pogit regression, let us just keep calling effects \beta:
-
-ggplot2::ggplot(alphamarg_long, ggplot2::aes(x = .data$X, y = .data$Y, color = .data$Effect)) +
-  ggplot2::geom_line(size = 0.7) +
-  ggplot2::geom_vline(xintercept = 0) +
-  ggplot2::coord_cartesian(xlim = alphalimX, ylim = alphalimY) +
-  ggplot2::labs(
-    #title = "Posterior Marginals of Covariates Effects",
-    x = expression(beta),
-    y = expression(pi(beta ~ "|" ~ y)),
-    color = "Effect") +
-  ggplot2::theme_classic() +
-  ggplot2::facet_wrap(~.data$Year, scales = "free_y") 
 
 
 ## Comparison using LGOCV -----------------------------------------------------
@@ -866,18 +840,6 @@ cav_PMMCAR_pc <- inla(
   family = "poisson", data =dd_con,
   num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
   verbose = T)
-
-
- 
-#' Interpret hyperparameters --------------------------------------------------#
-
-data.frame(do.call(rbind, lapply(
-  lapply(cav_PMMCAR_bigDM$marginals.hyperpar[c(1,2,3,4)], function(f){
-    inla.tmarginal(fun = function(X) 1/(1 + exp(-X)), marginal = f)
-  }), function(x) unlist(inla.zmarginal(x, silent = TRUE))))) %>% 
-  dplyr::select(1,2,3,5,7)
-
-Mmodel_compute_cor_bigDM(cav_PMMCAR_bigDM, J=4)[c(1,3)]
 
 
 

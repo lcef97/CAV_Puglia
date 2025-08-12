@@ -2,7 +2,11 @@
 #'                          Auxiliary functions                                #
 #'  ---------------------------------------------------------------------------#
 # #'  INLA code for factorisable ST autoregressive models ----------------------
-#' First of all, recalling some package will be useful
+#' In compliance with the principle of parsimony, here we start
+#' from models whose correlation matrix has the AR(1) structure.
+#' This is a strong simplification of graphical models. 
+
+#' But first of all, recalling some package will be useful
 library(INLA)
 library(magrittr)
 #' Temporal structure is AR(1)-like
@@ -57,7 +61,7 @@ inla.rgeneric.IMCAR.AR1  <-
       val <- sum(theta[1:k] + dexp(exp(theta[c(1:k)]), rate=sd.rate, log=T))
       #' Uniform prior on the correlation --> use Normal for time being
       #val <- val + log(2) - theta[k+1] - log(1+exp(-theta[k+1]))  
-        dnorm(theta[k+1], sd = sqrt(10))
+      val <- val+  dnorm(theta[k+1], sd = sqrt(10))
       return(val)
     }
     initial <- function(){
@@ -435,7 +439,7 @@ inla.rgeneric.MBYM.AR1 <- function(
         theta[1L] - 2 * log(1 + exp(-theta[1L]))
     }
     val <- val + sum(theta[1+c(1:k)] + dexp(exp(theta[1+c(1:k)]), rate=sd.rate, log=T))
-    #' Uniform prior on the correlation
+    #' Uniform prior on the correlation --> Use Normal prior for now
     #val <- val + log(2) - theta[k+1] - log(1+exp(-theta[k+1]))
     val <- val + dnorm(theta[k+2], sd = sqrt(10))
     return(val)
@@ -489,21 +493,6 @@ inla.rgeneric.IMCAR.Bartlett  <-
                     "log.prior", "quit"), theta = NULL) {
     envir <- parent.env(environment())
     if(!exists("cache.done", envir = envir)){
-      if(!exists("theta2cov", envir=envir)){
-        theta2vcov <- function(theta){
-          sd <- sapply(theta[1:k], function(x) exp(x))
-          corr <- sapply(theta[(k+1):(k*(k+1)/2)], function(x){
-            (2 * exp(x))/(1 + exp(x)) - 1
-          }) 
-          R <- array(0, dim=c(k, k))
-          R[lower.tri(R)] <- corr
-          R <- R + t(R) + diag(x=1, nrow=k)
-          Sigma <- diag(sd) %*% R %*% diag(sd)
-          Sigma <- c(diag(Sigma), Sigma[lower.tri(Sigma, diag=F )])
-          return(Sigma)
-        }
-        assign("theta2vcov", theta2vcov, envir = envir)
-      }
       if(!exists("df", envir = envir)) assign("df", k+2, envir=envir)
       if(!exists("scale.fac", envir = envir)) assign("scale.fac", diag(k), envir=envir)
       L_unscaled <- Matrix::Diagonal(n=nrow(W), x=apply(W, 1, sum)) -  W
@@ -514,20 +503,44 @@ inla.rgeneric.IMCAR.Bartlett  <-
         L <- scaleQ$Q
       } else L <- L_unscaled
       assign("L", L, envir=envir)
+      if(!exists("initial.values", envir = envir)){
+        r0 <- 2*exp(-4)/(1+exp(-4)) - 1
+        R0 <- diag(k)
+        for(i in c(1:k)) for(j in c(1:k)) R0[i,j] <- r0^abs(i-j)
+        sd0 <- diag(x=exp(-2), nrow=k)
+        S0 <- sd0 %*% R0 %*% sd0
+        if(Bartlett){
+          if(!Wishart.on.scale) S0 <- solve(S0)
+          c0 <- t(chol(S0))
+          diag.N.init <- log(diag(c0))
+          offdiag.N.init <- c0[lower.tri(c0, diag=F)]
+        } else{
+          diag.N.init <- rep(-2, k)
+          offdiag.N.init <- S0[lower.tri(S0, diag=F)]
+        }
+        N.init <- c(diag.N.init, offdiag.N.init)
+        assign("N.init", N.init, envir = envir)
+      }  
       assign("cache.done", TRUE, envir=envir)
     }
-    
     interpret.theta <- function() {
+      diag.N <- sapply(theta[c(1:k)], function(x) exp(x) )
       if(!Bartlett){
-        #' Notice: theta[k+1:k] are the log-standard deviations
-        vSigma <- theta2vcov(theta)
-        Sigma <- array(0, dim=c(k,k))
-        Sigma[lower.tri(Sigma)] <- vSigma[-c(1:k)]
-        Sigma <- Sigma + t(Sigma) + diag(vSigma[c(1:k)])
+        #' Notice: theta[1:k] are the log-standard deviations
+        sd <- diag.N
+        corr <- sapply(theta[(k+1):(k*(k+1)/2)], function(x){
+          (2 * exp(x))/(1 + exp(x)) - 1
+        }) 
+        R <- array(0, dim=c(k, k))
+        R[lower.tri(R)] <- corr
+        R <- R + t(R) + diag(x=1, nrow=k)
+        Sigma <- diag(sd) %*% R %*% diag(sd)
+        #vSigma <- theta2vcov(theta)
+        #Sigma <- array(0, dim=c(k,k))
+        #Sigma[lower.tri(Sigma)] <- vSigma[-c(1:k)]
+        #Sigma <- Sigma + t(Sigma) + diag(vSigma[c(1:k)])
         PREC <- solve(Sigma) 
-        
        } else {
-        diag.N <- sapply(theta[c(1:k)], function(x) exp(x) )
         no.diag.N <- theta[as.integer(k + 1:(k * (k - 1)/2))]
         N <- diag(diag.N, k)
         N[lower.tri(N, diag = FALSE)] <- no.diag.N
@@ -542,7 +555,7 @@ inla.rgeneric.IMCAR.Bartlett  <-
         }
        } 
       e <- eigen(Sigma)
-      if(any(e$values <=0 )){
+      if(any(e$values <= 0 )){
         cat("!!! PROBLEM: Sigma MATRIX HAS NEGATIVE EIGENVALUES \n")
         cat("vec(Prec) = ", Sigma, "\n eigenvalues = ", e$values, " \n")
         cat("     ...System likely to crash... \n")
@@ -557,17 +570,7 @@ inla.rgeneric.IMCAR.Bartlett  <-
     }
     Q <- function() {
       param <- interpret.theta()
-      #cat("Q called at theta:\n", paste0(round(theta, 5), collapse = ", "), "\n")
-      if(!M.dummy) Q <- kronecker(param$PREC,  L) else{
-        In <- Matrix::Diagonal(n=nrow(W), x=1)
-        MI <- kronecker(solve(param$M), In)
-        BlockIW <- kronecker(diag(k), L)
-        Q <- MI %*% BlockIW %*% Matrix::t(MI)
-      }
-    #  cat("a[0] on guess:", Q@x[1], "\n")
-      if (any(is.nan(Q@x)) || any(is.infinite(Q@x))) {
-        cat("!!!!!!! WARNING: Q has NaNs or Infs! \n \n \n \n")
-      }
+      Q <- kronecker(param$PREC,  L) 
       return(Q)
     }
     mu <- function() {
@@ -606,7 +609,7 @@ inla.rgeneric.IMCAR.Bartlett  <-
     }
     initial <- function(){
       if(!exists("initial.values", envir= envir )){
-        return(c(rep(-2, k), rep(0, k*(k-1)/2)))
+        return(N.init)
       } else {
         return(initial.values)
       }
@@ -630,7 +633,7 @@ inla.rgeneric.IMCAR.Bartlett  <-
 inla.IMCAR.Bartlett  <- function(...){
   INLA::inla.rgeneric.define(inla.rgeneric.IMCAR.Bartlett,
                              Bartlett = TRUE, Wishart.on.scale = TRUE,
-                             scale.model = TRUE, M.dummy = FALSE, ...)
+                             scale.model = TRUE,  ...)
 } 
 
 ##' PMCAR model ---------------------------------------------------------------#
@@ -671,6 +674,24 @@ inla.rgeneric.PMCAR.Bartlett <-
         }
         assign("inla.pc.pmmcar.rho", inla.pc.pmmcar.rho, envir = envir)
         assign("eigenvalues", eigenvalues, envir = envir)
+      }
+      if(!exists("initial.values", envir = envir)){
+        r0 <- 2*exp(-4)/(1+exp(-4)) - 1
+        R0 <- diag(k)
+        for(i in c(1:k)) for(j in c(1:k)) R0[i,j] <- r0^abs(i-j)
+        sd0 <- diag(x=exp(-2), nrow=k)
+        S0 <- sd0 %*% R0 %*% sd0
+        if(Bartlett){
+          if(!Wishart.on.scale) S0 <- solve(S0)
+          c0 <- t(chol(S0))
+          diag.N.init <- log(diag(c0))
+          offdiag.N.init <- c0[lower.tri(c0, diag=F)]
+        } else{
+          diag.N.init <- rep(-2, k)
+          offdiag.N.init <- S0[lower.tri(S0, diag=F)]
+        }
+        N.init <- c(diag.N.init, offdiag.N.init)
+        assign("N.init", N.init, envir = envir)
       }
       assign("cache.done", TRUE, envir = envir)
     }
@@ -731,7 +752,7 @@ inla.rgeneric.PMCAR.Bartlett <-
     }
     initial <- function(){
       if(!exists("initial.values", envir= envir )){
-        return(c(-3, rep(-2, k), rep(0, k*(k-1)/2)))
+        return(c(-3,  N.init))
       } else {
         return(initial.values)
       }
@@ -754,7 +775,7 @@ inla.rgeneric.PMCAR.Bartlett <-
 
 inla.PMCAR.Bartlett <- function(...) {
   INLA::inla.rgeneric.define(inla.rgeneric.PMCAR.Bartlett,
-                             Wishart.on.scale = TRUE, ...)}
+                             Bartlett=TRUE, Wishart.on.scale = TRUE, ...)}
 
 
 ##' LMCAR model ---------------------------------------------------------------#
@@ -797,13 +818,31 @@ inla.rgeneric.LMCAR.Bartlett <-
         assign("inla.pc.lmmcar.lambda", inla.pc.lmmcar.lambda, envir = envir)
         assign("eigenvalues", eigenvalues, envir = envir)
       }
+      if(!exists("initial.values", envir = envir)){
+        r0 <- 2*exp(-4)/(1+exp(-4)) - 1
+        R0 <- diag(k)
+        for(i in c(1:k)) for(j in c(1:k)) R0[i,j] <- r0^abs(i-j)
+        sd0 <- diag(x=exp(-2), nrow=k)
+        S0 <- sd0 %*% R0 %*% sd0
+        if(Bartlett){
+          if(!Wishart.on.scale) S0 <- solve(S0)
+          c0 <- t(chol(S0))
+          diag.N.init <- log(diag(c0))
+          offdiag.N.init <- c0[lower.tri(c0, diag=F)]
+        } else{
+          diag.N.init <- rep(-2, k)
+          offdiag.N.init <- S0[lower.tri(S0, diag=F)]
+        }
+        N.init <- c(diag.N.init, offdiag.N.init)
+        assign("N.init", N.init, envir = envir)
+      }
       assign("L", L, envir = envir)
       assign("cache.done", TRUE, envir = envir)
     }
     interpret.theta <- function() {
       lambda <- 1/(1 + exp(-theta[1L]))
-      diag.N <- sapply(theta[as.integer(2:(k+1))], function(x) {exp(x)})
-      no.diag.N <- theta[as.integer( (k+1):(k*(k+1)/2) +1)]
+      diag.N <- sapply(theta[c(2:(k+1))], function(x) exp(x) )
+      no.diag.N <- theta[c( (k+1):(k*(k+1)/2) +1)]
       N <- diag(diag.N, k)
       N[lower.tri(N, diag = FALSE)] <- no.diag.N
       N <- scale.fac %*% N
@@ -857,7 +896,7 @@ inla.rgeneric.LMCAR.Bartlett <-
     }
     initial <- function(){
       if(!exists("initial.values", envir= envir )){
-        return(c(-3, rep(-2, k), rep(0, k*(k-1)/2)))
+        return(c(-3, N.init))
       } else {
         return(initial.values)
       }
@@ -868,8 +907,7 @@ inla.rgeneric.LMCAR.Bartlett <-
     if (as.integer(R.version$major) > 3) {
       if (!length(theta)) 
         theta = initial()
-    }
-    else {
+    } else {
       if (is.null(theta)) {
         theta <- initial()
       }
@@ -880,7 +918,7 @@ inla.rgeneric.LMCAR.Bartlett <-
 
 inla.LMCAR.Bartlett <- function(...) {
   INLA::inla.rgeneric.define(inla.rgeneric.LMCAR.Bartlett,
-                             Wishart.on.scale = TRUE, ...)}
+                             Bartlett = TRUE, Wishart.on.scale = TRUE, ...)}
 
 ##' BYM -----------------------------------------------------------------------#
 
@@ -941,18 +979,23 @@ inla.rgeneric.MBYM.Bartlett <- function(
       for(i in c(1:k)) for(j in c(1:k)) R0[i,j] <- r0^abs(i-j)
       sd0 <- diag(x=exp(-2), nrow=k)
       S0 <- sd0 %*% R0 %*% sd0
-      c0 <- t(chol(S0))
-      diag.N.init <- log(diag(c0))
-      offdiag.N.init <- c0[lower.tri(c0, diag=F)]
+      if(Bartlett){
+        if(!Wishart.on.scale) S0 <- solve(S0)
+        c0 <- t(chol(S0))
+        diag.N.init <- log(diag(c0))
+        offdiag.N.init <- c0[lower.tri(c0, diag=F)]
+      } else{
+        diag.N.init <- rep(-2, k)
+        offdiag.N.init <- S0[lower.tri(S0, diag=F)]
+      }
       N.init <- c(diag.N.init, offdiag.N.init)
       assign("N.init", N.init, envir = envir)
     }  
-    
     assign("cache.done", TRUE, envir = envir)
   }
   interpret.theta <- function() {
     phi <- 1/(1 + exp(-theta[1L]))
-    diag.N <- sapply(theta[as.integer(2:(k+1))], function(x) {exp(x)})
+    diag.N <- sapply(theta[as.integer(2:(k+1))], function(x) exp(x) )
     no.diag.N <- theta[as.integer( (k+1):(k*(k+1)/2) +1)]
     N <- diag(diag.N, k)
     N[lower.tri(N, diag = FALSE)] <- no.diag.N
@@ -1020,11 +1063,7 @@ inla.rgeneric.MBYM.Bartlett <- function(
   }
   initial <- function(){
     if(!exists("initial.values", envir= envir )){
-      if(Bartlett) {
-        return(  c(-3, N.init ) )
-      } else{
-          return(c(rep(-3, k), rep(-2, k), rep(0, k*(k-1)/2)))
-        }
+      return(  c(-3, N.init ) )
     } else {
       return(initial.values)
     }
@@ -2261,6 +2300,26 @@ Mmodel_compute_mixing <- function(model){
     dplyr::select(1,2,3,5,7)
   return(res)
 }
+
+vcov_summary_ST <- function(model, AR.order=1){
+  k <- model$.args$formula[[3]][[3]]$model$k
+  J <- model$.args$formula[[3]][[3]]$model$J
+  if(is.null(k)) k <- J
+  N <- nrow(model$summary.hyperpar)
+  offset <- N - k - AR.order
+  summary.var <- 
+    data.frame(do.call(rbind, lapply(
+      lapply(model$marginals.hyperpar[offset + c(1:k)], function(f){
+        inla.tmarginal(fun = function(X) exp(2*X), marginal = f)
+      }), function(x) unlist(inla.zmarginal(x, silent = TRUE))))) %>% 
+    dplyr::select(1,2,3,5,7)
+  summary.cor <- data.frame(
+    inla.zmarginal(inla.tmarginal(
+      fun=function(X) 2/(1+exp(-X))-1,
+      marginal = cav_IMCAR_inla.AR1$marginals.hyperpar[[5]]
+  ), silent=T)) %>% dplyr::select(1,2,3,5,7)
+  return(list(summary.var = summary.var, summary.cor = summary.cor))
+}
  
 
 # #'  Minor functions and miscellanea ------------------------------------------
@@ -2274,6 +2333,19 @@ varcov <- function(x, tri=T){
   R <- R + t(R) + diag(x=1, nrow=k)
   Sigma <- diag(sd) %*% R %*% diag(sd)
   if(tri) Sigma <- c(diag(Sigma), Sigma[lower.tri(Sigma, diag=F )])
+  return(Sigma)
+}
+
+theta2vcov <- function(theta){
+  sd <- sapply(theta[1:k], function(x) exp(x))
+  corr <- sapply(theta[(k+1):(k*(k+1)/2)], function(x){
+    (2 * exp(x))/(1 + exp(x)) - 1
+  }) 
+  R <- array(0, dim=c(k, k))
+  R[lower.tri(R)] <- corr
+  R <- R + t(R) + diag(x=1, nrow=k)
+  Sigma <- diag(sd) %*% R %*% diag(sd)
+  Sigma <- c(diag(Sigma), Sigma[lower.tri(Sigma, diag=F )])
   return(Sigma)
 }
 
@@ -2299,4 +2371,29 @@ tan2cor <- function(x, tri=T){
   R <- B %*% t(B)
   if(tri) R <- R[lower.tri(R, diag=F)]
   return(R)
+}
+
+#' To plot the marginal posteriors of covariate effects -----------------------#
+#' offset argument are the first variables to be ignored, typically intercepts
+plot.beta.posterior <- function(model, main=NULL, offset=4){
+  
+  betalimX <-range(do.call(c, lapply(model$marginals.fixed[-c(1:offset)], FUN = function(x) x[,1])))
+  betalimY <-range(do.call(c, lapply(model$marginals.fixed[-c(1:offset)], FUN = function(x) x[,2])))
+  
+  betamarg <- as.data.frame(do.call(cbind, model$marginals.fixed[-c(1:offset)]))
+  names(betamarg) <- paste0(rep(names(model$marginals.fixed[-c(1:offset)]),each=2), c("__X", "__Y"))
+  
+  betamarg_long <- tidyr::pivot_longer(betamarg, cols = c(1:ncol(betamarg)),
+                                       names_to = c("Effect", ".value"),
+                                       names_sep = "__")  
+  
+  #' If we do not indulge into pogit regression, let us just keep calling effects \beta:
+  if(is.null(main)) main <- "Posterior Marginals of Covariate Effects"
+  ggplot2::ggplot(betamarg_long, ggplot2::aes(x = .data$X, y = .data$Y, color = .data$Effect)) +
+    ggplot2::geom_line(linewidth = 0.7) +
+    ggplot2::geom_vline(xintercept = 0) +
+    ggplot2::coord_cartesian(xlim = betalimX, ylim = betalimY) +
+    ggplot2::labs( title = main, x = expression(beta),
+                   y = expression(pi(beta ~ "|" ~ y)), color = "Effect") +
+    ggplot2::theme_classic()  
 }
