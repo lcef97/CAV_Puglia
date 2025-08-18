@@ -957,85 +957,6 @@ source("Auxiliary/Functions.R")
 
 
 
-#' 'Dense' parametrisation, i.e. only the convolution process is modelled -----#
-#'                !!! Enable early stop, e.g.:
-#'   > Enable early_stop ff < f0: 1612.813420 < 1612.814101 (diff 0.000681048)
-#'   > Early stop. Mode not found sufficiently accurate f0=[1612.814101] f_best=[1612.813420] local.value=[1612.813420]
-#'  The marginal prior of the latent effect is proper -------------------------#
-#'  
-#'  NOT RUn - extremely slow --------------------------------------------------#
-cav_MmodBYM_inla_dense <- inla(
-  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
-    f(ID, model = inla.MMBYM.model(k = 3, W = W_con, sparse =F, PC= F, df = 5) ),
-  offset = log(nn),
-  family = "poisson", data =dd_con,
-  #control.fixed = list(prec = list(Intercept1 = 0, Intercept2 = 0, Intercept3 = 0)),
-  #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
-  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
-  verbose = T)
-
-#'  > summary(cav_MmodBYM_inla_dense)
-#' Time used:
-#'  Pre = 1.38, Running = 914, Post = 4.36, Total = 920 
-#' Fixed effects:
-#'  mean    sd 0.025quant 0.5quant 0.975quant   mode kld
-#' Y_2021 -7.399 0.049     -7.496   -7.399     -7.305 -7.399   0
-#' Y_2022 -7.598 0.058     -7.714   -7.597     -7.485 -7.598   0
-#' Y_2023 -7.181 0.048     -7.276   -7.181     -7.088 -7.181   0
-#' TEP_th -0.246 0.036     -0.317   -0.246     -0.176 -0.246   0
-#' ELI    -0.024 0.033     -0.087   -0.024      0.040 -0.024   0
-#' PGR     0.094 0.037      0.022    0.094      0.167  0.094   0
-#'  UIS     0.020 0.033     -0.045    0.020      0.085  0.020   0
-#'  ELL    -0.227 0.043     -0.310   -0.226     -0.143 -0.226   0
-#'  PDI    -0.013 0.040     -0.093   -0.013      0.066 -0.013   0
-#' ER     -0.278 0.049     -0.374   -0.278     -0.182 -0.278   0
-
-#' Random effects:
-#'  Name	  Model
-#'  ID RGeneric2
-
-#'  Model hyperparameters:
-#'    mean    sd 0.025quant 0.5quant 0.975quant   mode
-#' Theta1 for ID  0.593 1.599     -2.975    0.734      3.217  1.470
-#' Theta2 for ID -0.416 1.334     -3.296   -0.347      1.927  0.064
-#' Theta3 for ID -0.039 0.666     -1.266   -0.065      1.352 -0.189
-#' Theta4 for ID  0.560 0.418     -0.249    0.555      1.398  0.534
-#' Theta5 for ID  0.383 0.467     -0.542    0.386      1.296  0.395
-#' Theta6 for ID -0.643 0.122     -0.876   -0.645     -0.396 -0.655
-#' Theta7 for ID -0.986 0.804     -2.532   -0.999      0.635 -1.054
-#' Theta8 for ID  1.282 1.219     -1.036    1.256      3.762  1.136
-#' Theta9 for ID  1.152 0.601     -0.032    1.152      2.333  1.155
-
-#'Watanabe-Akaike information criterion (WAIC) ...: 2921.93
-#'Effective number of parameters .................: 202.48
-
-#Marginal log-Likelihood:  -1611.61 
-
-
-#' Mixing posterior: ok -------------------------------------------------------#
-#'                    mean        sd quant0.025  quant0.5 quant0.975
-#' Theta1 for ID 0.6136884 0.2774067 0.05037687 0.6865006  0.9607055
-#' Theta2 for ID 0.4302582 0.2448343 0.03687192 0.4242366  0.8707938
-#' Theta3 for ID 0.4899396 0.1511219 0.22151810 0.4813382  0.7918091
-
-#' Variance posterior - weird!! -----------------------------------------------#
-#'  > Mmodel_compute_cor_bigDM(cav_MmodBYM_inla_dense, J=3)[c(1,3)]
-#' $summary.cor
-#' mean        sd 0.025quant   0.5quant 0.975quant
-#' rho12 -0.4424220 0.3571116 -0.8858624 -0.5284553  0.5409819
-#' rho13  0.5363203 0.4356559 -0.5232013  0.6879010  0.9849486
-#' rho23  0.2830047 0.4708118 -0.6866583  0.3410534  0.9587893
-
-#'   $summary.var
-#' mean       sd 0.025quant 0.5quant 0.975quant
-#' var1 4.365016 4.479759  0.5452476 3.013357   16.18146
-#' var2 4.934897 4.616448  0.4598091 3.623166   17.01168
-#' var3 5.088716 3.655035  0.9224199 4.152399   14.91578
-
-
-
-
-
 #'  Sparse parametrisation attempt
 
 #' Uniform prior --------------------------------------------------------------#
@@ -1083,23 +1004,10 @@ cav_MMBYM_INLA.scale.fac.div <- inla(
   num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
   verbose = T)
 
-
-
-
-
-
-data.frame(do.call(rbind, lapply(
-  lapply(cav_MMBYM_inla_sparse$marginals.hyperpar[c(1,2,3)], function(f){
-    inla.tmarginal(fun = function(X) 1/(1 + exp(-X)), marginal = f)
-  }), function(x) unlist(inla.zmarginal(x, silent = TRUE))))) %>% 
-  dplyr::select(1,2,3,5,7)
-
-Mmodel_compute_cor_bigDM(cav_MMBYM_inla.unif, J=4)[c(1,3)]
-#init <- c(-0.8146, 1.0785, 4.3659, -0.7363, -0.8948, -0.5576, 0.3971, 0.1238, -0.0215) 
-
+ 
 
 #' PC - prior -----------------------------------------------------------------#
-cav_MMBYM_inla_sparse.pc <- inla(
+cav_MMBYM_inla.pc <- inla(
   N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
     f(ID, model = inla.MMBYM.model(k = 4, W = W_con, Bartlett = T, PC= T,
                                    df = 6, alpha = 2/3, U = 1/2), 
@@ -1109,7 +1017,7 @@ cav_MMBYM_inla_sparse.pc <- inla(
   num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
   verbose = T)
 
-cav_MMBYM_inla_sparse.pc.rest <- inla(
+cav_MMBYM_inla.pc.rest <- inla(
   N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
     f(ID, model = inla.MMBYM.model(k = 3, W = W_con, Bartlett = T, PC= T,
                                    df = 5, alpha = 2/3, U = 1/2), 

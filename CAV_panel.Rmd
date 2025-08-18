@@ -564,6 +564,8 @@ It can be seen that $\Sigma_{\mathrm{ND}}$ has one negative eigenvalue, and is t
 
 Priors for spatial effects and hyperparameters are defined in [this R script](https://github.com/lcef97/CAV_Puglia/blob/main/Auxiliary/Functions.R). The general structure follows the framework of the `bigDM` R package [@vicente2023high].
 
+Throughout this report, we assign $\Sigma$ a Wishart prior with 8 degrees of freedom and $I_4$ as the matrix-valued scale parameter. The choice of the degrees of freedom is based on the model allowing for the smallest WAIC; For the time being we only tested a number of degrees of freedom between 6 an 10. We also tried to assign an inverse-Wishart to $\Sigma$ with at least 8 degrees of freedom (otherwise it could not have finite moments) but the Wishart allows, yet again, for a smalle WAIC.
+Tuning still needs to be done on the scale parameter. 
 
 #### ICAR model
 
@@ -589,7 +591,7 @@ Where $z$ is a $256 \times 4$ matrix. Since the joint distribution of $z$ is imp
 cav_IMCAR_inla <- inla(
   N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 +
     TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
-    f(ID, model = inla.IMCAR.Bartlett(k = 4, W = W_con, df=6), 
+    f(ID, model = inla.IMCAR.Bartlett(k = 4, W = W_con, df = 8), 
       extraconstr = list(A = A_constr, e = c(0,0,0,0))),
   offset = log(nn), family = "poisson", data =dd,
   num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
@@ -668,7 +670,7 @@ The drawback of this model is the scarce interpretability with respect to more s
 cav_LMCAR_inla <- inla(
   N_ACC ~  0+ Y_2021 + Y_2022 + Y_2023 + Y_2024 +
     TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
-    f(ID, model = inla.LMCAR.Bartlett(k = 4, W = W_con, df = 6, PC = T)),
+    f(ID, model = inla.LMCAR.Bartlett(k = 4, W = W_con, df = 8, PC = T)),
   offset = log(nn), control.inla = list(stupid.search = F),
   family = "poisson", data =dd, safe = F,
   num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
@@ -708,7 +710,7 @@ The BYM model features a variance mixing parameter, whose interpretation is ease
 cav_MBYM_inla <- inla(
   N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 +
     TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
-    f(ID, model = inla.MBYM.Bartlett(k = 4, W = W_con, df = 6, PC = T ),
+    f(ID, model = inla.MBYM.Bartlett(k = 4, W = W_con, df = 8, PC = T ),
       extraconstr = constr.BYM) ,
   offset = log(nn),
   family = "poisson", data =dd,
@@ -870,7 +872,7 @@ definition can be found in my PhD thesis or in the notes of the shared overleaf 
 cav_PMMCAR_inla <- inla(
   N_ACC ~  0+ Y_2021 + Y_2022 + Y_2023 + Y_2024 +
     TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
-    f(ID, model = inla.PMMCAR.model(k = 4, W = W_con, df = 6, PC = T)),
+    f(ID, model = inla.PMMCAR.model(k = 4, W = W_con, df = 8, PC = T)),
   offset = log(nn),
   family = "poisson", data =dd,
   num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
@@ -895,7 +897,7 @@ z \mid \Sigma, R \sim \mathcal{N} \left( 0,
 cav_LMMCAR_inla  <- inla(
   N_ACC ~ 0+ Y_2021 + Y_2022 + Y_2023 + Y_2024+
     TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
-    f(ID, model = inla.LMMCAR.model(k = 4, W = W_con,  df = 6, PC = T)),
+    f(ID, model = inla.LMMCAR.model(k = 4, W = W_con,  df = 8, PC = T)),
   offset = log(nn),
   family = "poisson", data =dd, 
   num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
@@ -925,7 +927,7 @@ Where  \begin{itemize}
 cav_MMBYM_inla <- inla(
   N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 +
     TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
-    f(ID, model = inla.MMBYM.model(k = 4, W = W_con,  PC= T, df = 6) , 
+    f(ID, model = inla.MMBYM.model(k = 4, W = W_con,  PC= T, df = 8) , 
       extraconstr = constr.BYM),
   offset = log(nn), #control.inla = list(h = 1e-5),
   family = "poisson", data =dd,
