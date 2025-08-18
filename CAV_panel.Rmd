@@ -844,7 +844,7 @@ unlist(inla.zmarginal(phi_marg_bym, silent = TRUE))
 ```
 
 
- #### M-models 
+#### M-models 
 Until now, we have been assuming the hyperparameter controlling for the strength spatial association is constant across the three years. We try to relax this hypothesis by allowing for year-specific hyperparameters, which can be achieved by using a more flexible class of multivariate models, i.e. the M-models [@Mmodels]. 
 
 Consider the scale parameter $\Sigma$, i.e. the marginal variance of the latent effect $z$, and let us define the definite-positive matrix $M$, such that $M \top M = \Sigma$.
