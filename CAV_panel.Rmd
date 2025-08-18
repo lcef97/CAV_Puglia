@@ -851,7 +851,8 @@ Consider the scale parameter $\Sigma$, i.e. the marginal variance of the latent 
 Starting with the PCAR model, if we allow the autocorrelation parameter $\rho$ to change over time, we introduce the matrix-valued parameter $R:= \mathrm{diag}(\rho_{2021}, \rho_{2022}, \rho_{2023})$ and the model becomes thus:
 \begin{equation}
 z \mid \Sigma, R \sim \mathcal{N} \left( 0,
-(M^\top \otimes I_n) [(I_p \otimes D) - (R \otimes W)]^{-1}
+(M^\top \otimes I_n) [(I_p \otimes D) - (R \otimes W)]^{-1} 
+(M \otimes I_n)
 \right)
 \label{eq:MMod_PCAR}
 \end{equation}
@@ -884,6 +885,7 @@ Likewise, we test the LCAR model, which under the M-model formulation features a
 \begin{equation}
 z \mid \Sigma, R \sim \mathcal{N} \left( 0,
 (M^\top \otimes I_n) [\Xi \otimes (D-W) + (I_p - \Xi) \otimes I_n]^{-1}
+(M \otimes I_n)
 \right)
 \label{eq:MMod_LCAR}
 \end{equation}
