@@ -2365,7 +2365,7 @@ vcov_summary <- function (model, n.sample = 10000, mode = F) {
   if(is.null(Wishart.on.scale)) Wishart.on.scale <- T
   if(is.null(k)) k <- J
    
-  offset <- nrow(model$summary.hyperpar) - k * (k+1) / 2 #+
+  offset <- nrow(model$summary.hyperpar) - k * (k+1) / 2 +
     sum(! grepl("Theta", rownames(model$summary.hyperpar)))
   
   if(Bartlett){
