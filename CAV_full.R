@@ -405,6 +405,10 @@ dd_con[c(1:n), ]%>%
 ELL_nosp_resid <- as.vector(scale(dd_con$ELL - ICAR_ELL$summary.random$Area$mean))
 ER_nosp_resid <- as.vector(scale(dd_con$ER - ICAR_ER$summary.random$Area$mean))
 
+deconfound <- function(n.eigen, fields = c("")){
+  
+}
+
 
 #' Here some internal functions that may or may not be useful -----------------#
 zhat_plot <- function(model, main = NULL){
@@ -453,10 +457,44 @@ zhat_plot <- function(model, main = NULL){
 #' Expected accesses, may turn out to be useful -------------------------------#
 Exp_Acc <- dd_con$nn * mean(dd_con$N_ACC/dd_con$nn)
 
-#' Candidate scale parameter for Wishart priors on the marginal variance
+#' Candidate scale parameter for Wishart priors on the marginal variance ------#
 V.prior <- matrix(1/10, nrow= 4, ncol = 4)
 for(i in c(1:4)) V.prior[i,i] <- 1
 scale.fac.prior <- t(chol(V.prior))
+
+#' Spatial filtering of Laplacian eigenvectors --------------------------------#
+
+#' Speed-up initialising:
+covars <- c("MFI", "HMI", "MWR", "PA", "LRA", "LC", "AES", "PDI",
+            "ELL", "ER", "PGR", "UIS", "ELI","TEP_th")
+n.eigen <- rep(10, length(covars))
+
+#' R function for filtering here ----------------------------------------------#
+filter.spatplus <- function(data, covars = c(), V, n.eigen = c(), rescale = T, center = T){
+  if(length(n.eigen) != length(covars)) n.eigen <- rep(n.eigen, length(covars))
+  trends <- list()
+  res <- data
+  for(j in c(1:length(covars))){
+    xx <- data[c(1:nrow(V)), ] %>% dplyr::select(covars[j])
+    m <- which(names(data) == covars[j])
+    xx <- as.matrix(sf::st_drop_geometry(xx))
+    s <- var(xx)
+    coef <- solve(a=V, b=xx)
+    eigen.in <- c( 1:(nrow(V) - n.eigen[j]))
+    eigen.out <- c((nrow(V) - n.eigen[j]+1) : nrow(V) )
+    nrep <- nrow(data)/nrow(xx)
+    xx.nosp <- scale(V[, eigen.in] %*% coef[eigen.in], 
+                     scale = rescale, center = center)
+    xx.nosp <- rep(as.vector(xx.nosp), nrep)
+    xx.sp <-  as.vector(V[, eigen.out] %*% coef[eigen.out])
+    trends[[j]] <- xx.sp
+    names(trends)[[j]] <- names(data)[m]
+    res[,m] <- xx.nosp
+  }
+  trends.df <- as.data.frame(do.call(cbind, trends))
+  return(list(data = res, trends = trends.df))
+}
+
 
 #' ----------------------------------------------------------------------------#
 
@@ -660,6 +698,18 @@ cav_IMCAR_inla_ls <- inla(
     f(ID, model = inla.IMCAR.Bartlett(k = 4, W = W_con, df=8), 
       extraconstr = list(A = A_constr, e = c(0,0,0,0))),
   offset = log(nn), family = rep("poisson",4), data =dd_list,
+  #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  verbose = T)
+
+#' This may deserve more attention.
+dd_nosp <- dd_con %>% dplyr::mutate(ELL = as.vector(scale(ELL_nosp_resid)))%>% 
+  dplyr::mutate(ER = as.vector(scale(ER_nosp_resid)))
+cav_IMCAR_inla_spatplus <- inla(
+  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.IMCAR.Bartlett(k = 4, W = W_con, df = 8), 
+      extraconstr = list(A = A_constr, e = c(0,0,0,0))),
+  offset = log(nn), family = "poisson", data =dd_nosp,
   #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
   num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
   verbose = T)
@@ -903,9 +953,13 @@ cav_MMBYM_inla_pc_strict <- inla(
   num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
   verbose = T)
 
- 
 
- 
+set.seed(11)
+cav_MMBYM_hyper <- rbind(
+  Mmodel_compute_mixing(cav_MMBYM_inla_pc_strict),
+  do.call(rbind, vcov_summary(cav_MMBYM_inla_pc_strict))) %>% 
+  dplyr::select(-.data$sd)
+xtable::xtable(cav_MMBYM_hyper, digits=3)
 
 ## TBD: model comparison draft -------------------------------------------------
 
@@ -1210,7 +1264,20 @@ X.bru <- as.matrix(X.bru)
 
 ## misc ------------------------------------------------------------------------
 
- #' simulate PCAR
+#' Filter out Laplacian eigenvectors ------------------------------------------#
+
+
+dd.spatplus.10 <- dd_con %>%
+  filter.spatplus(covars = covars, n.eigen = n.eigen, V=V_con)
+dd.nosp.10 <- dd.spatplus.10$data
+dd.sp.10 <- dd.spatplus.10$trends
+
+dd_con[c(1:n), 1] %>% cbind(dd.sp.10) %>%
+  ggplot2::ggplot() +
+  ggplot2::geom_sf(ggplot2::aes(fill=.data$AES))+
+  ggplot2::scale_fill_viridis_c()
+
+#' simulate PCAR --------------------------------------------------------------#
  
 alpha.true <- c(0.7, 0.9, 0.5, 0.8)
 sigma.true <- c(1.5, 1.8, 1.4, 1.5)
