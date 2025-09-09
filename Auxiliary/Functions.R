@@ -1453,7 +1453,7 @@ inla.rgeneric.Mmodel.PCAR <-
         for(i in c(1:k)) for(j in c(1:k)) R0[i,j] <- r0^abs(i-j)
         sd0 <- diag(x=exp(-2), nrow=k)
         S0 <- sd0 %*% R0 %*% sd0
-        if(Wishart.on.scale) S0 <- solve(S0)
+        if(!Wishart.on.scale) S0 <- solve(S0)
         c0 <- t(chol(S0))
         diag.N.init <- log(diag(c0))
         offdiag.N.init <- c0[lower.tri(c0, diag=F)]
@@ -2462,7 +2462,7 @@ vcov_summary_ST <- function(model, AR.order=1){
   summary.cor <- data.frame(
     inla.zmarginal(inla.tmarginal(
       fun=function(X) 2/(1+exp(-X))-1,
-      marginal = cav_IMCAR_inla.AR1$marginals.hyperpar[[5]]
+      marginal = model$marginals.hyperpar[[5]]
   ), silent=T)) %>% dplyr::select(1,2,3,5,7)
   return(list(summary.var = summary.var, summary.cor = summary.cor))
 }
