@@ -87,15 +87,14 @@ slides > hgroup h2 {
 
 /*slides > slide:not(.nobackground):after {*/
 slides > slide {
-
     /* font-family: 'Poppins', sans-serif; */
-    font-size: 18pt;
+    font-size: 20pt;
     content: attr(data-slide-num) "/" attr(data-total-slides);
     position: absolute;
     bottom: 24px; 
     right: 18px; 
-    /*color: white;*/
-    line-height: 2;
+    /*color: white;
+    line-height: 1.5;*/
 }
 
 
@@ -116,6 +115,10 @@ table.dataTable {
     /*width: 50%;  */
     height: 200px ; 
  }
+ thead {
+  background-color: #004E5A; 
+}
+ 
 .dataTables_wrapper {
     font-size: 14px;
     /* width: 80% ;*/
@@ -149,7 +152,11 @@ table.dataTable {
   position: relative;
   bottom: 0px;
   font-size: 0.7em;
-  /*color: gray;*/
+}
+
+.references {
+  font-size: 75%;
+  line-height: 1;
 }
 
 /*

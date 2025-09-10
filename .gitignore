@@ -3,5 +3,6 @@
 .RData
 .Ruserdata
 Simulations.R
+extracted_chunks.R
 Other/gitignore1
 Other/inla_ticket/.old
