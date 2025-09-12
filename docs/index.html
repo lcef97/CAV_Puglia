@@ -3246,95 +3246,103 @@ y_{it}\mid \eta_{it}, \theta \sim \mathrm{Poisson} \left(
 
 <p>\[
 Z \mid \Sigma \sim \mathcal{N}_{kn} \left( 0, \Sigma \otimes (D - W)^{+} \right)
-\]</p>
+\] - \(\Sigma\): \(4 \times 4\) between-fields variance-covariance matrix</p>
 
 <ul>
-<li><p>where: \(\Sigma\): \(4 \times 4\) covariance matrix; \(D\): Graph <strong>degree</strong> matrix; \(W\): Graph <strong>neighbourhood</strong> matrix; \(L:=D-W\): Graph <strong>Laplacian</strong> matrix</p></li>
-<li><p>\(+\) Easy to <strong>fit</strong> and <strong>interpret</strong></p></li>
-<li><p>\(-\) implicitly assumes <strong>spatial autocorrelation</strong> equal to 1: ICAR models are sometimes too <strong>smooth</strong> to adequately fit data</p></li>
+<li><p>\(D\): Graph <strong>degree</strong> matrix;</p></li>
+<li><p>\(W\): Graph <strong>neighbourhood</strong> matrix</p></li>
 </ul>
 
-</article></slide><slide class=""><hgroup><h2>M-models</h2></hgroup><article  id="m-models">
+<p>\(+\) Easy to <strong>fit</strong> and <strong>interpret</strong></p>
+
+<p>\(-\) implicitly assumes <strong>spatial autocorrelation</strong> equal to 1 \(\rightarrow\) sometimes too <strong>smooth</strong> to adequately fit data</p>
+
+</article></slide><slide class=""><hgroup><h2>M-models (I)</h2></hgroup><article  id="m-models-i">
 
 <ul>
 <li><p>Based on the <strong>decomposition</strong> of the <strong>scale parameter</strong> as \(\Sigma := M^\top M\)</p></li>
-<li><p>\(M\) matrix: generic <strong>full</strong> rank matrix, in our application of size \(k \times k\)</p></li>
-<li><p>We compare three <strong>standard</strong> models:</p>
+<li><p>\(M\): generic <strong>full</strong> rank matrix, in our application of size \(k \times k\)</p></li>
+<li><p>consider \(Z\) as a <strong>combination</strong> of \(k\) independent fields \(Z_j^{(0)}\) for \(1 \leq j \leq k\), i.e. \(Z :=  \left(Z_1^{(0)}, \dots,  Z_k^{(0)}\right) M\)</p></li>
+<li><p>\(Z^{(0)} \sim \mathcal{N}_n \left( 0, \Omega_j \right)\) for a \(n \times n\) s.p.d. matrix \(\Omega_j\) depending:</p>
 
 <ul>
-<li><p><strong>Proper</strong> CAR <span class="cite">(Gelfand and Vounatsou 2003)</span></p></li>
-<li><p><strong>Leroux Proper</strong> CAR <span class="cite">(Leroux, Lei, and Breslow 2000)</span></p></li>
-<li><p>Weighted <span class="cite">(Riebler et al. 2016)</span> <strong>Besag-York-Mollié</strong> model <span class="cite">(Besag, York, and Mollié 1991)</span></p></li>
+<li><p>On the <strong>graph</strong> structure</p></li>
+<li><p>On an array of model-specific parameters</p></li>
 </ul></li>
 </ul>
 
-</article></slide><slide class=""><hgroup><h2>M-Model Summary</h2></hgroup><article  id="m-model-summary">
+</article></slide><slide class=""><hgroup><h2>M-models (II)</h2></hgroup><article  id="m-models-ii">
 
-<table class = 'rmdtable'>
-<col width="9.589041%" />
-<col width="24.657534%" />
-<col width="27.397260%" />
-<col width="19.178082%" />
-<col width="19.178082%" />
-<tr class="header">
-<th align="left">Model</th>
-<th align="left">\(\Omega\) Matrix</th>
-<th align="left">Parameter \(\theta\)</th>
-<th align="left">\(\theta = 0\)</th>
-<th align="left">\(\theta = 1\)</th>
-</tr>
-<tr class="odd">
-<td align="left">PCAR</td>
-<td align="left">\((I_k \otimes D - A \otimes W)^{-1}\)</td>
-<td align="left">\(\alpha\)</td>
-<td align="left">Independent</td>
-<td align="left">ICAR</td>
-</tr>
-<tr class="even">
-<td align="left">LCAR</td>
-<td align="left">\([\Lambda \otimes L + (I_k - \Lambda) \otimes I_n]^{-1}\)</td>
-<td align="left">\(\lambda\)</td>
-<td align="left">IID</td>
-<td align="left">ICAR</td>
-</tr>
-<tr class="odd">
-<td align="left">BYM</td>
-<td align="left">\(\Phi \otimes L + (I_k - \Phi) \otimes I_n\)</td>
-<td align="left">\(\phi\)</td>
-<td align="left">IID</td>
-<td align="left">ICAR</td>
-</tr>
-</table>
+<p>Joint prior of \(Z\):</p>
+
+<p>\[
+  Z \sim \mathcal{N}_{nk} \left(0, 
+  (M^\top\otimes I_n)\, \Omega \,
+  (M \otimes I_n)
+  \right)
+  \] Where \(\Omega\) is block-diagonal: \[ \Omega = 
+  \begin{pmatrix}
+  \Omega_1 &amp; 0 &amp; \dots &amp; 0 \\
+  0 &amp; \Omega_2 &amp; \dots &amp; 0 \\
+  \vdots &amp; \vdots &amp; \ddots &amp; \vdots \\
+  0 &amp; 0 &amp; \dots &amp; \Omega_k
+  \end{pmatrix}
+  \]</p>
+
+<ul>
+<li>We compare three <strong>standard</strong> models for the \(\Omega\) matrix in the next slides</li>
+</ul>
+
+<!--   
+     - **Proper** CAR  [@PCAR]
+     
+     - **Leroux Proper** CAR [@Leroux]
+     
+     - Weighted [@BYM2] **Besag-York-Mollié** model [@BYM]
+     
+     
+ 
+| Model | $\Omega$ Matrix | Parameter $\theta$ | $\theta = 0$ | $\theta = 1$ |
+|-------|------------------|--------------------|--------------|--------------|
+| PCAR  | $(I_k \otimes D - A \otimes W)^{-1}$ | $\alpha$ | Independent | ICAR |
+| LCAR  | $[\Lambda \otimes L + (I_k - \Lambda) \otimes I_n]^{-1}$ | $\lambda$ | IID | ICAR |
+| BYM   | $\Phi \otimes L + (I_k - \Phi) \otimes I_n$ | $\phi$ | IID | ICAR |
+-->
 
 </article></slide><slide class=""><hgroup><h2>Models (2): Proper CAR (PCAR)</h2></hgroup><article  id="models-2-proper-car-pcar">
 
+<ul>
+<li><p>Generalises the ICAR allowing for a <strong>proper</strong> prior density with <strong>nonsingular</strong> precision <span class="cite">(Gelfand and Vounatsou 2003)</span></p></li>
+<li><p>Introduces a <strong>spatial correlation</strong> parameter \(A := \mathrm{diag}(\alpha_1, ... \alpha_k)\), \(\alpha_j \in [0,1] \, \forall j\)</p></li>
+</ul>
+
 <p>\[
-Z \mid \Sigma \sim \mathcal{N}_{kn} \left( 0, \,
-(M^\top \otimes I_n) (I_k \otimes D - A \otimes W)^{-1} (M \otimes I_n)
-\right)
+\Omega =  (I_k \otimes D - A \otimes W)^{-1} 
 \]</p>
 
 <ul>
-<li><p>\(A := \mathrm{diag}(\alpha_1, ... \alpha_k)\): <strong>autoregressive</strong> parameter</p></li>
-<li><p>Limit cases:</p>
+<li><strong>Limit</strong> cases:
 
 <ul>
-<li>\(\alpha_t = 0\): independent model (\(\neq\) IID)</li>
-<li>\(\alpha_t = 1\): ICAR</li>
+<li>\(\alpha_t = 0\): <strong>independent</strong> model (\(\neq\) IID)</li>
+<li>\(\alpha_t = 1\): <strong>ICAR</strong></li>
 </ul></li>
 </ul>
 
 </article></slide><slide class=""><hgroup><h2>Models (3): Leroux proper CAR (LCAR)</h2></hgroup><article  id="models-3-leroux-proper-car-lcar">
 
+<ul>
+<li><p>Also generalises the ICAR allowing for a <strong>proper</strong> density</p></li>
+<li><p>Introduces a <strong>precision mixing</strong> parameter \(\Lambda := \mathrm{diag}(\lambda_1, ... \lambda_k)\), yet with \(\lambda_j \in [0,1] \, \forall j\) <span class="cite">(Leroux, Lei, and Breslow 2000)</span></p></li>
+</ul>
+
 <p>\[
-Z \mid \Sigma \sim \mathcal{N}_{kn} \left( 0, \,
-(M^\top \otimes I_n) (\Lambda \otimes L + (I_k - \Lambda) \otimes I_n)^{-1} (M \otimes I_n)
+\Omega_j = \left(\Lambda \otimes L + (I_k - \Lambda)  
 \right)
-\]</p>
+\] - \(L\) = graph <strong>Laplacian</strong> matrix, i.e. \(L = D-W\)</p>
 
 <ul>
-<li><p>\(\Lambda := \mathrm{diag}(\lambda_1, ... \lambda_k)\): <strong>precision mixing</strong> parameter</p></li>
-<li><p>Limit cases:</p>
+<li>Limit cases:
 
 <ul>
 <li>\(\lambda_t = 0\): IID model<br/></li>
@@ -3345,29 +3353,61 @@ Z \mid \Sigma \sim \mathcal{N}_{kn} \left( 0, \,
 </article></slide><slide class=""><hgroup><h2>Models (4): Besag-York-Mollié (BYM)</h2></hgroup><article  id="models-4-besag-york-mollié-bym">
 
 <ul>
-<li>Actually a reparametrisation of the original BYM <span class="cite">(Besag, York, and Mollié 1991)</span>, proposed by <span class="cite">(Riebler et al. 2016)</span></li>
+<li>Actually a <strong>reparametrisation</strong> of the original BYM <span class="cite">(Besag, York, and Mollié 1991)</span>, proposed by <span class="cite">(Riebler et al. 2016)</span></li>
 </ul>
 
 <p>\[
 Z = U \Phi M + V (I_k-\Phi) M
-\]</p>
+\] - \(\Phi\): <strong>variance</strong> mixing parameter</p>
 
 <ul>
 <li><p>\(U \sim \mathcal{N}_{kn} \left(0, I_k \otimes L_S^{+} \right)\): independent ICAR (limit case for \(\Phi = I_k\)) \(\rightarrow\) <strong>spatial dependence</strong>, where \(L_S\): <strong>scaled</strong> Laplacian <span class="cite">(Riebler et al. 2016)</span></p></li>
 <li><p>\(V \sim \mathcal{N}_{kn} (0, I_{kn})\): std. IID field (limit case for \(\Phi = 0\)) \(\rightarrow\) <strong>noise</strong></p></li>
 </ul>
 
-</article></slide><slide class=""><hgroup><h2>Models(4): Besag-York_Mollié (BYM)</h2></hgroup><article  id="models4-besag-york_mollié-bym">
-
 <p>\[
- Z \mid \Sigma \sim \mathcal{N}_{kn} \left( 0, \,
-(M^\top \otimes I_n) \, \left[\Phi \otimes L^+ + (I_k - \Phi) \otimes I_n \right] \, (M \otimes I_n)
-\right)
+ \therefore \Omega = \Phi \otimes L_S^+ + 
+ (I_k - \Phi) \otimes I_n
  \]</p>
+
+</article></slide><slide class=""><hgroup><h2>Multivariate PC-prior</h2></hgroup><article  id="multivariate-pc-prior">
+
+<ul>
+<li><p>The parameters \(A\), \(\Lambda\) and \(\Phi\) are usually assigned a <strong>Uniform</strong> prior</p></li>
+<li><p>A more <strong>principle-based</strong> approach is using <strong>PC-priors</strong></p>
+
+<ul>
+<li>This was already done by Rieber et Al. (2016) for the <strong>univariate</strong> BYM</li>
+</ul></li>
+<li><p>Question: can we apply this approach in the <strong>multivariate</strong> setting, and also for <strong>PCAR</strong> and <strong>LCAR</strong> models?</p></li>
+<li><p>Caveat: deriving <strong>analytically</strong> a PC-prior for <strong>multivariate</strong> parameters is hardly possible <span class="cite">(Simpson et al. 2017)</span>, <span class="cite">(Battagliese 2020)</span></p></li>
+</ul>
+
+</article></slide><slide class=""><hgroup><h2>A Sequential approach for the PC-prior</h2></hgroup><article  id="a-sequential-approach-for-the-pc-prior">
+
+<ul>
+<li><p>Let \(\theta_j\) denote either \(\alpha_j\), \(\lambda_j\), or \(\phi_j\) for \(j = 1, \dots, k\)</p></li>
+<li><p>Set up: \(\pi(\theta) = \pi (\theta_1) \pi(\theta_2 \mid \theta_1) \dots \pi(\theta_k \mid \theta_1, \dots, \theta_{k-1})\)</p>
+
+<ul>
+<li>Provided that \(\pi(\theta_j \mid \theta_1, \dots, \theta_{j-1}) = \pi(\theta_j \mid \theta_1, \theta_{j-1}, \theta_{j+1}=\dots=\theta_k=0)\)</li>
+</ul></li>
+</ul>
+
+<style>
+slides > slide { overflow: scroll; }
+slides > slide:not(.nobackground):after {
+  content: '';
+}
+</style>
 
 </article></slide><slide class=""><hgroup><h2>Cited works</h2></hgroup><article  id="cited-works" class="unnumbered">
 
 <div id="refs" class="references csl-bib-body hanging-indent" entry-spacing="0">
+<div id="ref-MPC" class="csl-entry">
+<p>Battagliese, Diego. 2020. <span>
+“Extensions of the Univariate PC Prior.”</span> <em>Annali Del Dipartimento Di Metodi e Modelli Per l’Economia, Il Territorio e La Finanza (MEMOTEF)</em>, 33–46. https://doi.org/<a href='https://doi.org/10.13133/2611-6634/509' title=''>https://doi.org/10.13133/2611-6634/509</a>.</p></div>
+
 <div id="ref-BYM" class="csl-entry">
 <p>Besag, Julian, Jeremy York, and Annie Mollié. 1991. <span>
 “Bayesian Image Restoration, with Two Applications in Spatial Statistics.”</span> <em>Annals of the Institute of Statistical Mathematics</em> 43 (1): 1–20.</p></div>
@@ -3386,7 +3426,11 @@ Z = U \Phi M + V (I_k-\Phi) M
 
 <div id="ref-BYM2" class="csl-entry">
 <p>Riebler, Andrea, Sigrunn H Sørbye, Daniel Simpson, and Håvard Rue. 2016. <span>
-“An Intuitive Bayesian Spatial Model for Disease Mapping That Accounts for Scaling.”</span> <em>Statistical Methods in Medical Research</em> 25 (4): 1145–65.</p></div></div></article></slide>
+“An Intuitive Bayesian Spatial Model for Disease Mapping That Accounts for Scaling.”</span> <em>Statistical Methods in Medical Research</em> 25 (4): 1145–65.</p></div>
+
+<div id="ref-PC" class="csl-entry">
+<p>Simpson, Daniel, Haavard Rue, Andrea Riebler, Thiago G. Martins, and Sigrunn H. Sørbye. 2017. <span>
+“Penalising Model Component Complexity: A Principled, Practical Approach to Constructing Priors.”</span> <em>Statistical Science</em> 32 (1): 1–28. <a href='https://doi.org/10.1214/16-STS576' title=''>https://doi.org/10.1214/16-STS576</a>.</p></div></div></article></slide>
 
 
   <slide class="backdrop"></slide>

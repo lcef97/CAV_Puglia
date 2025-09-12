@@ -161,7 +161,7 @@ cav_MMBYM_inla_pc_default <- inla(
       extraconstr = constr.BYM),
   offset = log(nn), 
   family = "poisson", data =dd,
-  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = F), 
   verbose = T)
 
 
@@ -173,7 +173,7 @@ cav_MMBYM_inla_pc_strict <- inla(
       extraconstr = constr.BYM),
   offset = log(nn), 
   family = "poisson", data =dd,
-  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = F), 
   verbose = T)
 
 
@@ -185,7 +185,7 @@ cav_MMBYM_inla_unif <- inla(
       extraconstr = constr.BYM),
   offset = log(nn), 
   family = "poisson", data =dd,
-  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = F), 
   verbose = T)
 
 

@@ -363,14 +363,15 @@ $$\eta_{it} := X_{it}^\top \beta + Z_{it}$$
 $$
 Z \mid \Sigma \sim \mathcal{N}_{kn} \left( 0, \Sigma \otimes (D - W)^{+} \right)
 $$
-
-  - where: $\Sigma$: $4 \times 4$ covariance matrix;  $D$: Graph **degree** matrix;
-  $W$: Graph **neighbourhood** matrix; $L:=D-W$: Graph **Laplacian** matrix
+  - $\Sigma$: $4 \times 4$ between-fields variance-covariance matrix
+    
+  - $D$: Graph **degree** matrix;
+    
+  - $W$: Graph **neighbourhood** matrix 
   
-  - $+$ Easy to **fit** and **interpret**
+ $+$ Easy to **fit** and **interpret**
   
-  - $-$ implicitly assumes **spatial autocorrelation** equal to 1:
-  ICAR models are sometimes too **smooth** to adequately fit data
+ $-$ implicitly assumes **spatial autocorrelation** equal to 1 $\rightarrow$ sometimes too **smooth** to adequately fit data
   
 ```{r IMCAR  }
 if(import_workspace){
@@ -391,15 +392,44 @@ cav_IMCAR_inla <- inla(
 ```
 
   
-## M-models
+## M-models (I)
 
   - Based on the **decomposition** of the **scale parameter** as
   $\Sigma := M^\top M$
   
-  - $M$ matrix: generic **full** rank matrix, in our application of size $k \times k$
+  - $M$: generic **full** rank matrix, in our application of size $k \times k$
     
-  - We compare three **standard** models:
-   
+  - consider $Z$ as a **combination** of $k$ independent fields $Z_j^{(0)}$ for $1 \leq j \leq k$, i.e. $Z :=  \left(Z_1^{(0)}, \dots,  Z_k^{(0)}\right) M$ 
+  
+  - $Z^{(0)} \sim \mathcal{N}_n \left( 0, \Omega_j \right)$ for a $n \times n$ s.p.d. matrix $\Omega_j$ depending:
+  
+    - On the **graph** structure
+    
+    - On an array of model-specific parameters 
+
+## M-models (II) 
+  
+  Joint prior of $Z$:
+  
+  $$
+  Z \sim \mathcal{N}_{nk} \left(0, 
+  (M^\top\otimes I_n)\, \Omega \,
+  (M \otimes I_n)
+  \right)
+  $$
+  Where $\Omega$ is block-diagonal: 
+  $$ \Omega = 
+  \begin{pmatrix}
+  \Omega_1 & 0 & \dots & 0 \\
+  0 & \Omega_2 & \dots & 0 \\
+  \vdots & \vdots & \ddots & \vdots \\
+  0 & 0 & \dots & \Omega_k
+  \end{pmatrix}
+  $$
+  
+  - We compare three **standard** models for the $\Omega$ matrix in the next slides
+  
+<!--   
      - **Proper** CAR  [@PCAR]
      
      - **Leroux Proper** CAR [@Leroux]
@@ -407,28 +437,33 @@ cav_IMCAR_inla <- inla(
      - Weighted [@BYM2] **Besag-York-Mollié** model [@BYM]
      
      
-## M-Model Summary
-
+ 
 | Model | $\Omega$ Matrix | Parameter $\theta$ | $\theta = 0$ | $\theta = 1$ |
 |-------|------------------|--------------------|--------------|--------------|
 | PCAR  | $(I_k \otimes D - A \otimes W)^{-1}$ | $\alpha$ | Independent | ICAR |
 | LCAR  | $[\Lambda \otimes L + (I_k - \Lambda) \otimes I_n]^{-1}$ | $\lambda$ | IID | ICAR |
 | BYM   | $\Phi \otimes L + (I_k - \Phi) \otimes I_n$ | $\phi$ | IID | ICAR |
+-->
+
+ 
+
+
 
 ## Models (2): Proper CAR (PCAR)
 
-
+  - Generalises the ICAR allowing for a **proper** prior density with **nonsingular** precision [@PCAR]
+  
+  - Introduces a **spatial correlation** parameter $A := \mathrm{diag}(\alpha_1, ... \alpha_k)$, $\alpha_j \in [0,1] \, \forall j$
+  
+ 
 $$
-Z \mid \Sigma \sim \mathcal{N}_{kn} \left( 0, \,
-(M^\top \otimes I_n) (I_k \otimes D - A \otimes W)^{-1} (M \otimes I_n)
-\right)
+\Omega =  (I_k \otimes D - A \otimes W)^{-1} 
 $$
   
-  - $A := \mathrm{diag}(\alpha_1, ... \alpha_k)$: **autoregressive** parameter
-  
-  - Limit cases: 
-    - $\alpha_t = 0$: independent model ($\neq$ IID)
-    - $\alpha_t = 1$: ICAR
+  - **Limit** cases: 
+    - $\alpha_t = 0$: **independent** model ($\neq$ IID)
+    - $\alpha_t = 1$: **ICAR**
+    
 ```{r PCAR}
 
 if(import_workspace){
@@ -436,7 +471,27 @@ if(import_workspace){
   load("WS/cav_PMMCAR_inla_pc.RData")
 } else {
   
- 
+ cav_PMMCAR_inla_unif <- inla(
+  N_ACC ~  0+ Y_2021 + Y_2022 + Y_2023 + Y_2024 +
+    TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.PMMCAR.model(k = 4, W = W_con, df = 8, PC = F)),
+  offset = log(nn), control.inla = list(stupid.search = F),
+  family = "poisson", data =dd, safe = F,
+  num.threads = 1, control.compute = list(
+    internal.opt = F, cpo = F, waic = T, config = F), 
+  verbose = F)
+
+
+
+cav_PMMCAR_inla_pc_strict  <- inla(
+  N_ACC ~  0+ Y_2021 + Y_2022 + Y_2023 + Y_2024 +
+    TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.PMMCAR.model(k = 4, W = W_con, df = 8, PC = T, alpha=0.9, U = 0.6)),
+  offset = log(nn),
+  family = "poisson", data =dd,
+  num.threads = 1, control.compute = list(
+    internal.opt = F, cpo = T, waic = T, config = F), 
+  verbose = F)
 
 }
 
@@ -445,38 +500,67 @@ if(import_workspace){
     
 ## Models (3): Leroux proper CAR (LCAR)
 
+  - Also generalises the ICAR allowing for a **proper** density
+  
+  - Introduces a **precision mixing** parameter $\Lambda := \mathrm{diag}(\lambda_1, ... \lambda_k)$, yet with $\lambda_j \in [0,1] \, \forall j$ [@Leroux]
 
 $$
-Z \mid \Sigma \sim \mathcal{N}_{kn} \left( 0, \,
-(M^\top \otimes I_n) (\Lambda \otimes L + (I_k - \Lambda) \otimes I_n)^{-1} (M \otimes I_n)
+\Omega_j = \left(\Lambda \otimes L + (I_k - \Lambda)  
 \right)
 $$
-  
-  - $\Lambda := \mathrm{diag}(\lambda_1, ... \lambda_k)$: **precision mixing** parameter
-  
+  - $L$ = graph **Laplacian** matrix, i.e. $L = D-W$
+
   - Limit cases: 
     - $\lambda_t = 0$: IID model  
     - $\lambda_t = 1$: ICAR  
     
 ## Models (4): Besag-York-Mollié (BYM)
 
-  - Actually a reparametrisation of the original BYM [@BYM], proposed by [@BYM2]
+  - Actually a **reparametrisation** of the original BYM [@BYM], proposed by [@BYM2]
 
 $$
 Z = U \Phi M + V (I_k-\Phi) M
 $$
-
-   - $U \sim \mathcal{N}_{kn} \left(0, I_k \otimes L_S^{+} \right)$: independent ICAR (limit case for $\Phi = I_k$) $\rightarrow$ **spatial dependence**, where $L_S$: **scaled** Laplacian [@BYM2]
+  - $\Phi$: **variance** mixing parameter
+  
+  - $U \sim \mathcal{N}_{kn} \left(0, I_k \otimes L_S^{+} \right)$: independent ICAR (limit case for $\Phi = I_k$) $\rightarrow$ **spatial dependence**, where $L_S$: **scaled** Laplacian [@BYM2]
   
    - $V \sim \mathcal{N}_{kn} (0, I_{kn})$: std. IID field (limit case for $\Phi = 0$) $\rightarrow$ **noise**
  
-## Models(4): Besag-York_Mollié (BYM)
  $$
- Z \mid \Sigma \sim \mathcal{N}_{kn} \left( 0, \,
-(M^\top \otimes I_n) \, \left[\Phi \otimes L^+ + (I_k - \Phi) \otimes I_n \right] \, (M \otimes I_n)
-\right)
+ \therefore \Omega = \Phi \otimes L_S^+ + 
+ (I_k - \Phi) \otimes I_n
  $$
+ 
+## Multivariate PC-prior
+
+  - The parameters $A$, $\Lambda$ and $\Phi$ are usually assigned a **Uniform** prior
   
+  - A more **principle-based** approach is using **PC-priors**
+    
+    - This was already done by Rieber et Al. (2016) for the **univariate** BYM
+  
+  - Question: can we apply this approach in the **multivariate** setting, and also for **PCAR** and **LCAR** models?
+  
+  - Caveat: deriving **analytically** a PC-prior for **multivariate** parameters is hardly possible [@PC], [@MPC]
+  
+## A Sequential approach for the PC-prior  
+  
+  - Let $\theta_j$ denote either $\alpha_j$, $\lambda_j$, or $\phi_j$ for $j = 1, \dots, k$
+  
+  - Set up: $\pi(\theta) = \pi (\theta_1) \pi(\theta_2 \mid \theta_1) \dots \pi(\theta_k \mid \theta_1, \dots, \theta_{k-1})$
+  
+    - Provided that $\pi(\theta_j \mid \theta_1, \dots, \theta_{j-1}) = \pi(\theta_j \mid \theta_1, \theta_{j-1}, \theta_{j+1}=\dots=\theta_k=0)$
+  
+  
+  
+  
+<style>
+slides > slide { overflow: scroll; }
+slides > slide:not(.nobackground):after {
+  content: '';
+}
+</style>
 ## Cited works
   
   
