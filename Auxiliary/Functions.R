@@ -36,9 +36,10 @@ inla.rgeneric.IMCAR.AR1  <-
         sd <- sapply(theta[c(1:k)], function(x) exp(x/2))
       }
       corr  <-   2/(1 + exp(-theta[k+1])) - 1
-      invR <- Matrix::bandSparse(
+      invR <- 1/(1-corr^2) * Matrix::bandSparse(
         n=k, m=k, k = c(-1, 0, 1),
-        diagonals = list(rep(corr, k-1), rep(1, k), rep(corr, k-1)))
+        diagonals = list(rep(corr, k-1), rep(1+corr^2, k), rep(corr, k-1)))
+      invR[1,1] <- invR[k,k] <- 1/(1-corr^2)
       PREC <-  diag(1/sd) %*% invR %*% diag(1/sd)
      return(PREC)
     }
@@ -149,9 +150,10 @@ inla.rgeneric.PMCAR.AR1 <-
       rho <- 1/(1 + exp(-theta[1L]))
       sd <- sapply(theta[1+c(1:k)], function(x) exp(x))
       corr  <-   2/(1 + exp(-theta[k+2])) - 1
-      invR <- Matrix::bandSparse(
+      invR <- 1/(1-corr^2) * Matrix::bandSparse(
         n=k, m=k, k = c(-1, 0, 1),
-        diagonals = list(rep(corr, k-1), rep(1, k), rep(corr, k-1)))
+        diagonals = list(rep(corr, k-1), rep(1+corr^2, k), rep(corr, k-1)))
+      invR[1,1] <- invR[k,k] <- 1/(1-corr^2)
       PREC <-  diag(1/sd) %*% invR %*% diag(1/sd)
       return(list(rho = rho, PREC = PREC))
     }
@@ -264,9 +266,10 @@ inla.rgeneric.LMCAR.AR1 <-
       lambda <- 1/(1 + exp(-theta[1L]))
       sd <- sapply(theta[1+c(1:k)], function(x) exp(x))
       corr  <-   2/(1 + exp(-theta[k+2])) - 1
-      invR <- Matrix::bandSparse(
+      invR <- 1/(1-corr^2) * Matrix::bandSparse(
         n=k, m=k, k = c(-1, 0, 1),
-        diagonals = list(rep(corr, k-1), rep(1, k), rep(corr, k-1)))
+        diagonals = list(rep(corr, k-1), rep(1+corr^2, k), rep(corr, k-1)))
+      invR[1,1] <- invR[k,k] <- 1/(1-corr^2)
       PREC <-  diag(1/sd) %*% invR %*% diag(1/sd)
       return(list(lambda = lambda, PREC = PREC))
     }
