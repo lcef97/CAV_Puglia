@@ -36,24 +36,21 @@ inla.rgeneric.IMCAR.AR1  <-
         sd <- sapply(theta[c(1:k)], function(x) exp(x/2))
       }
       corr  <-   2/(1 + exp(-theta[k+1])) - 1
-      R <- diag(k)
-      for(i in c(1:k)){
-        for(j in c(1:k)) {
-          R[i,j] <- corr^abs(i-j)
-        }
-      } 
-      PREC <- solve(diag(sd) %*% R %*% diag(sd))
+      invR <- Matrix::bandSparse(
+        n=k, m=k, k = c(-1, 0, 1),
+        diagonals = list(rep(corr, k-1), rep(1, k), rep(corr, k-1)))
+      PREC <-  diag(1/sd) %*% invR %*% diag(1/sd)
      return(PREC)
     }
     graph <- function() {
-      G <- Q()
-      return(G)
-    }
-    Q <- function() {
       PREC <- Matrix::bandSparse(
         n=k, m=k, k = c(-1, 0, 1),
         diagonals = list(rep(1, k-1), rep(1, k), rep(1, k-1))
       )
+      return(kronecker(PREC, L))
+    }
+    Q <- function() {
+      PREC <- interpret.theta()
       return(kronecker(PREC, L))
     }
     mu <- function() {
@@ -80,7 +77,9 @@ inla.rgeneric.IMCAR.AR1  <-
     }
     initial <- function(){
       if(!exists("initial.values", envir= envir )){
-        return(c(rep(-2, k), -4))
+        if(!chisq) {
+          return(c(rep(-2, k), -4))
+          } else return(c(rep(-4, k), -4))
       } else {
         return(initial.values)
       }
@@ -150,13 +149,10 @@ inla.rgeneric.PMCAR.AR1 <-
       rho <- 1/(1 + exp(-theta[1L]))
       sd <- sapply(theta[1+c(1:k)], function(x) exp(x))
       corr  <-   2/(1 + exp(-theta[k+2])) - 1
-      R <- diag(k)
-      for(i in c(1:k)){
-        for(j in c(1:k)) {
-          R[i,j] <- corr^abs(i-j)
-        }
-      } 
-      PREC <- solve(diag(sd) %*% R %*% diag(sd))
+      invR <- Matrix::bandSparse(
+        n=k, m=k, k = c(-1, 0, 1),
+        diagonals = list(rep(corr, k-1), rep(1, k), rep(corr, k-1)))
+      PREC <-  diag(1/sd) %*% invR %*% diag(1/sd)
       return(list(rho = rho, PREC = PREC))
     }
     graph <- function() {
@@ -268,13 +264,10 @@ inla.rgeneric.LMCAR.AR1 <-
       lambda <- 1/(1 + exp(-theta[1L]))
       sd <- sapply(theta[1+c(1:k)], function(x) exp(x))
       corr  <-   2/(1 + exp(-theta[k+2])) - 1
-      R <- diag(k)
-      for(i in c(1:k)){
-        for(j in c(1:k)) {
-          R[i,j] <- corr^abs(i-j)
-        }
-      } 
-      PREC <- solve(diag(sd) %*% R %*% diag(sd))
+      invR <- Matrix::bandSparse(
+        n=k, m=k, k = c(-1, 0, 1),
+        diagonals = list(rep(corr, k-1), rep(1, k), rep(corr, k-1)))
+      PREC <-  diag(1/sd) %*% invR %*% diag(1/sd)
       return(list(lambda = lambda, PREC = PREC))
     }
     graph <- function() {
