@@ -24,6 +24,7 @@ so here are some.
   R code, compatible with R-INLA, with all the handmade INLA models [(here)]. As this is quite experimental, 
   if for any reason you use this code and you trust it enough (!) 
   it would be nice if you cited the source :)
+  However, it is getting a bit too long and clumsy so maybe I'll move the functions to an R package.
   
   - [Markdown report](https://github.com/lcef97/CAV_Puglia/blob/main/CAV_panel.pdf) 
   of 2021-24 data analysis with constant coefficients and spatial effects

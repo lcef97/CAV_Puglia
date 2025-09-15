@@ -38,7 +38,7 @@ inla.rgeneric.IMCAR.AR1  <-
       corr  <-   2/(1 + exp(-theta[k+1])) - 1
       invR <- Matrix::bandSparse(
         n=k, m=k, k = c(-1, 0, 1),
-        diagonals = list(rep(corr, k-1), rep(1+corr^2, k), rep(corr, k-1)))
+        diagonals = list(rep(-corr, k-1), rep(1+corr^2, k), rep(-corr, k-1)))
       #' Not so elegant but works
       #' when k=1 - otherwise, c(..., rep(x, n-2)) would crash
       invR[1,1] <- invR[k,k] <- 1 
@@ -64,7 +64,6 @@ inla.rgeneric.IMCAR.AR1  <-
       return(val)
     }
     log.prior <- function() {
-      cat("log.prior start ...")
       #' Exponential prior on the sd
       if(!chisq){
         val <- sum(theta[1:k] + dexp(exp(theta[c(1:k)]), rate=sd.rate, log=T))
@@ -75,7 +74,6 @@ inla.rgeneric.IMCAR.AR1  <-
       #' Uniform prior on the correlation --> use Normal for time being
       #val <- val + log(2) - theta[k+1] - log(1+exp(-theta[k+1]))  
       val <- val+  dnorm(theta[k+1], sd = sqrt(10), log=T)
-      cat("... log prior end \n")
       return(val)
     }
     initial <- function(){
@@ -154,7 +152,7 @@ inla.rgeneric.PMCAR.AR1 <-
       corr  <-   2/(1 + exp(-theta[k+2])) - 1
       invR <- Matrix::bandSparse(
         n=k, m=k, k = c(-1, 0, 1),
-        diagonals = list(rep(corr, k-1), rep(1+corr^2, k), rep(corr, k-1)))
+        diagonals = list(rep(-corr, k-1), rep(1+corr^2, k), rep(-corr, k-1)))
       invR[1,1] <- invR[k,k] <- 1 
       PREC <-  diag(1/sd) %*% invR %*% diag(1/sd)
       return(list(rho = rho, PREC = PREC))
@@ -270,7 +268,7 @@ inla.rgeneric.LMCAR.AR1 <-
       corr  <-   2/(1 + exp(-theta[k+2])) - 1
       invR <- Matrix::bandSparse(
         n=k, m=k, k = c(-1, 0, 1),
-        diagonals = list(rep(corr, k-1), rep(1+corr^2, k), rep(corr, k-1)))
+        diagonals = list(rep(-corr, k-1), rep(1+corr^2, k), rep(-corr, k-1)))
       invR[1,1] <- invR[k,k] <- 1 
       PREC <-  diag(1/sd) %*% invR %*% diag(1/sd)
       return(list(lambda = lambda, PREC = PREC))
