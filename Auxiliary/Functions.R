@@ -36,10 +36,12 @@ inla.rgeneric.IMCAR.AR1  <-
         sd <- sapply(theta[c(1:k)], function(x) exp(x/2))
       }
       corr  <-   2/(1 + exp(-theta[k+1])) - 1
-      invR <- 1/(1-corr^2) * Matrix::bandSparse(
+      invR <- Matrix::bandSparse(
         n=k, m=k, k = c(-1, 0, 1),
         diagonals = list(rep(corr, k-1), rep(1+corr^2, k), rep(corr, k-1)))
-      invR[1,1] <- invR[k,k] <- 1/(1-corr^2)
+      #' Not so elegant but works
+      #' when k=1 - otherwise, c(..., rep(x, n-2)) would crash
+      invR[1,1] <- invR[k,k] <- 1 
       PREC <-  diag(1/sd) %*% invR %*% diag(1/sd)
      return(PREC)
     }
@@ -150,10 +152,10 @@ inla.rgeneric.PMCAR.AR1 <-
       rho <- 1/(1 + exp(-theta[1L]))
       sd <- sapply(theta[1+c(1:k)], function(x) exp(x))
       corr  <-   2/(1 + exp(-theta[k+2])) - 1
-      invR <- 1/(1-corr^2) * Matrix::bandSparse(
+      invR <- Matrix::bandSparse(
         n=k, m=k, k = c(-1, 0, 1),
         diagonals = list(rep(corr, k-1), rep(1+corr^2, k), rep(corr, k-1)))
-      invR[1,1] <- invR[k,k] <- 1/(1-corr^2)
+      invR[1,1] <- invR[k,k] <- 1 
       PREC <-  diag(1/sd) %*% invR %*% diag(1/sd)
       return(list(rho = rho, PREC = PREC))
     }
@@ -266,10 +268,10 @@ inla.rgeneric.LMCAR.AR1 <-
       lambda <- 1/(1 + exp(-theta[1L]))
       sd <- sapply(theta[1+c(1:k)], function(x) exp(x))
       corr  <-   2/(1 + exp(-theta[k+2])) - 1
-      invR <- 1/(1-corr^2) * Matrix::bandSparse(
+      invR <- Matrix::bandSparse(
         n=k, m=k, k = c(-1, 0, 1),
         diagonals = list(rep(corr, k-1), rep(1+corr^2, k), rep(corr, k-1)))
-      invR[1,1] <- invR[k,k] <- 1/(1-corr^2)
+      invR[1,1] <- invR[k,k] <- 1 
       PREC <-  diag(1/sd) %*% invR %*% diag(1/sd)
       return(list(lambda = lambda, PREC = PREC))
     }
@@ -394,15 +396,11 @@ inla.rgeneric.MBYM.AR1 <- function(
     phi <- 1/(1 + exp(-theta[1L]))
     sd <- sapply(theta[1+c(1:k)], function(x) exp(x))
     corr  <-   2/(1 + exp(-theta[k+2])) - 1
-    R <- diag(k)
-    for(i in c(1:k)){
-      for(j in c(1:k)) {
-        R[i,j] <- corr^abs(i-j)
-      }
-    } 
-    e <- eigen(R)
-    invM <- diag(1/sd) %*% e$vectors %*% diag(1/sqrt(e$values))
-    PREC <- invM %*% t(invM)
+    cholInvR <-  Matrix::bandSparse(
+      n=k, m=k, k = c(0, 1),
+      diagonals = list(c(sqrt(1-corr^2), rep(1,k-1)), rep(-corr, k-1) ))
+    invM <- diag(1/sd) %*% cholInvR
+    PREC <- invM %*% Matrix::t(invM)
     return(list(phi = phi, PREC = PREC, invM=invM))
   }
   graph <- function() {
@@ -1317,20 +1315,11 @@ inla.rgeneric.LMMCAR.AR1 <-
       lambda <- 1/(1 + exp(-theta[as.integer(1:k)]))
       sd <- sapply(theta[k+c(1:k)], function(x) exp(x))
       corr  <-   2/(1 + exp(-theta[2*k+1])) - 1
-      R <- diag(k)
-      for(i in c(1:k)){
-        for(j in c(1:k)) {
-          R[i,j] <- corr^abs(i-j)
-        }
-      } 
-      #Sigma <- diag(sd) %*% R %*% diag(sd)
-      evalR <- eigen(R)
-      M <-   diag(sqrt(evalR$values)) %*% t(evalR$vectors) %*% diag(sd)
-      invM <- solve(M)
-      #PREC <- solve(Sigma)
-      #e <- eigen(Sigma)
-      #M <- t(e$vectors %*% diag(sqrt(e$values)))
-      invM <- solve(M)#e$vectors %*% diag(sqrt(1/e$values))
+      cholInvR <-  Matrix::bandSparse(
+        n=k, m=k, k = c(0, 1),
+        diagonals = list(c(sqrt(1-corr^2), rep(1,k-1)), rep(-corr, k-1) ))
+      invM <- diag(1/sd) %*% cholInvR
+      M <- Matrix::t(solve(invM))
       return(list(lambda = lambda, M = M, invM = invM))
     }
     graph <- function() {
@@ -1619,20 +1608,11 @@ inla.rgeneric.PMMCAR.AR1 <-
       rho <- 1/(1 + exp(-theta[as.integer(1:k)]))
       sd <- sapply(theta[k+c(1:k)], function(x) exp(x))
       corr  <-   2/(1 + exp(-theta[2*k+1])) - 1
-      R <- diag(k)
-      for(i in c(1:k)){
-        for(j in c(1:k)) {
-          R[i,j] <- corr^abs(i-j)
-        }
-      } 
-      #Sigma <- diag(sd) %*% R %*% diag(sd)
-      evalR <- eigen(R)
-      M <-   diag(sqrt(evalR$values)) %*% t(evalR$vectors) %*% diag(sd)
-      invM <- solve(M)
-      #PREC <- solve(Sigma)
-      #e <- eigen(Sigma)
-      #M <- t(e$vectors %*% diag(sqrt(e$values)))
-      invM <- solve(M)#e$vectors %*% diag(sqrt(1/e$values))
+      cholInvR <-  Matrix::bandSparse(
+        n=k, m=k, k = c(0, 1),
+        diagonals = list(c(sqrt(1-corr^2), rep(1,k-1)), rep(-corr, k-1) ))
+      invM <- diag(1/sd) %*% cholInvR
+      M <- Matrix::t(solve(invM))
       return(list(lambda = lambda, M = M, invM = invM))
     }
     graph <- function() {
@@ -2112,18 +2092,14 @@ inla.rgeneric.MMBYM.AR1 <-
       phi <-  1/(1+exp(-theta[c(1:k)]))
       sd <-  sapply(theta[ k+(1:k)], function(x) exp( x ) ) 
       corr <- 2/(1+exp(-theta[2*k + 1]) ) - 1
-      R <- diag(k)
-      for(i in c(1:k)){
-        for(j in c(1:k)){
-          R[i,j] <- corr^abs(i-j)
-        }
-      }
-      Sigma <- diag(sd) %*% R %*% diag(sd)
-      evalR <- eigen(R)
-      M <-   diag(sqrt(evalR$values)) %*% t(evalR$vectors) %*% diag(sd)
-      invM <- solve(M)
-      PREC <- solve(Sigma)
-      return(list(phi = phi, M = M, PREC = PREC, Sigma= Sigma, invM = invM))
+      cholInvR <-  Matrix::bandSparse(
+        n=k, m=k, k = c(0, 1),
+        diagonals = list(c(sqrt(1-corr^2), rep(1,k-1)), rep(-corr, k-1) ))
+      invM <- diag(1/sd) %*% cholInvR
+      #M <- Matrix::t(solve(invM))
+      #PREC <- invM %*% Matrix::t(invM)
+      #Sigma <- Matrix::t(M)%*%M
+      return(list(phi = phi, invM = invM))#, PREC = PREC, Sigma= Sigma, M = M))
     }
     graph <- function() {
       QQ <- Q()
@@ -2141,7 +2117,7 @@ inla.rgeneric.MMBYM.AR1 <-
         }))
         Q <- MI %*% BlockIW %*% Matrix::t(MI)
       } else {
-        q11 <- param$invM  %*% Matrix::Diagonal(x = 1/(1 - param$phi), n = k) %*% t(param$invM)
+        q11 <- param$invM  %*% Matrix::Diagonal(x = 1/(1 - param$phi), n = k) %*% Matrix::t(param$invM)
         q12 <- param$invM %*% Matrix::Diagonal(x = sqrt(param$phi)/(1 - param$phi), n = k)
         q22 <- Matrix::Diagonal(x = param$phi/(1 - param$phi), n = k)
         
