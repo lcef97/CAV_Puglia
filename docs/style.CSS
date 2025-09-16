@@ -115,10 +115,28 @@ table.dataTable {
     /*width: 50%;  */
     height: 200px ; 
  }
- thead {
-  background-color: #004E5A; 
+ 
+ .scroll-table {
+  height: 300px;    
+  overflow-y: auto;
+  font-size: 20px;
+  line-height: 1.8;
+  border-spacing: 10em;
+  border: 1px solid #004E5A;
+  padding: 5px;
 }
  
+ thead {
+  background-color: #004E5A;
+  color: #fff;
+}
+ 
+table th {
+  font-size: 24px;
+  color: #fff;
+}
+
+
 .dataTables_wrapper {
     font-size: 14px;
     /* width: 80% ;*/

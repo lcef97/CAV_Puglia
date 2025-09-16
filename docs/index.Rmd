@@ -325,7 +325,32 @@ gridExtra::grid.arrange(ggy23, ggy24, nrow = 2)
  - **Distance** (`TEP`) from the **closest municipality** hosting an AVC (**MFI, 2021**), 
 
  - Components of the **Municipality Frailty Index** or MFI, 2021; source: [ISTAT](https://www.istat.it/comunicato-stampa/indice-di-fragilita-comunale-ifc/)
- - **TBD**: table like in the `.ppt`
+ 
+
+<div class="scroll-table">
+
+<table>
+  <thead>
+    <tr>
+      <th>Variable</th>
+      <th>Unit</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td>TEP</td><td>Minutes</td><td>Road **travel time** to the **closest** municipality hosting an AVC</td></tr>
+    <tr><td>ELI</td><td>Ventile</td><td>Share of employees in **low productivity** units</td></tr>
+    <tr><td>PGR</td><td>Rate</td><td>**Population growth** rate 2011–2021</td></tr>
+    <tr><td>UIS</td><td>Ventile</td><td>**Density** of **economic** production units</td></tr>
+    <tr><td>ELL</td><td>Percentage</td><td>Population aged [25–64] with **low education** level</td></tr>
+    <tr><td>PDI</td><td>Percentage</td><td>**Structural dependency** index (population aged [0–19] or >64 over [20–64])</td></tr>
+    <tr><td>ER</td><td>Percentage</td><td>**Employment rate** among population aged [20–64]</td></tr>
+  </tbody>
+</table>
+
+</div>
+
+
 
 ## Regression model
 
@@ -519,7 +544,7 @@ $$
   - Actually a **reparametrisation** of the original BYM [@BYM], proposed by [@BYM2]
 
 $$
-Z = U \Phi M + V (I_k-\Phi) M
+Z = U \Phi^\frac{1}{2} M + V (I_k-\Phi^\frac{1}{2}) M
 $$
   - $\Phi$: **variance** mixing parameter
   
@@ -544,13 +569,25 @@ $$
   
   - Caveat: deriving **analytically** a PC-prior for **multivariate** parameters is hardly possible [@PC], [@MPC]
   
+    $\longrightarrow$ workaround: **Sequential** derivation
+  
 ## A Sequential approach for the PC-prior  
   
   - Let $\theta_j$ denote either $\alpha_j$, $\lambda_j$, or $\phi_j$ for $j = 1, \dots, k$
   
-  - Set up: $\pi(\theta) = \pi (\theta_1) \pi(\theta_2 \mid \theta_1) \dots \pi(\theta_k \mid \theta_1, \dots, \theta_{k-1})$
+  - At each **step** $j$, we test the **flexible** model with $\theta_j > 0$, against the **base** model with $\theta_j = 0$, all other parameters being **unchanged**
   
-    - Provided that $\pi(\theta_j \mid \theta_1, \dots, \theta_{j-1}) = \pi(\theta_j \mid \theta_1, \theta_{j-1}, \theta_{j+1}=\dots=\theta_k=0)$
+  - Then, the **joint** prior simply comes from the chain rule: 
+  
+  $$\pi(\theta) = \pi (\theta_1) \pi(\theta_2 \mid \theta_1) \dots \pi(\theta_k \mid \theta_1, \dots, \theta_{k-1})$$
+  
+  - Provided that 
+  
+  $$
+  \begin{align*}
+  \pi(\theta_j \mid \theta_1, \dots, \theta_{j-1}) = \\ =\pi(\theta_j \mid \theta_1, \dots, \theta_{j-1}, \theta_{j+1}=\dots=\theta_k=0)
+  \end{align*}
+  $$
   
   
   
