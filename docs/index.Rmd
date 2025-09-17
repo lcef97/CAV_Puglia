@@ -25,18 +25,27 @@ import_workspace <- TRUE
 
 ## Scope
 
-  - Modelling the spatial variability and the association with candidate driving factors
-  in the reporting of violence against women (VAW)
-  - Variable of interest: counts of accesses to Anti-Violence Centers (AVCs) in Apulia
-  per residence municipality of victims
-  - Observation period: 2021 -- 2024; observation units: Apulian municipalities.
+  - Modelling the **spatial** variability and the association with candidate **driving factors**
+  in the **reporting** of **violence against women (VAW)**
+  
+  - Variable of interest: **counts** of **accesses** to Anti-Violence Centers (AVCs) in **Apulia**
+  per **residence municipality** of victims
+  
+  - Observation period: **2021 -- 2024**; observation units: **Apulian municipalities**.
+  
   - [Online version (**recursive**)](https://lcef97.github.io/CAV_Puglia/#1); more details [here](https://github.com/lcef97/CAV_Puglia/blob/main/CAV_panel.pdf)
+  
+<img src="Watermark_logo.png" class="watermark-logo">
+
+
   
 ## Importance of AVCs
 
-  - Offering shelter, legal assistance and psycological support to women victims of gender-based violence
-  - Maintaining systematic records of reported cases, as outlined in Italian Law no.119/2013
-  - Data collected by the Statistical Section and the Welfare Department of the Apulia Region, as part of a systematic monitoring program established under Regional Law no. 29/2014
+  - Offering **shelter**, **legal** assistance and **psycological** support to **women** victims of **gender-based violence**
+  
+  - Maintaining systematic **records** of reported cases, as outlined in Italian Law no.119/2013
+  
+  - Data collected by the Statistical Section and the Welfare Department of the Apulia **Region**, as part of a systematic **monitoring program** established under Regional Law no. 29/2014
 
 ```{r InputMute,  echo = FALSE, message = FALSE, warning = FALSE, output = FALSE}
 ##' !!!!!!!!   BY ANY MEANS, do not touch the following anchoring line  !!!!!!!!
@@ -259,8 +268,9 @@ etahat_plot <- function(mod, predictor = FALSE){
 ##' EndRemoteSource
 
 ```
+<img src="Watermark_logo.png" class="watermark-logo">
 
-## Access to AVCs in Apulia: Incidence (1)
+## Access to AVCs in Apulia: Incidence (I)
 
 ```{r Log accesses plot input,  echo = FALSE, warning = FALSE, message = FALSE  }
 
@@ -310,8 +320,9 @@ gridExtra::grid.arrange(ggy21, ggy22, nrow = 2)
 
 ```
 
+<img src="Watermark_logo.png" class="watermark-logo">
 
-## Access to AVCs in Apulia: Incidence (2)
+## Access to AVCs in Apulia: Incidence (II)
 
 ```{r Log accesses plot second, echo = FALSE, warning = FALSE, message = FALSE, fig.cap = "Log-access rate, 2023-2024" }
 
@@ -319,12 +330,13 @@ gridExtra::grid.arrange(ggy23, ggy24, nrow = 2)
 
 ```
 
+<img src="Watermark_logo.png" class="watermark-logo">
 
 ## Explanatory variables
 
- - **Distance** (`TEP`) from the **closest municipality** hosting an AVC (**MFI, 2021**), 
+ - **Distance** (`TEP`) from the **closest municipality** hosting an AVC 
 
- - Components of the **Municipality Frailty Index** or MFI, 2021; source: [ISTAT](https://www.istat.it/comunicato-stampa/indice-di-fragilita-comunale-ifc/)
+ - Components of the **Municipality Frailty Index** (MFI), 2021; source: [ISTAT](https://www.istat.it/comunicato-stampa/indice-di-fragilita-comunale-ifc/)
  
 
 <div class="scroll-table">
@@ -350,11 +362,12 @@ gridExtra::grid.arrange(ggy23, ggy24, nrow = 2)
 
 </div>
 
+<img src="Watermark_logo.png" class="watermark-logo">
 
 
 ## Regression model
 
-  - **256** municipalities; **4** years
+  - **256** municipalities, **4** years
   
   - Standard **Poisson** linear regression: for $i \in [1,256]$, and $t \in \lbrace 2021, ..., 2024 \rbrace$ we have
   
@@ -371,6 +384,9 @@ $$
     
     -  $\eta_{it}$: linear predictor; $\theta$: model hyperparameters
   
+<img src="Watermark_logo.png" class="watermark-logo">
+  
+  
 ## The linear predictor
 
   - Inclusion of a multivariate latent **spatial** effect in $\eta$ to account for **territorial variability** and **overdispersion**
@@ -378,10 +394,14 @@ $$
 $$\eta_{it} := X_{it}^\top \beta + Z_{it}$$
   - $X$: Covariates; $\beta$: covariate effects
   
-  - $Z_{it}$: multivariate latent spatial effect of size $n \times k$, where $n=256$ and $k=4$ \longrightarrow$ modelled via the flexible **M-Models** [@Mmodels]
-    - Competing models: ICAR, PCAR, LCAR and BYM
+  - $Z_{it}$: multivariate latent spatial effect of size $n \times k$, where $n=256$ and $k=4 \quad \longrightarrow$ modelled via the flexible **M-Models** [@Mmodels]
+  
+  - Competing models: **ICAR**, **PCAR**, **LCAR** and **BYM**
 
-## Models (1): Intrinsic CAR
+<img src="Watermark_logo.png" class="watermark-logo">
+
+
+## Models (I): Intrinsic CAR
 
   - Simplest formulation among spatial autoregressive models
 
@@ -399,6 +419,13 @@ $$
  $-$ implicitly assumes **spatial autocorrelation** equal to 1 $\rightarrow$ sometimes too **smooth** to adequately fit data
   
 ```{r IMCAR  }
+
+#' It does not belong here but I would avoid
+#' creating a chunk just to import the nonspatial model
+#' so here it is
+  load("WS/cav_nosp_inla.RData")
+#' now here comes the ICAR
+
 if(import_workspace){
   load("WS/cav_IMCAR_inla.RData")
 } else {
@@ -415,22 +442,24 @@ cav_IMCAR_inla <- inla(
 }
 
 ```
+<img src="Watermark_logo.png" class="watermark-logo">
 
   
 ## M-models (I)
 
-  - Based on the **decomposition** of the **scale parameter** as
+  - Based on the **decomposition** of the **variance-covariance** matrix as
   $\Sigma := M^\top M$
   
-  - $M$: generic **full** rank matrix, in our application of size $k \times k$
+  - $M$: **full** rank matrix, of size $k \times k$ herein
     
   - consider $Z$ as a **combination** of $k$ independent fields $Z_j^{(0)}$ for $1 \leq j \leq k$, i.e. $Z :=  \left(Z_1^{(0)}, \dots,  Z_k^{(0)}\right) M$ 
   
   - $Z^{(0)} \sim \mathcal{N}_n \left( 0, \Omega_j \right)$ for a $n \times n$ s.p.d. matrix $\Omega_j$ depending:
-  
     - On the **graph** structure
-    
-    - On an array of model-specific parameters 
+    - On an array of **model-specific** parameters 
+
+<img src="Watermark_logo.png" class="watermark-logo">
+
 
 ## M-models (II) 
   
@@ -452,7 +481,7 @@ cav_IMCAR_inla <- inla(
   \end{pmatrix}
   $$
   
-  - We compare three **standard** models for the $\Omega$ matrix in the next slides
+  - Three **standard** models for $\Omega$ compared in next slides
   
 <!--   
      - **Proper** CAR  [@PCAR]
@@ -471,10 +500,11 @@ cav_IMCAR_inla <- inla(
 -->
 
  
+<img src="Watermark_logo.png" class="watermark-logo">
 
 
 
-## Models (2): Proper CAR (PCAR)
+## Models (II): Proper CAR (PCAR)
 
   - Generalises the ICAR allowing for a **proper** prior density with **nonsingular** precision [@PCAR]
   
@@ -508,10 +538,10 @@ if(import_workspace){
 
 
 
-cav_PMMCAR_inla_pc_strict  <- inla(
+cav_PMMCAR_inla_pc <- inla(
   N_ACC ~  0+ Y_2021 + Y_2022 + Y_2023 + Y_2024 +
     TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
-    f(ID, model = inla.PMMCAR.model(k = 4, W = W_con, df = 8, PC = T, alpha=0.9, U = 0.6)),
+    f(ID, model = inla.PMMCAR.model(k = 4, W = W_con, df = 8, PC = T)),
   offset = log(nn),
   family = "poisson", data =dd,
   num.threads = 1, control.compute = list(
@@ -522,8 +552,9 @@ cav_PMMCAR_inla_pc_strict  <- inla(
 
 ```
 
+<img src="Watermark_logo.png" class="watermark-logo">
     
-## Models (3): Leroux proper CAR (LCAR)
+## Models (III): Leroux proper CAR (LCAR)
 
   - Also generalises the ICAR allowing for a **proper** density
   
@@ -539,23 +570,100 @@ $$
     - $\lambda_t = 0$: IID model  
     - $\lambda_t = 1$: ICAR  
     
-## Models (4): Besag-York-Mollié (BYM)
+```{r LCAR}
+
+if(import_workspace){
+  load("WS/cav_LMMCAR_inla_unif.RData")
+  load("WS/cav_LMMCAR_inla_pc.RData")
+} else {
+  
+ cav_LMMCAR_inla_unif <- inla(
+  N_ACC ~  0+ Y_2021 + Y_2022 + Y_2023 + Y_2024 +
+    TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.LMMCAR.model(k = 4, W = W_con, df = 8, PC = F)),
+  offset = log(nn), control.inla = list(stupid.search = F),
+  family = "poisson", data =dd, safe = F,
+  num.threads = 1, control.compute = list(
+    internal.opt = F, cpo = F, waic = T, config = F), 
+  verbose = F)
+
+
+
+cav_LMMCAR_inla_pc  <- inla(
+  N_ACC ~  0+ Y_2021 + Y_2022 + Y_2023 + Y_2024 +
+    TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.LMMCAR.model(k = 4, W = W_con, df = 8, PC = T, alpha=0.9, U = 0.6)),
+  offset = log(nn),
+  family = "poisson", data =dd,
+  num.threads = 1, control.compute = list(
+    internal.opt = F, cpo = T, waic = T, config = F), 
+  verbose = F)
+
+}
+
+```
+
+<img src="Watermark_logo.png" class="watermark-logo">
+
+    
+## Models (IV): Besag-York-Mollié (BYM)
 
   - Actually a **reparametrisation** of the original BYM [@BYM], proposed by [@BYM2]
 
 $$
 Z = U \Phi^\frac{1}{2} M + V (I_k-\Phi^\frac{1}{2}) M
 $$
-  - $\Phi$: **variance** mixing parameter
+  - $\Phi := \mathrm{diag}(\phi_1, \dots, \phi_k)$: **variance** mixing parameter, $\phi_j \in [0, 1]\, \forall j$
   
   - $U \sim \mathcal{N}_{kn} \left(0, I_k \otimes L_S^{+} \right)$: independent ICAR (limit case for $\Phi = I_k$) $\rightarrow$ **spatial dependence**, where $L_S$: **scaled** Laplacian [@BYM2]
   
-   - $V \sim \mathcal{N}_{kn} (0, I_{kn})$: std. IID field (limit case for $\Phi = 0$) $\rightarrow$ **noise**
+  - $V \sim \mathcal{N}_{kn} (0, I_{kn})$: IID field (limit case for $\Phi = 0$) $\rightarrow$ **noise**
  
+ <!--
  $$
  \therefore \Omega = \Phi \otimes L_S^+ + 
  (I_k - \Phi) \otimes I_n
  $$
+ -->
+ 
+ 
+```{r BYM}
+
+if(import_workspace){
+  load("WS/cav_MMBYM_inla_unif.RData")
+  load("WS/cav_MMBYM_inla_pc.RData")
+} else {
+  
+cav_MMBYM_inla_pc <- inla(
+  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 +
+    TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.MMBYM.model(k = 4, W = W_con,  PC= T, df = 8,
+                                   scale.model=T, alpha=0.9, U=0.6) , 
+      extraconstr = constr.BYM),
+  offset = log(nn), 
+  family = "poisson", data =dd,
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = F), 
+  verbose = T)
+
+
+
+cav_MMBYM_inla_unif <- inla(
+  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 +
+    TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.MMBYM.model(k = 4, W = W_con,  PC= F, df = 8,scale.model = T) , 
+      extraconstr = constr.BYM),
+  offset = log(nn), 
+  family = "poisson", data =dd,
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = F), 
+  verbose = T)
+
+
+}
+
+```
+
+ <img src="Watermark_logo.png" class="watermark-logo">
+
  
 ## Multivariate PC-prior
 
@@ -568,9 +676,25 @@ $$
   - Question: can we apply this approach in the **multivariate** setting, and also for **PCAR** and **LCAR** models?
   
   - Caveat: deriving **analytically** a PC-prior for **multivariate** parameters is hardly possible [@PC], [@MPC]
-  
     $\longrightarrow$ workaround: **Sequential** derivation
   
+  <img src="Watermark_logo.png" class="watermark-logo">
+
+## PC priors: principles
+
+ **Penalise** the **departure** of a model depending on a parameter $\theta$ from a **simpler** (base) one [@PC]:
+ 
+   - **Simple** model: here, an **independent**, unstructured one, with $\theta = 0$
+   
+   - **Departure**: a measure of how the more **flexible** model, say $\mathcal{M}_F$ **diverges** from the **simple** one, say $\mathcal{M}_B \rightarrow$ **distance** function: $d (\mathcal{M}_F||\mathcal{M}_B) := \sqrt{2 \mathrm{KLD}(\mathcal{M}_F||\mathcal{M}_B)}$
+   
+   - **Penalise**: shrink the p.d.f. of $d(\mathcal{M}_F||\mathcal{M}_B)$ at a constant rate $\rightarrow$ **exponential** prior on $d$
+
+Fix two parameters $\theta_0, \mathcal{a}:\mathrm{Prob} \lbrace \theta \leq \theta_0 \rbrace = \mathcal{a}$
+
+<img src="Watermark_logo.png" class="watermark-logo">
+
+
 ## A Sequential approach for the PC-prior  
   
   - Let $\theta_j$ denote either $\alpha_j$, $\lambda_j$, or $\phi_j$ for $j = 1, \dots, k$
@@ -589,8 +713,71 @@ $$
   \end{align*}
   $$
   
+  <img src="Watermark_logo.png" class="watermark-logo">
+
+## Practical findings
+
+  - PC-priors available in **closed formula**
   
+  - $\pi(\theta)$ independent on $\Sigma$
   
+  - $\pi(\theta_j \mid \theta_1, \dots, \theta_{j-1}) = \pi(\theta_j)$, i.e., at each step $j$, 
+  the prior of $\theta_j$ is independent on other parameters
+  
+  $$
+  \therefore \pi(\theta) = \prod_{j=1}^k \pi(\theta_j)
+  $$
+  
+  - Only needed **Laplacian** eigenvalues (LCAR, BYM) or eigenvalues of $D^{-1}W$ (PCAR), both **deterministic** $\rightarrow$ computed **once**
+  
+<img src="Watermark_logo.png" class="watermark-logo">
+
+
+
+## Univariate PCAR PC-prior
+
+<table style="width:100%">
+  <tr>
+    <td style="width:45%">
+      <img src="https://raw.githubusercontent.com/lcef97/PhD_Thesis/main/docs/Media/PCAR_PC_prior.gif" width="440">
+    </td>
+    <td style="vertical-align: top; padding-left: 20px;">
+    <!--
+      <p><strong>PC Prior for PCAR autocorrelation parameter</strong></p>
+      -->
+      <ul>
+        <li> Prior based on a regular lattice </li>  
+        <li> Three examples for bound $\theta_0$: 0.4, 0.5, 0.6 </li>
+        <li> Increasing tail probability $\mathcal{a} > \theta_0$ </li>
+      </ul>
+    </td>
+  </tr>
+</table>
+
+<img src="Watermark_logo.png" class="watermark-logo">
+
+
+## Univariate LCAR PC-prior
+
+<table style="width:100%">
+  <tr>
+    <td style="width:45%">
+      <img src="https://raw.githubusercontent.com/lcef97/PhD_Thesis/main/docs/Media/LCAR_PC_prior.gif" width="440">
+    </td>
+    <td style="vertical-align: top; padding-left: 20px;">
+    <!--
+      <p><strong>PC Prior for PCAR autocorrelation parameter</strong></p>
+      -->
+      <ul>
+        <li> Prior based on a regular lattice </li>  
+        <li> Three examples for bound $\theta_0$: 0.5, 0.6, 0.7 </li>
+        <li> Increasing tail probability $\mathcal{a} > \theta_0$ </li> 
+        <li> Maybe better to work with **high** bound values and very high tail probabilities </li>
+      </ul>
+    </td>
+  </tr>
+</table>
+
   
 <style>
 slides > slide { overflow: scroll; }
@@ -598,6 +785,118 @@ slides > slide:not(.nobackground):after {
   content: '';
 }
 </style>
+
+<img src="Watermark_logo.png" class="watermark-logo">
+
+
+## Univariate BYM PC-prior
+
+<table style="width:100%">
+  <tr>
+    <td style="width:45%">
+      <img src="https://raw.githubusercontent.com/lcef97/PhD_Thesis/main/docs/Media/BYM_PC_prior.gif" width="440">
+    </td>
+    <td style="vertical-align: top; padding-left: 20px;">
+    <!--
+      <p><strong>PC Prior for PCAR autocorrelation parameter</strong></p>
+      -->
+      <ul>
+        <li> As in Riebler et al. (2016) </li
+        <li> Prior based on a regular lattice </li>  
+        <li> Three examples for bound $\theta_0$: 0.4, 0.5, 0.6 </li>
+        <li> Increasing tail probability $\mathcal{a} > \theta_0$ </li>
+      </ul>
+    </td>
+  </tr>
+</table>
+
+<img src="Watermark_logo.png" class="watermark-logo">
+
+
+## Model diagnostics
+
+Models are compared by the **Watanabe-Akaike** Information Criterion (WAIC) [@GelmanWAIC]. Free parameters are reported as well. 
+
+```{r all waic}
+
+models <- list( cav_nosp_inla, cav_IMCAR_inla,
+                cav_PMMCAR_inla_unif, cav_PMMCAR_inla_pc,
+                cav_LMMCAR_inla_unif, cav_LMMCAR_inla_pc,
+                cav_MMBYM_inla_unif, cav_MMBYM_inla_pc)
+
+waics <- data.frame(t(sapply(models, function(x) {
+  cbind(round(x$waic$waic, 2), round(x$waic$p.eff, 2))
+  }))) %>%
+  dplyr::rename(WAIC = .data$X1, P_WAIC = .data$X2) %>% 
+  dplyr::mutate(Model = c("Nosp", "ICAR", "PCAR_Un", "PCAR_PC",
+                          "LCAR_Un", "LCAR_PC", "BYM_Un", "BYM_PC")) %>% 
+  dplyr::relocate(Model, .before = 1)
+
+#dics <- data.frame(t(sapply(models, function(x) {
+#  cbind(round(x$dic$dic, 2), round(x$dic$p.eff, 2))
+#  }))) %>%
+#  dplyr::rename(DIC = .data$X1, DIC_P_eff = .data$X2) 
+
+DT::datatable(waics)
+
+```
+<img src="Watermark_logo.png" class="watermark-logo">
+
+
+
+
+## Model prior choice - BYM
+
+  - **Covariate** effects: independent weekly informative Gaussians $\mathcal{N}(0, 10^3)$
+  
+  - $\Sigma$: **Wishart** prior, with **identity** scale parameter *and* 8 **degrees of freedom**
+  
+  - $\Phi$: PC-prior, with $\mathrm{Prob} \lbrace \phi_j \leq 0.6 \rbrace = 0.9$ for all $j$
+  
+  - Model estimation is carried out entirely within **R-INLA** [@INLA] using the **Variational Bayes** [@INLAVB] correction to the posterior mean of latent variables
+
+<img src="Watermark_logo.png" class="watermark-logo">
+
+
+
+
+## Covariate effect posterior
+
+```{r betas posterior}
+betas.MMBYM.inla   <- round(cav_MMBYM_inla_pc$summary.fixed, 3) %>% 
+  dplyr::select(.data$mean, .data$sd, .data$`0.025quant`, .data$`0.975quant`) %>%
+  dplyr::mutate(Effect = rownames(cav_MMBYM_inla_pc$summary.fixed)) %>% 
+  dplyr::relocate(.data$Effect, .before = 1) %>%  
+  dplyr::rename(Mean = .data$mean, Sd = .data$sd,
+                Q_0.025 = .data$`0.025quant`, Q_0.975 = .data$`0.975quant`)
+
+DT::datatable(betas.MMBYM.inla)
+
+```
+
+<img src="Watermark_logo.png" class="watermark-logo">
+
+
+## Covariate Effects Interpretation
+
+$y =$ <span style="color: #C00005 ;">VAW **occurrence** </span> $\times$ <span style="color: #093C92 ;"> incidents **reporting** rate </span>
+
+  - **Twofold interpretation** of covariate **effects** on AVC **accesses**
+
+  - **TEP**: either relative <span style="color: #093C92 ;"> ease in reporting violence </span> in **proximity** of AVCs, or <span style="color: #C00005 ;"> **appropriateness** of AVC **placement** </span>
+
+  - **ELL**: <span style="color: #093C92 ;"> lower **reliance** on AVCs </span> in **poor education** contexts
+
+  - **ER**: <span style="color: #C00005 ;"> lower violence **occurrence** </span> in more **developed** areas
+
+
+<img src="Watermark_logo.png" class="watermark-logo">
+
+
+
+
+
 ## Cited works
   
+
   

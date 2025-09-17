@@ -1,12 +1,10 @@
 .title-slide {
-  /*width: 1100px;
-  height: 620px;*/
   padding-left: 20px;
-  /* background-image: url('GRINS_template_v2.png'); 
+  background-image: url('Titlepage.png'); 
   background-size: contain;  
   background-position: center;
   background-repeat: no-repeat;
-  color: white;*/
+  color: white;
 }
 
 .title-slide hgroup {
@@ -16,21 +14,19 @@
 .title-slide hgroup h1 {
   position: absolute;
   font-size: 56px;
-  margin-top: 100px;
-  left: 1em; /*
-  max-width: 640px;*/
+  margin-top: 170px;
+  left: 1em; 
   word-wrap: break-word; 
-  /*color: #fff; */
+  color: #fff; 
 }
 
 .title-slide hgroup h2 {
   position: absolute;  
-  top: 380px;  
+  top: 410px;  
   left: 1.6em;  
   font-size: 40px;
   /*color: darkgrey;*/
   line-height: 1.1;
-  /*max-width: 680px;  */
   word-wrap: break-word;  
   white-space: normal;
 }
@@ -39,53 +35,59 @@
 .title-slide hgroup p {
   position: absolute; 
   font-size: 22px;
-  /*color: #fff;*/
-  top: calc(2em + 520px); 
+  color: #fff;
+  top: calc(2em + 470px); 
   left: 120px;
-  right: 80px;
+  right: 60px; 
   line-height: 1.01;
   text-align: right;
 }
 
-/*
+
 slides > .slides:not(.title-slide) {
-  background-image: url('GRINS_watermark_v1.png');
+  background-image: url('Watermark_logo.png');
   background-position: bottom;
 }
+
+
+
+
+/*
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300&display=swap');
 */
 
-
-
-
-@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300&display=swap');
 
 /*
 slides > slide{
     background-color: #E6E6E6;
     color: h2, #E2FF59;
     font-family: 'Poppins', sans-serif; 
+} 
+*/
+
+
+slides > hgroup > h2 {
+  color: #253A6B; !important
 }
-
-
-slides > hgroup h2 {
-  color: #004E5A; 
+ 
+slide:not(.title-slide) hgroup h2 {
+  color: #253A6B !important;
 }
-
 
 .watermark-logo {
     left: 0;
     right: 0;
-    width: 100%; 
+    width: 90%; 
     margin: 0;
-    background-image: url('GRINS_watermark.png');
+    transform: translateX(6.25%);
+    background-image: url('Watermark_logo.png');
     background-size: contain;
     background-repeat: no-repeat;
     position: absolute;
-    bottom: 6px; 
+    bottom: -2px; 
 }
-*/
 
-/*slides > slide:not(.nobackground):after {*/
+/**/
 slides > slide {
     /* font-family: 'Poppins', sans-serif; */
     font-size: 20pt;
@@ -96,6 +98,7 @@ slides > slide {
     /*color: white;
     line-height: 1.5;*/
 }
+
 
 
 
@@ -113,26 +116,28 @@ slides > slide {
 table.dataTable {
     font-size: 14px;
     /*width: 50%;  */
-    height: 200px ; 
+    height: 180px ; 
  }
  
- .scroll-table {
-  height: 300px;    
+.scroll-table {
+  height: 240px;    
   overflow-y: auto;
   font-size: 20px;
   line-height: 1.8;
   border-spacing: 10em;
-  border: 1px solid #004E5A;
+  border: 1px solid #2B65AF;
   padding: 5px;
 }
  
- thead {
-  background-color: #004E5A;
+thead {
+  background-color: #2B65AF;
   color: #fff;
 }
  
 table th {
   font-size: 24px;
+  padding-top: 10px;
+  padding-bottom: 10px;
   color: #fff;
 }
 
@@ -179,6 +184,6 @@ table th {
 
 /*
 slides > slide.dark {
-  background: #004E5A !important; 
-}
-*/
+  background: #253A6B !important; 
+} */
+

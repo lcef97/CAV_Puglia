@@ -35,6 +35,20 @@ remote_source <- code_lines[start_source:end_source]
 #' trust me, just trust computers. --------------------------------------------#
 eval(parse(text = remote_source), envir = globalenv())
 
+#' Before spatial models, let us write the nonspatial one,
+#' which however is so easy it could even be run
+#' on the main script.
+cav_nosp_inla <- inla(
+  N_ACC ~0 + Y_2021 + Y_2022 +Y_2023 +Y_2024 +
+    TEP_th + ELI + PGR + UIS + ELL + PDI + ER  ,
+  offset = log(nn),
+  family = "poisson", data =dd,
+  num.threads = 1, control.compute = list(
+    internal.opt = F, cpo = F, dic = T, waic = T, config = F), 
+  verbose = T)
+
+save(cav_nosp_inla, file = "WS/cav_nosp_inla.RData")
+
 
 #' Now, the burdensome part :)
 #' 
@@ -47,7 +61,8 @@ cav_IMCAR_inla <- inla(
     f(ID, model = inla.IMCAR.Bartlett(k = 4, W = W_con, df = 8), 
       extraconstr = list(A = A_constr, e = c(0,0,0,0))),
   offset = log(nn), family = "poisson", data =dd,
-  num.threads = 1, control.compute = list(internal.opt = F, cpo = F, waic = T, config = F), 
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = F,
+                                          dic = T, waic = T, config = F), 
   verbose = T)
 
 save(cav_IMCAR_inla, file = "WS/cav_IMCAR_inla.RData")
@@ -62,7 +77,7 @@ cav_PMMCAR_inla_unif <- inla(
   offset = log(nn), control.inla = list(stupid.search = F),
   family = "poisson", data =dd, safe = F,
   num.threads = 1, control.compute = list(
-    internal.opt = F, cpo = F, waic = T, config = F), 
+    internal.opt = F, cpo = F, dic = T, waic = T, config = F), 
   verbose = T)
 
 
@@ -74,18 +89,19 @@ cav_PMMCAR_inla_pc_default  <- inla(
   offset = log(nn),
   family = "poisson", data =dd,
   num.threads = 1, control.compute = list(
-    internal.opt = F, cpo = T, waic = T, config = F), 
+    internal.opt = F, cpo = T, waic = T, dic =T, config = F), 
   verbose = T)
 
 
 cav_PMMCAR_inla_pc_strict  <- inla(
   N_ACC ~  0+ Y_2021 + Y_2022 + Y_2023 + Y_2024 +
     TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
-    f(ID, model = inla.PMMCAR.model(k = 4, W = W_con, df = 8, PC = T, alpha=0.9, U = 0.6)),
+    f(ID, model = inla.PMMCAR.model(k = 4, W = W_con,
+                                    df = 8, PC = T, alpha=0.9, U = 0.6)),
   offset = log(nn),
   family = "poisson", data =dd,
   num.threads = 1, control.compute = list(
-    internal.opt = F, cpo = T, waic = T, config = F), 
+    internal.opt = F, cpo = T, waic = T, dic = T, config = F), 
   verbose = T)
 
 if(cav_PMMCAR_inla_pc_strict$waic$waic < cav_PMMCAR_inla_pc_default$waic$waic){
@@ -108,7 +124,7 @@ cav_LMMCAR_inla_unif <- inla(
   offset = log(nn), control.inla = list(stupid.search = F),
   family = "poisson", data =dd, safe = F,
   num.threads = 1, control.compute = list(
-    internal.opt = F, cpo = F, waic = T, config = F), 
+    internal.opt = F, cpo = F, dic = T, waic = T, config = F), 
   verbose = T)
 
 
@@ -119,7 +135,7 @@ cav_LMMCAR_inla_pc_default <- inla(
   offset = log(nn),
   family = "poisson", data =dd,
   num.threads = 1, control.compute = list(
-    internal.opt = F, cpo = F, waic = T, config = F), 
+    internal.opt = F, cpo = F, dic = T, waic = T, config = F), 
   verbose = T)
 
 
