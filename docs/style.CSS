@@ -99,16 +99,6 @@ slides > slide {
 }
 
 
-slides > slide::after {
-  content: attr(data-slide-num) "/" attr(data-total-slides);
-  position: absolute;
-  bottom: 12px;
-  right: 16px;
-  font-size: 10pt;
-  z-index: 9999; !important
-}
-
-
 .leaflet-popup-content {
     font-size: 12 px;
     line-height: 0.8; /*padding: 10px; */
@@ -161,22 +151,9 @@ table th {
   line-height: 1; 
 }
 
-/*
-.final-slide {
-  background-image: url('thk.png');
-  width: 716px;
-  height: 537px;
-  background-size: contain;  
-  background-position: center;
-  background-repeat: no-repeat;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background-color: #004E5A;
-}
-*/
+
+
+
 
 .footnote {
   position: relative;

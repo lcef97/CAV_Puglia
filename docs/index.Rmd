@@ -7,8 +7,6 @@ output:
   ioslides_presentation:
     css: style.css
     slide_level: 2
-includes:
-      after_body: pagecount.html
 subtitle: A spatial analysis over multiple years
 bibliography: references.bib
 ---
@@ -371,7 +369,7 @@ gridExtra::grid.arrange(ggy23, ggy24, nrow = 2)
 
   - **256** municipalities, **4** years
   
-  - Standard **Poisson** linear regression: for $i \in [1,256]$, and $t \in \lbrace 2021, ..., 2024 \rbrace$ we have
+  - Standard **Poisson** linear regression: for $i \in [1,256]$, and $t \in [2021, 2024]$ we have
   
 $$
 y_{it}\mid \eta_{it}, \theta \sim \mathrm{Poisson} \left(
@@ -410,6 +408,7 @@ $$\eta_{it} := X_{it}^\top \beta + Z_{it}$$
 $$
 Z \mid \Sigma \sim \mathcal{N}_{kn} \left( 0, \Sigma \otimes (D - W)^{+} \right)
 $$
+  
   - $\Sigma$: $4 \times 4$ between-fields variance-covariance matrix
     
   - $D$: Graph **degree** matrix;
@@ -563,8 +562,8 @@ cav_PMMCAR_inla_pc <- inla(
   - Introduces a **precision mixing** parameter $\Lambda := \mathrm{diag}(\lambda_1, ... \lambda_k)$, yet with $\lambda_j \in [0,1] \, \forall j$ [@Leroux]
 
 $$
-\Omega_j = \left(\Lambda \otimes L + (I_k - \Lambda)  
-\right)
+\Omega_j = \left(\Lambda \otimes L + (I_k - \Lambda)  \otimes I_n
+\right)^{-1}
 $$
   - $L$ = graph **Laplacian** matrix, i.e. $L = D-W$
 
@@ -615,11 +614,13 @@ cav_LMMCAR_inla_pc  <- inla(
 $$
 Z = U \Phi^\frac{1}{2} M + V (I_k-\Phi^\frac{1}{2}) M
 $$
-  - $\Phi := \mathrm{diag}(\phi_1, \dots, \phi_k)$: **variance** mixing parameter, $\phi_j \in [0, 1]\, \forall j$
   
   - $U \sim \mathcal{N}_{kn} \left(0, I_k \otimes L_S^{+} \right)$: independent ICAR (limit case for $\Phi = I_k$) $\rightarrow$ **spatial dependence**, where $L_S$: **scaled** Laplacian [@BYM2]
   
   - $V \sim \mathcal{N}_{kn} (0, I_{kn})$: IID field (limit case for $\Phi = 0$) $\rightarrow$ **noise**
+ 
+  - $\Phi := \mathrm{diag}(\phi_1, \dots, \phi_k)$: **variance** mixing parameter, $\phi_j \in [0, 1]\, \forall j$
+
  
  <!--
  $$
@@ -673,7 +674,7 @@ cav_MMBYM_inla_unif <- inla(
   
   - A more **principle-based** approach is using **PC-priors**
     
-    - This was already done by Rieber et Al. (2016) for the **univariate** BYM
+    - This was already done by Rieber et al. (2016) for the **univariate** BYM
   
   - Question: can we apply this approach in the **multivariate** setting, and also for **PCAR** and **LCAR** models?
   
@@ -717,7 +718,7 @@ Fix two parameters $\theta_0, \mathcal{a}:\mathrm{Prob} \lbrace \theta \leq \the
   
   <img src="Watermark_logo.png" class="watermark-logo">
 
-## Practical findings
+## PC priors: ractical findings
 
   - PC-priors available in **closed formula**
   
@@ -817,7 +818,7 @@ slides > slide:not(.nobackground):after {
 
 ## Model diagnostics
 
-Models are compared by the **Watanabe-Akaike** Information Criterion (WAIC) [@GelmanWAIC]. Free parameters are reported as well. 
+Models compared by the WAIC -- **Watanabe--Akaike** Information Criterion [@GelmanWAIC]. Free parameters are reported as well. 
 
 ```{r all waic}
 
@@ -895,11 +896,11 @@ $y =$ <span style="color: #C00005 ;">VAW **occurrence** </span> $\times$ <span s
 <img src="Watermark_logo.png" class="watermark-logo">
 
 
-## Hyperparameter posterior
+## Hyperparameter posterior (I)
 
   - Posterior distribution of the **mixing** parameter ($\Phi$)
   
-  - Percentage of **variation** explained by **spatial structure**
+  - Percentage of **variation** explained by **spatial dependence**
   
 
 ```{r mixing param}
@@ -916,7 +917,7 @@ DT::datatable(phi_post_pc)
 <img src="Watermark_logo.png" class="watermark-logo">
 
 
-## Hyperparameter posterior
+## Hyperparameter posterior (II)
 
   - Posterior of the **variance-covariance** matrix ($\Sigma$)
   
@@ -979,7 +980,23 @@ zhat_plot(cav_MMBYM_inla_pc)
 
 
 
+## Possible development directions
+
+  **Intepretation** and modelling:
+
+  - Separate **factors** driving the two processes of **violence occurring** and **help seeking** 
+  
+    $\longrightarrow$ allocate **covariates** between two **separate** predictors: i.e. **Poisson--Logistic** regression [@Pogit], [@PogitVAW]
+
+  Statistical **methodology**:
+  
+  - More insight on **PC prior** behaviour in PCAR and LCAR models $\longrightarrow$ **simulation** analysis
+
+  - Extend the **PC-prior** approach to the **correlation** matrix [@PCgraphical]
+  
+<img src="Watermark_logo.png" class="watermark-logo">
+
+
 ## Cited works
   
-
-  
+ 
