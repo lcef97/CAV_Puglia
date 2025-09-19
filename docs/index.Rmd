@@ -1,13 +1,15 @@
 ---
 title: "Investigating access to support centers for Violence Against Women in Apulia"
-subtitle: "A spatial analysis over multiple years"
-author: "Leonardo Cefalo (UniBA), Alessio Pollice (UniBA),
-         Crescenza Calculli (UniBA) and Diego Battagliese (UniBA)"
-date: "2025-09-19"
+author: Leonardo Cefalo (UniBA), Alessio Pollice (UniBA), Crescenza Calculli (UniBA)
+  and Diego Battagliese (UniBA)
+date: "`r Sys.Date()`"
 output:
   ioslides_presentation:
     css: style.css
     slide_level: 2
+includes:
+      after_body: pagecount.html
+subtitle: A spatial analysis over multiple years
 bibliography: references.bib
 ---
 
@@ -893,6 +895,87 @@ $y =$ <span style="color: #C00005 ;">VAW **occurrence** </span> $\times$ <span s
 <img src="Watermark_logo.png" class="watermark-logo">
 
 
+## Hyperparameter posterior
+
+  - Posterior distribution of the **mixing** parameter ($\Phi$)
+  
+  - Percentage of **variation** explained by **spatial structure**
+  
+
+```{r mixing param}
+phi_post_pc <- Mmodel_compute_mixing(cav_MMBYM_inla_pc) %>% 
+  dplyr::transmute(Year = c("2021", "2022", "2023", "2024"),
+                   Mean = round(.data$mean, 3),
+                   Q_0.025 = round(.data$quant0.025,3),
+                   Median = round(.data$quant0.5,4),
+                   Q_0.975 = round(.data$quant0.975,3))
+rownames(phi_post_pc) <- NULL
+DT::datatable(phi_post_pc)
+```
+
+<img src="Watermark_logo.png" class="watermark-logo">
+
+
+## Hyperparameter posterior
+
+  - Posterior of the **variance-covariance** matrix ($\Sigma$)
+  
+
+```{r vcov param}
+sigma.all <- vcov_summary(cav_MMBYM_inla_pc)
+
+sigma_post_pc <- as.data.frame(sigma.all$var) %>% 
+  dplyr::transmute(Year = c("Var_2021", "Var_2022", "Var_2023", "Var_2024"),
+                   Mean = round(.data$mean, 3),
+                   Q_0.025 = round(.data$quant0.025,3),
+                   Median = round(.data$quant0.5,4),
+                   Q_0.975 = round(.data$quant0.975,3))
+rownames(sigma_post_pc) <- NULL
+
+rho_post_pc<- as.data.frame(sigma.all$cor) %>% 
+  dplyr::transmute(Year = c("Corr_2021/22", "Corr_2021/23", "Corr_2021/24", 
+                            "Corr_2022/23", "Corr_2022/24", "Corr_2023/24"),
+                   Mean = round(.data$mean, 3),
+                   Q_0.025 = round(.data$quant0.025,3),
+                   Median = round(.data$quant0.5,4),
+                   Q_0.975 = round(.data$quant0.975,3))
+rownames(rho_post_pc) <- NULL
+
+sigma_all_post_pc <- dplyr::bind_rows(sigma_post_pc, rho_post_pc)
+
+DT::datatable(sigma_all_post_pc)
+```
+
+<img src="Watermark_logo.png" class="watermark-logo">
+
+
+
+## Expected latent effect - BYM
+
+Posterior values of $\mathbb{E}[Z \mid y]$
+
+```{r zhat plot}
+zhat_plot <- function(mod){
+  n <- nrow(mod$.args$data)
+  rr <- range(mod$summary.random$ID$mean[c(1:n)])
+  
+  plot_map <- purrr::map(unique(dd$Year), function (t){
+  dd %>% dplyr::mutate(zhat = mod$summary.random$ID$mean[c(1:n)]) %>% 
+    dplyr::filter(as.numeric(.data$Year) == t) %>% 
+    ggplot2::ggplot() +
+    ggplot2::geom_sf(ggplot2::aes(fill = .data$zhat))+
+    ggplot2::labs(title = paste("Year:", t), 
+                  fill = expression(E * "[" * z * "]")) +
+    ggplot2::scale_fill_viridis_c(na.value = "white", direction = -1, limits = rr) +
+    ggplot2::theme_void()
+  })
+  do.call(gridExtra::grid.arrange, c(plot_map, nrow = 2, ncol = 2))
+}
+
+zhat_plot(cav_MMBYM_inla_pc)
+
+```
+<img src="Watermark_logo.png" class="watermark-logo">
 
 
 

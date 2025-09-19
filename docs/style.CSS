@@ -91,7 +91,6 @@ slide:not(.title-slide) hgroup h2 {
 slides > slide {
     /* font-family: 'Poppins', sans-serif; */
     font-size: 20pt;
-    content: attr(data-slide-num) "/" attr(data-total-slides);
     position: absolute;
     bottom: 24px; 
     right: 18px; 
@@ -100,6 +99,14 @@ slides > slide {
 }
 
 
+slides > slide::after {
+  content: attr(data-slide-num) "/" attr(data-total-slides);
+  position: absolute;
+  bottom: 12px;
+  right: 16px;
+  font-size: 10pt;
+  z-index: 9999; !important
+}
 
 
 .leaflet-popup-content {

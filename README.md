@@ -12,13 +12,13 @@ so here are some.
 
 ## Contents of the present GitHub repository 
 
-  - [Slides](https://lcef97.github.io/CAV_Puglia/#1). Move on and try completing this by Sunday. 
-  This clearly serves no more than as a presentation. Just a few selected models are included here, 
-  as they are multivariate ones with 10 -- 14 hyperparameters, so they take quite a long time
-  to compile.
+  - [Slides](https://lcef97.github.io/CAV_Puglia/#1). This clearly serves as a presentation.
+  Few, selected models are included here, 
+  as they are multivariate ones with 10 -- 14 hyperparameters. This should be the presentation at the PRIN workshop
+  held in Lecce, Salento, Apulia, Italy, on September 19--20th, 2025.
   
   - R script [`CAV_full`](https://github.com/lcef97/CAV_Puglia/blob/main/CAV_full.R): complete analysis performed over four years, 
-  which is the full information currently available [(link)].
+  which is the full information currently available.
   
   - R script [`Functions`](https://github.com/lcef97/CAV_Puglia/blob/main/Auxiliary/Functions.R): 
   R code, compatible with R-INLA, with all the handmade INLA models [(here)]. As this is quite experimental, 
