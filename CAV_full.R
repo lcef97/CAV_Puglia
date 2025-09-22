@@ -300,7 +300,7 @@ dd_con <- dd %>% dplyr::filter(!.data$PRO_COM %in% singletons) %>%
   dplyr::mutate(PGR = as.vector(scale(.data$PGR)))  %>% 
   dplyr::mutate(UIS = as.vector(scale(.data$UIS)))  %>% 
   dplyr::mutate(ELI = as.vector(scale(.data$ELI)))  %>% 
-  dplyr::select(-.data$Year) %>% 
+  dplyr::mutate(Year = as.numeric(as.factor(.data$Year))) %>% 
   dplyr::mutate(ID = c(1:nrow(.))) %>% 
   dplyr::mutate(Area = as.numeric(as.factor(.data$PRO_COM)))
 
@@ -360,9 +360,6 @@ constr.BYM <- list(
   e=c(0,0,0,0) )
 
 
-
-
-
 #' Full GLM --> for model matrix
 glm_all_X <- glm(N_ACC ~ 1 + TEP_th + MFI + AES + PDI + ELL + ER +
                    PGR + UIS + ELI + offset(log(nn)),
@@ -370,12 +367,6 @@ glm_all_X <- glm(N_ACC ~ 1 + TEP_th + MFI + AES + PDI + ELL + ER +
 #' model matrix
 X <- model.matrix(glm_all_X)
 
-#' Besides calling the package, the present R code is frequently 
-#' derived from INLAMSM source codes.
-if(!rlang::is_installed("INLAMSM")) devtools::install_github("becarioprecario/INLAMSM")
-
-library(INLA)
-library(INLAMSM)
 
 #' Deconfounding with Spatial+ 
 #' First approach, more radical: fitting an ICAR model on covariates
@@ -659,10 +650,10 @@ cav_bym_INLA_2024 <- inla(
 
 cav_IMCAR_inla.AR1 <- inla(
   N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
-    f(ID, model = inla.IMCAR.AR1(k = 4, W = W_con), 
+    f(ID, model = inla.IMCAR.AR1(k = 4, W = W_con, df = 8), 
       extraconstr = list(A = A_constr, e = c(0,0,0,0))),
   offset = log(nn), family = "poisson", data =dd_con,
-  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T), 
   verbose = T)
 
 vcov_summary_ST(cav_IMCAR_inla.AR1, k=4)
@@ -799,6 +790,17 @@ cav_MBYM_inla_PC <- inla(
   num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
   verbose = T)
  
+
+##' Univariate spatial models
+
+cav_indicar_inla <- inla(
+  N_ACC ~  0+ Y_2021 + Y_2022 + Y_2023 + Y_2024 +
+    TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(Area, model = "besag", graph=W_con, group = Year, control.group = list(model = "ar1")),
+  offset = log(nn),
+  family = "poisson", data =dd_con,
+  num.threads = 1, control.compute = list(internal.opt = F, waic = T), 
+  verbose = T)
 
 ## M-Model regression here -----------------------------------------------------
 
@@ -1017,250 +1019,6 @@ LPMLs <- function(models, num.level.sets){
 LPMLs_df <- LPMLs(models = mm, c(1:6, 8, 10, 12, 15, 20, 25))
 
  
-
-## TBD TBD TBD Multivariate Pogit analysis ATTEMPT ---------------------------------
-
-
-#' Let's try a single-likelihood approach:
-#' FUnction to build a bigger data object, nothing exciting
-ls2df <- function(lst=dd_list){
-  ls_M <- lapply(lst[-which(names(lst) %in% c("ID2", "N_ACC"))],
-                 function(X) X <- as.matrix(X))
-  df <- as.data.frame(do.call(cbind, ls_M))
-  torep <- sum(sapply(ls_M, function(X) ncol(X))==3)
-  names(df) <- c(paste0(
-    rep(names(ls_M)[1:torep], sapply(ls_M, function(X) ncol(X))[1:torep]),
-    c(rep(c("_2021", "_2022", "_2023"), torep)) ), 
-    names(ls_M)[-c(1:torep)])
-  df$N_ACC <- lst$N_ACC[which(!is.na(lst$N_ACC))]
-  df$Year <- rep(c("2021", "2022", "2023"), each = n)
-  df <- dplyr::relocate(df, .data$Year, .before = 1) %>%
-    dplyr::relocate(.data$N_ACC, .before = .data$Year)
-  return(df)
-}
-dd_extended <- ls2df()
-dd_extended[is.na(dd_extended)] <- 0
-
-
-#' This is the same as cav_IMCAR_inla, only a longer formula for,
-#' however, the same result.
-cav_IMCAR_inla_repl <- inla(formula = as.formula(
-  paste0("N_ACC ~ 0 + ", 
-         paste(names(dd_extended)[c(3:26)], collapse = " + "),
-         " + f(ID, model = inla.IMCAR.model(k = 3, W = W_con),",
-         "extraconstr = list(A = A_constr, e = c(0,0,0)))")),
-  offset = log(nn),
-  family = "poisson", data = dd_extended,
-  #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
-  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
-  verbose = T)
-
-
-
-library(inlabru)
-bru_options_set(bru_max_iter = 30,
-                control.inla = list(tolerance = 1e-10))
-
-logexpit <- function(x, beta){
-  pred <- beta[[1]] +
-    rowSums(do.call(cbind, lapply(c(1:length(x)), function(n){
-      beta[[n+1]]*x[[n]]
-    })))
-  return(-log(1+exp(-pred)))
-}
-
-cmp_spatial <- function(spatial_expr, st_expr = NULL, t_expr = NULL) {
-  
-  spatial <- function(id, ...) INLA::f(id, ...)
-  spatiotemporal <- function(id, ...) INLA::f(id, ...)
-  temporal <- function(id, ...) INLA::f(id, ...)
-  
-  f2 <- substitute(spatial_expr)
-  f3 <- substitute(t_expr)
-  f4 <- substitute(st_expr)
-  f1 <- bquote(
-    ~ 0 +
-      alpha_0_2021(Intercept_2021) + 
-      alpha_0_2022(Intercept_2022) +  
-      alpha_0_2023(Intercept_2023) +  
-      beta_0_2021(main = Intercept_2021,  model = "linear",
-                  mean.linear = -2.2,
-                  prec.linear = 1e+2) +
-      beta_0_2022(main = Intercept_2022,  model = "linear",
-                  mean.linear = -2.2,
-                  prec.linear = 1e+2) +
-      beta_0_2023(main = Intercept_2023,  model = "linear",
-                  mean.linear = -2.2,
-                  prec.linear = 1e+2) +
-      myoffset(log(nn), model = "offset") +
-      alpha_ELI_2021(ELI_2021) + alpha_ELI_2022(ELI_2022) + alpha_ELI_2023(ELI_2023) + 
-      alpha_PGR_2021(PGR_2021) + alpha_PGR_2022(PGR_2022) + alpha_PGR_2023(PGR_2023) + 
-      alpha_UIS_2021(UIS_2021) + alpha_UIS_2022(UIS_2022) + alpha_UIS_2023(UIS_2023) + 
-      alpha_PDI_2021(PDI_2021) + alpha_PDI_2022(PDI_2022) + alpha_PDI_2023(PDI_2023) + 
-      alpha_ER_2021(ER_2021) + alpha_ER_2022(ER_2022) + alpha_ER_2023(ER_2023) + 
-      beta_TEP_2021(main = Intercept_2021, model = "linear", 
-                    mean.linear = 0,
-                    prec.linear = 1e-3) + 
-      beta_TEP_2022(main = Intercept_2022, model = "linear", 
-                    mean.linear = 0,
-                    prec.linear = 1e-3)  +
-      beta_TEP_2023(main = Intercept_2023, model = "linear", 
-                    mean.linear = 0,
-                    prec.linear = 1e-3) +
-      beta_ELL_2021(main = Intercept_2021, model = "linear", 
-                    mean.linear = 0,
-                    prec.linear = 1e-3)  +
-      beta_ELL_2022(main = Intercept_2022, model = "linear", 
-                    mean.linear = 0,
-                    prec.linear = 1e-3)  +
-      beta_ELL_2023(main = Intercept_2023, model = "linear", 
-                    mean.linear = 0,
-                    prec.linear = 1e-3) )
-  
-  #ff <- as.call(c(quote(`+`), f1[[2]], f2, f3, f4))
-  ff <- f1[[2]]
-  if (!is.null(f2)) ff <- as.call(c(quote(`+`), ff, f2))
-  if (!is.null(f3)) ff <- as.call(c(quote(`+`), ff, f3))
-  if (!is.null(f4)) ff <- as.call(c(quote(`+`), ff, f4))
-  final_formula <- as.formula(bquote(~ .(ff)))
-  return(final_formula)
-}
-
-cmp_ICAR <- cmp_spatial(spatial_expr = spatial( 
-  ID, model = inla.IMCAR.model(k = 3, W = W_con), 
-  extraconstr = list(A = A_constr, e = c(0,0,0))))
-
-cmp_PCAR <- cmp_spatial(spatial(
-  ID, model = inla.MCAR.model(
-    k = 3, W = W_con,  alpha.min = 0,alpha.max = 1)))
-
-cmp_MLCAR <- cmp_spatial(spatial(
-  ID, model = inla.MLCAR.model(k = 3, W = W_con, init = NULL)))
-
-cmp_BYM <- cmp_spatial(spatial(
-  ID, model = inla.MBYM.dense(k = 3, W = W_con, 
-                              PC = FALSE),
-  extraconstr = list(A = A_constr, e = rep(0, 3))))
-
-cav_bru <- function(model_cmp, data = dd_extended){
-  
-  terms <- c("0", "alpha_0_2021", "alpha_0_2022", "alpha_0_2023",
-             "myoffset", 
-             "alpha_ELI_2021", "alpha_ELI_2022", "alpha_ELI_2023",
-             "alpha_PGR_2021", "alpha_PGR_2022", "alpha_PGR_2023",
-             "alpha_UIS_2021", "alpha_UIS_2022", "alpha_UIS_2023",
-             "alpha_PDI_2021", "alpha_PDI_2022", "alpha_PDI_2023",
-             "alpha_ER_2021", "alpha_ER_2022", "alpha_ER_2023",
-             paste0("logexpit(x = list(TEP_th_2021, ELL_2021),",
-                    "beta = list(beta_0_2021, beta_TEP_2021, beta_ELL_2021))"),
-             paste0("logexpit(x = list(TEP_th_2022, ELL_2022),",
-                    "beta = list(beta_0_2022, beta_TEP_2022, beta_ELL_2022))"),
-             paste0("logexpit(x = list(TEP_th_2023, ELL_2023),",
-                    "beta = list(beta_0_2023, beta_TEP_2023, beta_ELL_2023))"))
-  
-  if (any(grepl("spatial", as.character(model_cmp)))) terms <- c(terms, "spatial")
-  if (any(grepl("time", as.character(model_cmp)))) terms <- c(terms, "time")
-  if (any(grepl("spatiotemporal", as.character(model_cmp)))) terms <- c(terms, "spatiotemporal")
-  
-  
-  formula <- as.formula(paste("N_ACC ~", paste(terms, collapse = " + ")))
-  
-  res <- inlabru::bru(
-    components = model_cmp,
-    lik = inlabru::like(family = "poisson", formula = formula, data = data),
-    options = list(verbose = T, num.threads = 1,
-                   control.compute = list(
-                     waic = T, cpo = T, dic = T, internal.opt = F),
-                   control.predictor = list(compute =  T)))
-  return(res)
-}
-
-#' Nonspatial
-cav_nosp_inlabru <- cav_bru(model_cmp=cmp_spatial(NULL))
-#' Simple spatial models: ICAR...
-cav_IMCAR_inlabru <- cav_bru(cmp_ICAR)
-#' ...LCAR... --> Warning: very low mixing parameter
-cav_MLCAR_inlabru <- cav_bru(cmp_MLCAR)
-#'...and PCAR
-cav_PMCAR_inlabru <- cav_bru(cmp_PCAR)
-#' Warning: BYM is slow.
-#' Easier one with Uniform prior on phi
-cav_MBYM_inlabru <- cav_bru(cmp_BYM)
-
-#' PC-prior on phi -->  WARNING!! Goes crash!!!!
-#cav_MBYM_pc_inlabru <- cav_bru(
-#  model_cmp =  cmp_spatial(spatial(
-#    ID, model = inla.MBYM.dense(k = 3, W = W_con, PC = TRUE),
-#    extraconstr = list(A = A_constr, e = rep(0, 3)))))
-
-
-
-# Spatiotemporal model attempt:
-dd_extented_st <- dd_extended %>% 
-  dplyr::mutate(Year = as.numeric(as.factor(.data$Year))) %>% 
-  dplyr::mutate(Area = rep(.data$ID[c(1:n)], 3))
-
-cmp_ST_noint <- cmp_spatial(spatial_expr = NULL,
-                            st_expr = spatiotemporal(Year, model="iid", group=Area,
-                                                     control.group=list(model="besag", graph=W_con, scale.model =T), constr = T,
-                                                     hyper = list(prec = list(prior = "pc.prec", param = c(1.5, 0.01)))))
-
-
-cmp_ST_3 <- cmp_spatial(
-  spatial_expr=spatial(Area, model = "bym2", graph = W_con,  
-                       scale.model = T, constr = T, 
-                       hyper = list(prec = list(prior = "pc.prec", param = c(1.5, 0.01)))),
-  st_expr = spatiotemporal(Year, model="iid", group=Area,
-                           control.group=list(model="besag", graph=W_con, scale.model =T), constr = T,
-                           hyper = list(prec = list(prior = "pc.prec", param = c(1.5, 0.01)))))
-
-cav_ST_0_inlabru <- cav_bru(cmp_ST_noint, data = dd_extented_st)
-
-cav_INDPMCAR_inlabru <- cav_bru(model_cmp = cmp_spatial(spatial_expr = spatial( 
-  ID, model = inla.INDIMCAR.model(k = 3, W = W_con), 
-  extraconstr = list(A = A_constr, e = c(0,0,0)))) )
-
-cav_ST_inlabru <- cav_bru(cmp_ST_3, data = dd_extented_st)
-
-
-#' The INLA linear model is 
-#' not particularly fast, but one minute and half is still 
-#' a reasonable time.
-
-
-cav_STbym_i3_INLA <- inla(formula = as.formula(
-  paste0("N_ACC ~ 0 + ", 
-         paste(names(dd_extended)[c(3:26)], collapse = " + "),
-         " + f(Area, model = 'bym2', graph = W_con,  scale.model = T,",
-         " hyper = list(prec = list(prior = 'pc.prec', param = c(1.5, 0.01))))+",
-         "f(Year, model='iid', group=Area,",
-         "control.group=list(model='besag', graph=W_con, scale.model =T),",
-         "hyper = list(prec = list(prior = 'pc.prec', param = c(1.5, 0.01))))")),
-  family = "poisson", offset = log(nn), data =dd_extented_st,
-  num.threads = 1, control.compute = 
-    list(internal.opt = F, cpo = T, waic = T), 
-  control.predictor = list(compute = T),
-  verbose = T)
-cav_STbym_i3_INLA$cpu.used
-
-
-X.bru <- dd_extended_alt %>% 
-  dplyr::mutate(alpha_0_2021 = Intercept_2021) %>% 
-  dplyr::mutate(alpha_0_2022 = Intercept_2022) %>% 
-  dplyr::mutate(alpha_0_2023 = Intercept_2023) %>% 
-  dplyr::mutate(beta_0_2021 = Intercept_2021) %>% 
-  dplyr::mutate(beta_0_2022 = Intercept_2022) %>% 
-  dplyr::mutate(beta_0_2023 = Intercept_2023) %>% 
-  dplyr::rename(alpha_ELI_2021 = .data$ELI_2021, alpha_ELI_2022 = .data$ELI_2022, alpha_ELI_2023 = .data$ELI_2023) %>% 
-  dplyr::rename(alpha_PGR_2021 = .data$PGR_2021, alpha_PGR_2022 = .data$PGR_2022, alpha_PGR_2023 = .data$PGR_2023) %>% 
-  dplyr::rename(alpha_UIS_2021 = .data$UIS_2021, alpha_UIS_2022 = .data$UIS_2022, alpha_UIS_2023 = .data$UIS_2023) %>%  
-  dplyr::rename(alpha_PDI_2021 = .data$PDI_2021, alpha_PDI_2022 = .data$PDI_2022, alpha_PDI_2023 = .data$PDI_2023) %>% 
-  dplyr::rename(alpha_ER_2021 = .data$ER_2021, alpha_ER_2022 = .data$ER_2022, alpha_ER_2023 = .data$ER_2023) %>% 
-  dplyr::rename(beta_TEP_2021 = .data$TEP_th_2021, beta_TEP_2022 = .data$TEP_th_2022, beta_TEP_2023 = .data$TEP_th_2023) %>% 
-  dplyr::rename(beta_ELL_2021 = .data$ELL_2021, beta_ELL_2022 = .data$ELL_2022, beta_ELL_2023 = .data$ELL_2023) %>% 
-  dplyr::select(rownames(cav_nosp_inlabru$summary.fixed))
-X.bru <- as.matrix(X.bru)          
-
 
 ## misc ------------------------------------------------------------------------
 

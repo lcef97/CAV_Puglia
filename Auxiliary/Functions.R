@@ -1,6 +1,327 @@
 #'  ---------------------------------------------------------------------------#
 #'                          Auxiliary functions                                #
 #'  ---------------------------------------------------------------------------#
+# #'  INLA code for independent AR models --------------------------------------
+
+#' ICAR -----------------------------------------------------------------------#
+inla.indicar.model <- function(...) {
+  INLA::inla.rgeneric.define(inla.rgeneric.indicar, sd.rate = 1, 
+                             scale.model = TRUE, chisq = F, ...)}
+
+inla.rgeneric.indicar <- 
+  function(cmd = c("graph", "Q", "mu", "initial", "log.norm.const", 
+                   "log.prior", "quit"), theta = NULL){
+    
+    envir <- parent.env(environment())
+    if(!exists("cache.done", envir=envir)){
+      #' Laplacian matrix scaling: only needs being done once
+      L_unscaled <- Matrix::Diagonal(n=nrow(W), x=rowSums(as.matrix(W))) -  W
+      if(scale.model == TRUE){
+        constr <- INLA:::inla.bym.constr.internal(L_unscaled, adjust.for.con.comp = T)
+        scaleQ <- INLA:::inla.scale.model.internal(
+          L_unscaled, constr = list(A = constr$constr$A, e = constr$constr$e))
+        L <- scaleQ$Q
+      } else L <- L_unscaled
+      if(!exists("df", envir=envir)){
+        df <- k+2
+        assign("df", df, envir=envir)
+      }
+      assign("L", L, envir = envir)
+      assign("cache.done", TRUE, envir = envir)
+    }
+    interpret.theta <- function() {
+      #' If variance ~ chisq, parametrise log(variance)
+      #' otheriwse, sd ~ exponential --> parametrise log(sd)
+      var <- sapply(theta, function(x) ifelse(chisq, exp(x), exp(2*x)))
+      PREC <- diag(var^-1)
+      return(list(PREC = PREC))
+    }
+    graph <- function() {
+      QQ <- Q()
+      G <- (QQ != 0) * 1
+      return(G)
+    }
+    Q <- function() {
+      param <- interpret.theta()
+      PREC <- param$PREC
+      Q <- kronecker(PREC, L)
+      return(Q)
+    }
+    mu <- function() {
+      return(numeric(0))
+    }
+    log.norm.const <- function() {
+      val <- numeric(0)
+      return(val)
+    }
+    log.prior <- function() {
+      if(chisq){
+        val <- sum(dchisq(exp(theta), df = df-c(1:k)+1, log = T))
+      } else {
+        val <- sum(dexp(exp(theta), rate=sd.rate, log=T))
+      }
+      val <- val + sum(theta)
+      return(val)
+    }
+    initial <- function(){
+      if(!exists("initial.values", envir= envir )){
+        return( rep(ifelse(chisq, -4, -2), k))
+      } else {
+        return(initial.values)
+      }
+    }
+    quit <- function() {
+      return(invisible())
+    }
+    if (as.integer(R.version$major) > 3) {
+      if (!length(theta))  theta <- initial()
+    }
+    else {
+      if (is.null(theta))  theta <- initial()
+    }
+    val <- do.call(match.arg(cmd), args = list())
+    return(val)
+  }
+
+#' PCAR -----------------------------------------------------------------------#
+
+inla.indpcar.model <- function(...){ 
+  INLA::inla.rgeneric.define(inla.rgeneric.indpcar, Mmodel = TRUE,
+                             , ...)}
+
+inla.rgeneric.indpcar <- 
+  function(cmd = c("graph", "Q", "mu", "initial", "log.norm.const", 
+                   "log.prior", "quit"), theta = NULL){
+    
+    envir <- parent.env(environment())
+    if(!exists("df", envir = envir)) assign("df", k + 2, envir = envir)
+    if(!exists("PC", envir = envir)) assign("PC", FALSE, envir = envir)
+    if(!exists("cache.done", envir=envir)){
+      k.offset <- ifelse(Mmodel, k, 1)
+      assign("k.offset", k.offset, envir = envir)
+      D <- Matrix::Diagonal(n=nrow(W), x=rowSums(as.matrix(W))) 
+      if(PC) {
+        eigenvalues <- eigen(chol(solve(D)) %*% W %*% chol(solve(D)))$values
+        inla.pc.pmmcar.rho <- function(rho, eigenvalues, alpha = 2/3, U = 1/2){
+          n <- length(eigenvalues)
+          In <- Matrix::Diagonal(n = n, x = 1)
+          log.p <- numeric(length(rho))
+          KLD <- function(rho, eigenvalues){
+            res <-  1/2 * sum(log(1 - rho*eigenvalues)) +
+              1/2 * sum(1/(1 - rho * eigenvalues) - 1)
+            return(res)
+          }
+          for(j in c(1:length(rho))){
+            KLD_j <- KLD(rho = rho[j], eigenvalues = eigenvalues)
+            if(KLD_j <= 0){
+              message("!!! PROBLEM !!!! \n!!! NEGATIVE OR NULL KLD - MUST FIX MODEL !!!")
+              return(NULL)
+            }
+            derivative <- 1/2 * sum( (rho[j]*eigenvalues^2)/(1 - rho[j]*eigenvalues)^2 )
+            rate <- -1/sqrt(2*KLD(U, eigenvalues = eigenvalues)) * log(1 - alpha)
+            log.p[j] <- dexp(x=sqrt(2*KLD_j), rate = rate, log = T) -log(2) +
+              log(1/sqrt(2*KLD_j)) + log(abs(derivative))
+          }
+          return(sum(log.p))
+        }
+        assign("inla.pc.pmmcar.rho", inla.pc.pmmcar.rho, envir = envir)
+        assign("eigenvalues", eigenvalues, envir = envir)
+      }
+      assign("D", D, envir = envir)
+      assign("cache.done", TRUE, envir = envir)
+    }
+    interpret.theta <- function() {
+      rho <- 1/(1 + exp(-theta[c(1:k.offset)]))
+      var <- sapply(theta[-c(1:k.offset)], function(x) {
+        ifelse(chisq, exp(x), exp(2*x))
+      })
+      PREC <- diag(var^-1)
+      invM <- diag(var^(-1/2))
+      return(list(rho = rho, PREC = PREC, invM = invM))
+    }
+    graph <- function() {
+      QQ <- Q()
+      G <- (QQ != 0) * 1
+      return(G)
+    }
+    Q <- function() {
+      param <- interpret.theta()
+      In <- Matrix::Diagonal(nrow(W), 1)
+      MI <- kronecker(param$invM, In)
+      RHO <- param$rho * diag(k)
+      BlockIW <- kronecker(diag(k), D) - kronecker(RHO, W)
+      Q <- (MI %*% BlockIW) %*% Matrix::t(MI)
+      return(Q)
+    }
+    mu <- function() {
+      return(numeric(0))
+    }
+    log.norm.const <- function() {
+      val <- numeric(0)
+      return(val)
+    }
+    log.prior <- function() {
+      param <- interpret.theta()
+      if(!PC){
+        #' Uniform prior
+        val <- sum(-theta[c(1:k.offset)] - 2 * log(1 + exp(-theta[c(1:k.offset)])))
+      } else{
+        #' PC-prior
+        if(!exists("alpha", envir = envir)) alpha <- 2/3
+        if(!exists("U" , envir = envir)) U <- 1/2
+        val <- inla.pc.pmmcar.rho(eigenvalues = eigenvalues, rho = param$rho, alpha = alpha, U = U) +
+          sum(-theta[c(1:k.offset)] - 2 * log(1 + exp(-theta[c(1:k.offset)])))
+      }
+      if(chisq){
+        val <- val + sum(dchisq(exp(theta[-c(1:k.offset)]), df = df-c(1:k)+1, log = T))
+      } else {
+        val <- val + sum(dexp(exp(theta[-c(1:k.offset)]), rate=sd.rate, log=T))
+      }
+      val <- val + sum(theta)
+      return(val)
+    }
+    initial <- function(){
+      if(!exists("initial.values", envir= envir )){
+        return(c(rep(-4, k.offset), rep(ifelse(chisq, -4, -2), k)))
+      } else {
+        return(initial.values)
+      }
+    }
+    quit <- function() {
+      return(invisible())
+    }
+    if (as.integer(R.version$major) > 3) {
+      if (!length(theta))  theta <- initial()
+    }
+    else {
+      if (is.null(theta))  theta <- initial()
+    }
+    val <- do.call(match.arg(cmd), args = list())
+    return(val)
+  }
+
+#' LCAR -----------------------------------------------------------------------#
+
+inla.indlcar.model <- function(...){ 
+  INLA::inla.rgeneric.define(inla.rgeneric.indpcar, Mmodel = TRUE,
+                             , ...)}
+
+inla.rgeneric.indlcar <- 
+  function(cmd = c("graph", "Q", "mu", "initial", "log.norm.const", 
+                   "log.prior", "quit"), theta = NULL){
+    
+    envir <- parent.env(environment())
+    if(!exists("df", envir = envir)) assign("df", k + 2, envir = envir)
+    if(!exists("PC", envir = envir)) assign("PC", FALSE, envir = envir)
+    if(!exists("cache.done", envir=envir)){
+      k.offset <- ifelse(Mmodel, k, 1)
+      assign("k.offset", k.offset, envir = envir)
+      L <- Matrix::Diagonal(n=nrow(W), x=rowSums(as.matrix(W))) -  W
+      In <- Matrix::Diagonal(n = nrow(W), x = 1)
+      if(PC) {
+        eigenvalues <- eigen(L - In)$values
+        inla.pc.lmmcar.lambda <- function(lambda, eigenvalues, alpha = 2/3, U = 1/2){
+          n <- length(eigenvalues)
+          In <- Matrix::Diagonal(n = n, x = 1)
+          #gammas <- list()
+          log.p <- numeric(length(lambda))
+          KLD <- function(lambda, eigenvalues){
+            res <-  1/2 * sum(log(1 + lambda*eigenvalues)) +
+              1/2 * sum(1/(1 + lambda * eigenvalues) - 1)
+            return(res)
+          }
+          for(j in c(1:length(lambda))){
+            KLD_j <- KLD(lambda = lambda[j], eigenvalues = eigenvalues)
+            if(KLD_j <= 0){
+              message("!!! PROBLEM !!!! \n!!! NEGATIVE OR NULL KLD - MUST FIX MODEL !!!")
+              return(NULL)
+            }
+            derivative <- 1/2 * sum( (lambda[j]*eigenvalues^2)/(1 + lambda[j]*eigenvalues)^2 )
+            rate <- -1/sqrt(2*KLD(U, eigenvalues = eigenvalues)) * log(1 - alpha)
+            log.p[j] <- dexp(x=sqrt(2*KLD_j), rate = rate, log = T) -log(2) +
+              log(1/sqrt(2*KLD_j)) + log(abs(derivative))
+          }
+          return(sum(log.p))
+        }
+        assign("inla.pc.lmmcar.lambda", inla.pc.lmmcar.lambda, envir = envir)
+        assign("eigenvalues", eigenvalues, envir = envir)
+      }
+      assign("D", D, envir = envir)
+      assign("cache.done", TRUE, envir = envir)
+    }
+    interpret.theta <- function() {
+      lambda <- 1/(1 + exp(-theta[c(1:k.offset)]))
+      var <- sapply(theta[-c(1:k.offset)], function(x) {
+        ifelse(chisq, exp(x), exp(2*x))
+      })
+      PREC <- diag(var^-1)
+      invM <- diag(var^(-1/2))
+      return(list(lambda = lambda, PREC = PREC, invM = invM))
+    }
+    graph <- function() {
+      QQ <- Q()
+      G <- (QQ != 0) * 1
+      return(G)
+    }
+    Q <- function() {
+      param <- interpret.theta()
+      In <- Matrix::Diagonal(nrow(W), 1)
+      MI <- kronecker(param$invM, In)
+      LAMBDA <- param$lambda * diag(k)
+      BlockIW <- kronecker(LAMBDA, L) + kronecker(diag(1 -  param$lambda), In)
+      Q <- (MI %*% BlockIW) %*% Matrix::t(MI)
+      return(Q)
+    }
+    mu <- function() {
+      return(numeric(0))
+    }
+    log.norm.const <- function() {
+      val <- numeric(0)
+      return(val)
+    }
+    log.prior <- function() {
+      param <- interpret.theta()
+      if(!PC){
+        #' Uniform prior
+        val <- sum(-theta[c(1:k.offset)] - 2 * log(1 + exp(-theta[c(1:k.offset)])))
+      } else{
+        #' PC-prior
+        if(!exists("alpha", envir = envir)) alpha <- 2/3
+        if(!exists("U" , envir = envir)) U <- 1/2
+        val <- inla.pc.pmmcar.rho(eigenvalues = eigenvalues, rho = param$rho, alpha = alpha, U = U) +
+          sum(-theta[c(1:k.offset)] - 2 * log(1 + exp(-theta[c(1:k.offset)])))
+      }
+      if(chisq){
+        val <- val + sum(dchisq(exp(theta[-c(1:k.offset)]), df = df-c(1:k)+1, log = T))
+      } else {
+        val <- val + sum(dexp(exp(theta[-c(1:k.offset)]), rate=sd.rate, log=T))
+      }
+      val <- val + sum(theta)
+      return(val)
+    }
+    initial <- function(){
+      if(!exists("initial.values", envir= envir )){
+        return(c(rep(-4, k.offset), rep(ifelse(chisq, -4, -2), k)))
+      } else {
+        return(initial.values)
+      }
+    }
+    quit <- function() {
+      return(invisible())
+    }
+    if (as.integer(R.version$major) > 3) {
+      if (!length(theta))  theta <- initial()
+    }
+    else {
+      if (is.null(theta))  theta <- initial()
+    }
+    val <- do.call(match.arg(cmd), args = list())
+    return(val)
+  }
+
+
+
+
 # #'  INLA code for factorisable ST autoregressive models ----------------------
 #' In compliance with the principle of parsimony, here we start
 #' from models whose correlation matrix has the AR(1) structure.
@@ -42,7 +363,7 @@ inla.rgeneric.IMCAR.AR1  <-
       #' Not so elegant but works
       #' when k=1 - otherwise, c(..., rep(x, n-2)) would crash
       invR[1,1] <- invR[k,k] <- 1 
-      PREC <-  diag(1/sd) %*% invR %*% diag(1/sd)
+      PREC <-  diag(1/sd) %*% invR %*% diag(1/sd) * (1/(1-corr^2) )
      return(PREC)
     }
     graph <- function() {
@@ -154,7 +475,7 @@ inla.rgeneric.PMCAR.AR1 <-
         n=k, m=k, k = c(-1, 0, 1),
         diagonals = list(rep(-corr, k-1), rep(1+corr^2, k), rep(-corr, k-1)))
       invR[1,1] <- invR[k,k] <- 1 
-      PREC <-  diag(1/sd) %*% invR %*% diag(1/sd)
+      PREC <-  diag(1/sd) %*% invR %*% diag(1/sd) * (1/(1-corr^2))
       return(list(rho = rho, PREC = PREC))
     }
     graph <- function() {
@@ -270,7 +591,7 @@ inla.rgeneric.LMCAR.AR1 <-
         n=k, m=k, k = c(-1, 0, 1),
         diagonals = list(rep(-corr, k-1), rep(1+corr^2, k), rep(-corr, k-1)))
       invR[1,1] <- invR[k,k] <- 1 
-      PREC <-  diag(1/sd) %*% invR %*% diag(1/sd)
+      PREC <-  diag(1/sd) %*% invR %*% diag(1/sd) * (1/(1-corr^2))
       return(list(lambda = lambda, PREC = PREC))
     }
     graph <- function() {
@@ -397,7 +718,7 @@ inla.rgeneric.MBYM.AR1 <- function(
     cholInvR <-  Matrix::bandSparse(
       n=k, m=k, k = c(0, 1),
       diagonals = list(c(sqrt(1-corr^2), rep(1,k-1)), rep(-corr, k-1) ))
-    invM <- diag(1/sd) %*% cholInvR
+    invM <- diag(1/sd) %*% cholInvR * (1/sqrt(1 - corr^2))
     PREC <- invM %*% Matrix::t(invM)
     return(list(phi = phi, PREC = PREC, invM=invM))
   }
@@ -1316,7 +1637,7 @@ inla.rgeneric.LMMCAR.AR1 <-
       cholInvR <-  Matrix::bandSparse(
         n=k, m=k, k = c(0, 1),
         diagonals = list(c(sqrt(1-corr^2), rep(1,k-1)), rep(-corr, k-1) ))
-      invM <- diag(1/sd) %*% cholInvR
+      invM <- diag(1/sd) %*% cholInvR * (1/sqrt(1 - corr^2))
       M <- Matrix::t(solve(invM))
       return(list(lambda = lambda, M = M, invM = invM))
     }
@@ -1609,7 +1930,7 @@ inla.rgeneric.PMMCAR.AR1 <-
       cholInvR <-  Matrix::bandSparse(
         n=k, m=k, k = c(0, 1),
         diagonals = list(c(sqrt(1-corr^2), rep(1,k-1)), rep(-corr, k-1) ))
-      invM <- diag(1/sd) %*% cholInvR
+      invM <- diag(1/sd) %*% cholInvR * (1/sqrt(1 - corr^2))
       M <- Matrix::t(solve(invM))
       return(list(lambda = lambda, M = M, invM = invM))
     }
@@ -2093,7 +2414,7 @@ inla.rgeneric.MMBYM.AR1 <-
       cholInvR <-  Matrix::bandSparse(
         n=k, m=k, k = c(0, 1),
         diagonals = list(c(sqrt(1-corr^2), rep(1,k-1)), rep(-corr, k-1) ))
-      invM <- diag(1/sd) %*% cholInvR
+      invM <- diag(1/sd) %*% cholInvR * (1/sqrt(1 - corr^2))
       #M <- Matrix::t(solve(invM))
       #PREC <- invM %*% Matrix::t(invM)
       #Sigma <- Matrix::t(M)%*%M
