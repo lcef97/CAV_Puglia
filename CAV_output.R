@@ -915,9 +915,11 @@ inla.rgeneric.MBYM.AR1 <- function(
     L <- scaleQ$Q
     invL <- INLA:::inla.ginv(L)
     In <- Matrix::Diagonal(n = nrow(W), x = 1)
-    eigenvalues <- eigen(invL)$values
-    eigenvectors <- eigen(invL)$vectors
-    inla.pc.mbym.phi <- function(phi, eigenvalues, alpha = 2/3, U = 1/2){
+    rankdef <- constr$rankdef
+    eigenvalues <- eigen(invL, symmetric = T)$values - 1
+    eigenvalues[(length(eigenvalues)-rankdef+1):length(eigenvalues)] <- 1
+#    eigenvectors <- eigen(invL)$vectors
+    inla.pc.mbym.phi <- function(phi, eigenvalues, alpha = 2/3, U = 1/2, force.const=1){
       n <- length(eigenvalues)
       In <- Matrix::Diagonal(n = n, x = 1)
       log.p <- numeric(length(phi))
@@ -939,10 +941,11 @@ inla.rgeneric.MBYM.AR1 <- function(
         derivative <- 1/2 * sum(eigenvalues - eigenvalues / (1 + phi[j] * eigenvalues))
         rate <- -1/sqrt(2*KLD(U, eigenvalues = eigenvalues)) * log(1 - alpha)
         log.p[j] <- dexp(x=sqrt(2*KLD_j), rate = rate, log = T) +
-          log(1/sqrt(2*KLD_j)) + log(abs(derivative))
+          log(1/sqrt(2*KLD_j)) + log(abs(derivative)) - log(force.const)
       }
       return(sum(log.p))
     }
+    ff <- function(x) exp(inla.pc.mbym.phi(phi=x, eigenvalues=eigenvalues, alpha=alpha, U=U,force.const=1))
     if(PC.ar1){
       dpc.corr.ar1 <- function(x, t=10, n=1000, alpha=0.6, U=0.3, log=F){
         x <- pmax(abs(x), 1e-12) * ifelse(x < 0, -1, 1)
@@ -1086,7 +1089,7 @@ cav_nosp_inla <- inla(
   offset = log(nn),
   family = "poisson", data =dd_con,
   num.threads = 1, 
-  control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  control.compute = list(internal.opt = F, cpo = T, waic = T, dic = T), 
   verbose = T)
 
 #' Model with expected accesses - equivalent in theory ------------------------#
@@ -1124,7 +1127,6 @@ abline(v=u)
 
 
 
-
 cav_IMCAR_inla.AR1 <- inla(
   N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + 
     Desk_dist + TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
@@ -1132,7 +1134,7 @@ cav_IMCAR_inla.AR1 <- inla(
                                  alpha.sd = 0.1, U.sd = sqrt(1/2)), 
       extraconstr = list(A = A_constr, e = c(0,0,0,0))),
   offset = log(nn), family = "poisson", data =dd_con,
-  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T), 
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, dic = T), 
   verbose = T)
 cav_IMCAR_inla.AR1$waic$waic
 
@@ -1151,7 +1153,7 @@ cav_PMCAR_inla.AR1.Unif <- inla(
       extraconstr = list(A = A_constr, e = c(0,0,0,0))
     ),
   offset = log(nn), family = "poisson", data =dd_con,
-  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T), 
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, dic = T), 
   verbose = T)
 
 
@@ -1163,7 +1165,7 @@ cav_PMCAR_inla.AR1.PC <- inla(
       extraconstr = list(A = A_constr, e = c(0,0,0,0))
     ),
   offset = log(nn), family = "poisson", data =dd_con,
-  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T), 
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, dic = T), 
   verbose = T)
 
 #' Better
@@ -1176,7 +1178,7 @@ cav_PMCAR_inla.AR1.PC.strict <- inla(
       extraconstr = list(A = A_constr, e = c(0,0,0,0))
     ),
   offset = log(nn), family = "poisson", data =dd_con,
-  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T), 
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, dic = T), 
   verbose = T)
 
 
@@ -1196,7 +1198,7 @@ cav_LMCAR_inla.AR1.Unif <- inla(
     f(ID, model = inla.LMCAR.AR1(k = 4, W = W_con, PC.lambda = F, alpha.sd = 0.1, U.sd = sqrt(1/2)), 
       extraconstr = list(A = A_constr, e = c(0,0,0,0)) ),
   offset = log(nn), family = "poisson", data =dd_con,
-  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T), 
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, dic = T), 
   verbose = T)
 
 cav_LMCAR_inla.AR1.PC <- inla(
@@ -1205,7 +1207,7 @@ cav_LMCAR_inla.AR1.PC <- inla(
     f(ID, model = inla.LMCAR.AR1(k = 4, W = W_con, alpha.sd = 0.1, U.sd = sqrt(1/2)), 
       extraconstr = list(A = A_constr, e = c(0,0,0,0))),
   offset = log(nn), family = "poisson", data =dd_con,
-  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T), 
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, dic = T), 
   verbose = T)
 
 #' Better, though...
@@ -1216,7 +1218,7 @@ cav_LMCAR_inla.AR1.PC.strict <- inla(
                                  alpha.sd = 0.1, U.sd = sqrt(1/2)), 
       extraconstr = list(A = A_constr, e = c(0,0,0,0)) ),
   offset = log(nn), family = "poisson", data =dd_con,
-  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T), 
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, dic = T), 
   verbose = T)
 
 
@@ -1233,7 +1235,7 @@ cav_MBYM_inla.AR1.Unif <- inla(
     f(ID, model = inla.MBYM.AR1(k = 4, W = W_con, PC.ar1 = T, PC.phi = F, alpha.sd = 0.1, U.sd=sqrt(1/2)), 
       extraconstr = constr.BYM),
   offset = log(nn), family = "poisson", data =dd_con,
-  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T), 
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, dic = T), 
   verbose = T)
 cav_MBYM_inla.AR1.Unif$waic$waic
 
@@ -1242,7 +1244,7 @@ cav_MBYM_inla.AR1.PC <- inla(
     f(ID, model = inla.MBYM.AR1(k = 4, W = W_con, PC.ar1 = T, PC.phi = T, alpha.sd =0.1, U.sd = sqrt(1/2)), 
       extraconstr = constr.BYM),
   offset = log(nn), family = "poisson", data =dd_con,
-  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T), 
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, dic = T), 
   verbose = T)
 cav_MBYM_inla.AR1.PC$waic$waic
 
@@ -1254,7 +1256,7 @@ cav_MBYM_inla.AR1.PC.strict <- inla(
                                 alpha.sd =0.1, U.sd = sqrt(1/2)), 
       extraconstr = constr.BYM),
   offset = log(nn), family = "poisson", data =dd_con,
-  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T), 
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, dic = T), 
   verbose = T)
 
 
@@ -1276,12 +1278,13 @@ mm.tot <- list(nosp= cav_nosp_inla,
                BYM_PC_d = cav_MBYM_inla.AR1.PC,
                BYM_PC__s = cav_MBYM_inla.AR1.PC.strict)
 
-WAICS <- as.data.frame(do.call(rbind, lapply(mm.tot, function(x) cbind(x$waic$waic, x$waic$p.eff) )))
-names(WAICS) <- c("WAIC", "P_eff")
-WAICS$models <- names(mm.tot)
-WAICS <- WAICS[,c(3,1,2)]
+ICS <- as.data.frame(do.call(rbind, lapply(mm.tot, function(x) {
+  cbind(x$waic$waic, x$waic$p.eff, x$dic$dic, x$dic$p.eff)} )))
+names(ICS) <- c("WAIC", "WAIC_P_eff", "DIC", "DIC_P_eff")
+ICS$models <- names(mm.tot)
+ICS <- ICS[,c(5,1,2,3,4)]
 
-print(xtable::xtable(WAICS, n.digits = 3), include.rowname = F)
+print(xtable::xtable(ICS, n.digits = 3), include.rowname = F)
 
 #' LGOCV - to overcome problems with LOOCV in INLA ----------------------------#
 
@@ -1315,7 +1318,75 @@ LPMLs <- function(models, num.level.sets){
   df <- as.data.frame(do.call(rbind, lapply(LPMLs_list, unlist)))
   return(df)
 }
-LPMLs_df <- LPMLs(models = mm, c(1:6, 8, 10, 12, 15, 20, 25))
+#LPMLs_df <- LPMLs(models = mm, c(1:6, 8, 10, 12, 15, 20, 25))
+LPMLs_short <- LPMLs(models = mm, c(1, 2, 5, 8, 10, 15))
+print(xtable::xtable( t(LPMLs_short),
+                     n.digits = 3), include.rowname = T)
 
 
+##' MISC - to be deleted -------------------------------------------------------
+#############'
+inla.pc.mbym.phi <- function(phi, eigenvalues.invm1, alpha = 2/3, U = 1/2, force.const = 1){
+  n <- length(eigenvalues.invm1)
+  In <- Matrix::Diagonal(n = n, x = 1)
+  log.p <- numeric(length(phi))
+  KLD <- function(phi, eigenvalues.invm1){
+    res <- -1/2 * sum(log(1 + phi*eigenvalues.invm1)) +
+      1/2 * phi*sum(eigenvalues.invm1)
+    return(res)
+  }
+  deriv.KLD <- function(phi, eigenvalues.invm1){
+    res <- 1/2 * sum(-eigenvalues.invm1/(1+phi*eigenvalues.invm1) +
+                       eigenvalues.invm1)
+    return(res)
+  }
+  for(j in c(1:length(phi))){
+    KLD_j <- KLD(phi = phi[j], eigenvalues.invm1 = eigenvalues.invm1)
+    if(KLD_j < 0){
+      message("!!! PROBLEM !!!! \n!!! NEGATIVE KLD - MUST FIX MODEL !!!")
+      return(NULL)
+    }
+    derivative <- 1/2 * sum(eigenvalues.invm1 - 
+                              eigenvalues.invm1 / (1 + phi[j] * eigenvalues.invm1))
+    rate <- -1/sqrt(2*KLD(U, eigenvalues.invm1 = eigenvalues.invm1)) * log(1 - alpha)
+    log.p[j] <- dexp(x=sqrt(2*KLD_j), rate = rate, log = T) +
+      log(1/sqrt(2*KLD_j)) + log(abs(derivative)) - log(force.const)
+  }
+  return(sum(log.p))
+}
+W <- W_con
+L_unscaled <- Matrix::Diagonal(n=nrow(W), x=rowSums(as.matrix(W))) -  W
+constr <- INLA:::inla.bym.constr.internal(L_unscaled, adjust.for.con.comp = T)
+scaleQ <- INLA:::inla.scale.model.internal(
+  L_unscaled, constr = list(A = constr$constr$A, e = constr$constr$e))
+L <- scaleQ$Q
+invL <- INLA:::inla.ginv(L)
+In <- Matrix::Diagonal(n = nrow(W), x = 1)
+eigenvalues <- eigen(L, symmetric = T)$values
+rankdef <- constr$rankdef
+eigenvalues.invm1 <- sort(1/eigenvalues, decreasing = T) - 1
+#eigenvalues <- eigen(invL - In, symmetric = T)$values 
+eigenvalues.invm1[(length(eigenvalues.invm1)-rankdef+1):length(eigenvalues.invm1)] <- - 1
 
+
+u <- 0.5; alpha <- 0.8
+phis <- c( 1:500)/500
+ff <- Vectorize(function(x) exp(inla.pc.mbym.phi(phi=x,eigenvalues.invm1 = eigenvalues.invm1,
+                                                 U=u, alpha = alpha, force.const=1)))
+marginal.variances <- diag(invL)
+eigen.L <- eigen(L, symmetric = T)$values
+inla.pc.bym.phi.auto <- 
+  INLA:::inla.pc.bym.phi(eigenvalues = eigen.L,
+                         rankdef = 1, alpha=alpha, u=u, 
+                         marginal.variances = marginal.variances)
+
+ff.auto <- Vectorize(function(x) exp(inla.pc.bym.phi.auto(phi=x )))
+
+plot(phis, ff(phis), type = 'l', main = paste0("u = ",u, " alpha = ", alpha))
+lines(ff.auto(phis))
+
+abline(v=u)
+
+
+integrate(ff, 0, u)
+integrate(ff, 0 ,1)

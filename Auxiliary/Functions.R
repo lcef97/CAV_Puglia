@@ -929,8 +929,9 @@ inla.rgeneric.MBYM.AR1 <- function(
     L <- scaleQ$Q
     invL <- INLA:::inla.ginv(L)
     In <- Matrix::Diagonal(n = nrow(W), x = 1)
-    eigenvalues <- eigen(invL)$values
-    eigenvectors <- eigen(invL)$vectors
+    rankdef <- constr$rankdef
+    eigenvalues <- eigen(invL, symmetric = T)$values - 1
+    eigenvalues[(length(eigenvalues)-rankdef+1):length(eigenvalues)] <- 1
     inla.pc.mbym.phi <- function(phi, eigenvalues, alpha = 2/3, U = 1/2){
       n <- length(eigenvalues)
       In <- Matrix::Diagonal(n = n, x = 1)
@@ -1542,8 +1543,9 @@ inla.rgeneric.MBYM.Bartlett <- function(
     L <- scaleQ$Q
     invL <- INLA:::inla.ginv(L)
     In <- Matrix::Diagonal(n = nrow(W), x = 1)
-    eigenvalues <- eigen(invL)$values
-    eigenvectors <- eigen(invL)$vectors
+    rankdef <- constr$rankdef
+    eigenvalues <- eigen(invL, symmetric = T)$values - 1
+    eigenvalues[(length(eigenvalues)-rankdef+1):length(eigenvalues)] <- 1
     inla.pc.mbym.phi <- function(phi, eigenvalues, alpha = 2/3, U = 1/2){
       n <- length(eigenvalues)
       In <- Matrix::Diagonal(n = n, x = 1)
@@ -1859,18 +1861,23 @@ inla.rgeneric.Mmodel.LCAR <-
 
 # #'  INLA code for ST M-Model LCAR --------------------------------------------
 
-inla.LMMCAR.AR1 <- function(...) INLA::inla.rgeneric.define(inla.rgeneric.LMMCAR.AR1, ...)
+inla.LMMCAR.AR1 <- function(...) {
+  INLA::inla.rgeneric.define(
+    inla.rgeneric.LMMCAR.AR1, 
+    PC.lambda = T, alpha.lambda= 2/3, U.lambda = 1/2,
+    alpha.sd = 1/100, U.sd = 1,
+    PC.ar1 = T, alpha.corr = 0.6, U.corr = 0.3,
+    ...)}
 
 inla.rgeneric.LMMCAR.AR1 <- 
   function(cmd = c("graph", "Q", "mu", "initial", "log.norm.const", 
                    "log.prior", "quit"), theta = NULL){
     
     envir <- parent.env(environment())
-    if(!exists("PC", envir = envir)) assign("PC", FALSE, envir = envir)
     if(!exists("cache.done", envir=envir)){
       L <- Matrix::Diagonal(n=nrow(W), x=rowSums(as.matrix(W))) -  W
       In <- Matrix::Diagonal(n = nrow(W), x = 1)
-      if(PC) {
+      if(PC.lambda) {
         eigenvalues <- eigen(L - In)$values
         inla.pc.lmmcar.lambda <- function(lambda, eigenvalues, alpha = 2/3, U = 1/2){
           n <- length(eigenvalues)
@@ -1893,9 +1900,27 @@ inla.rgeneric.LMMCAR.AR1 <-
               log(1/sqrt(2*KLD_j)) + log(abs(derivative))
           }
           return(sum(log.p))
-        }
+        } 
         assign("inla.pc.lmmcar.lambda", inla.pc.lmmcar.lambda, envir = envir)
         assign("eigenvalues", eigenvalues, envir = envir)
+      }
+      if(PC.ar1){
+        dpc.corr.ar1 <- function(x, t=k, n=1000, alpha=0.6, U=0.3, log=F){
+          x <- pmax(abs(x), 1e-12) * ifelse(x < 0, -1, 1)
+          KLD <- function(x, t, n){
+            return(n/2 * ( log(1-x^2) + t*x^2/(1-x^2) ))
+          }
+          deriv.KLD <- function(x, t, n){
+            return(n*x*( -1/(1-x^2) + t/((1-x^2)^2)  ) )
+          }
+          dist.zero <- sqrt(2*KLD(U, t=t, n=n))
+          rate <- -log(alpha)/dist.zero
+          ff <- stats::dexp(x=sqrt(2*KLD(x=x, t=t, n=n)), rate = rate)*
+            1/sqrt(2*KLD(x=x, t=t, n=n)) * abs(deriv.KLD(x=x, t=t, n=n)) / 2
+          
+          return(ifelse(log, log(ff), ff))
+        }
+        assign("dpc.corr.ar1", dpc.corr.ar1, envir = envir)
       }
       assign("L", L, envir = envir)
       assign("cache.done", TRUE, envir = envir)
@@ -2313,7 +2338,9 @@ inla.rgeneric.Mmodel.BYM <-
     if(scale.model) L <- scaleQ$Q else L <- L_unscaled
     invL <- INLA:::inla.ginv(L)
     In <- Matrix::Diagonal(n = nrow(W), x = 1)
-    eigenvalues <- eigen(invL - In)$values
+    rankdef <- constr$rankdef
+    eigenvalues <- eigen(invL, symmetric = T)$values - 1
+    eigenvalues[(length(eigenvalues)-rankdef+1):length(eigenvalues)] <- 1
     inla.pc.mbym.phi <- function(phi, eigenvalues, alpha = 2/3, U = 1/2){
       n <- length(eigenvalues)
       In <- Matrix::Diagonal(n = n, x = 1)
@@ -2508,7 +2535,9 @@ inla.rgeneric.MMBYM.AR1 <-
       L <- scaleQ$Q
       invL <- INLA:::inla.ginv(L)
       In <- Matrix::Diagonal(n = nrow(W), x = 1)
-      eigenvalues <- eigen(invL - In)$values
+      rankdef <- constr$rankdef
+      eigenvalues <- eigen(invL, symmetric = T)$values - 1
+      eigenvalues[(length(eigenvalues)-rankdef+1):length(eigenvalues)] <- 1
       inla.pc.mbym.phi <- function(phi, eigenvalues, alpha = 2/3, U = 1/2){
         n <- length(eigenvalues)
         In <- Matrix::Diagonal(n = n, x = 1)
