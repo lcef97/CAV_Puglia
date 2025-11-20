@@ -81,7 +81,7 @@ cav_PMMCAR_inla_unif <- inla(
   verbose = T)
 
 
- 
+# this is better 
 cav_PMMCAR_inla_pc_default  <- inla(
   N_ACC ~  0+ Y_2021 + Y_2022 + Y_2023 + Y_2024 +
     TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
@@ -97,7 +97,7 @@ cav_PMMCAR_inla_pc_strict  <- inla(
   N_ACC ~  0+ Y_2021 + Y_2022 + Y_2023 + Y_2024 +
     TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
     f(ID, model = inla.PMMCAR.model(k = 4, W = W_con,
-                                    df = 8, PC = T, alpha=0.9, U = 0.6)),
+                                    df = 8, PC = T, alpha.rho=0.9, U.rho = 0.6)),
   offset = log(nn),
   family = "poisson", data =dd,
   num.threads = 1, control.compute = list(
@@ -138,11 +138,12 @@ cav_LMMCAR_inla_pc_default <- inla(
     internal.opt = F, cpo = F, dic = T, waic = T, config = F), 
   verbose = T)
 
-
+#' This is better
 cav_LMMCAR_inla_pc_strict <- inla(
   N_ACC ~  0+ Y_2021 + Y_2022 + Y_2023 + Y_2024 +
     TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
-    f(ID, model = inla.LMMCAR.model(k = 4, W = W_con, df = 8, PC = T, alpha=9/10, U = 3/5)),
+    f(ID, model = inla.LMMCAR.model(k = 4, W = W_con, df = 8, PC = T,
+                                    alpha.lambda=9/10, U.lambda = 3/5)),
   offset = log(nn),
   family = "poisson", data =dd,
   num.threads = 1, control.compute = list(
@@ -185,7 +186,7 @@ cav_MMBYM_inla_pc_strict <- inla(
   N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 +
     TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
     f(ID, model = inla.MMBYM.model(k = 4, W = W_con,  PC= T, df = 8,
-                                   scale.model=T, alpha=0.9, U=0.6) , 
+                                   scale.model=T, alpha.phi =0.9, U.phi=0.6) , 
       extraconstr = constr.BYM),
   offset = log(nn), 
   family = "poisson", data =dd,

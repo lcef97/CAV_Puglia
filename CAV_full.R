@@ -1188,7 +1188,7 @@ cav_MMBYM_inla_pc_default <- inla(
 cav_MMBYM_inla_pc_strict <- inla(
   N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 +
     TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
-    f(ID, model = inla.MMBYM.model(k = 4, W = W_con,  PC= T, df = 8, alpha = 9/10, U = 3/5) , 
+    f(ID, model = inla.MMBYM.model(k = 4, W = W_con,  PC= T, df = 8, alpha.phi = 9/10, U.phi = 3/5) , 
       extraconstr = constr.BYM),
   offset = log(nn), #control.inla = list(h = 1e-5),
   family = "poisson", data =dd_con,

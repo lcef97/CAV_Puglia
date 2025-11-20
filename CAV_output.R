@@ -58,37 +58,31 @@ library(INLA)
 #'      comune = stringr::str_to_title(
 #'      .data$LUOGO_RESIDENZA_DOMICILIO[1L]))%>%   dplyr::ungroup()
 #'
-#'      
-#'     
 #'  ---------------------------------------------------------------------------#   
 #'  
 #'  Then we download municipality-level data on accesses to support centers,
 #'  aggregated from individual-level ones:  -----------------------------------#
 
-load("input/CAV_input_mun_2021.RData")
-load("input/CAV_input_mun_2022.RData")
-load("input/CAV_input_mun_2023.RData")
-load("input/CAV_input_mun_2024.RData")
+load(url("https://github.com/lcef97/CAV_Puglia/raw/main/input/CAV_input_mun_2021.RData"))
+load(url("https://github.com/lcef97/CAV_Puglia/raw/main/input/CAV_input_mun_2022.RData"))
+load(url("https://github.com/lcef97/CAV_Puglia/raw/main/input/CAV_input_mun_2023.RData"))
+load(url("https://github.com/lcef97/CAV_Puglia/raw/main/input/CAV_input_mun_2024.RData"))
+
 
 CAV_mun_21 <- CAV_mun_21 %>% dplyr::rename(N_ACC_2021 = .data$N_ACC)
 CAV_mun_22 <- CAV_mun_22 %>% dplyr::rename(N_ACC_2022 = .data$N_ACC)
 CAV_mun_23 <- CAV_mun_23 %>% dplyr::rename(N_ACC_2023 = .data$N_ACC)
 CAV_mun_24 <- CAV_mun_24 %>% dplyr::rename(N_ACC_2024 = .data$N_ACC)
 
-
-#'  2022 municipalities shapefiles; easily obtainable 
-#'  by scraping with the following (commented) code:
-#'    Mun22_shp <- SchoolDataIT::Get_Shapefile(2022)
-#'    Shp <- Mun22_shp %>% dplyr::filter(.data$COD_REG == 16) %>% 
-#'        dplyr::select(.data$COD_PROV, .data$PRO_COM, .data$COMUNE)
-#'  
+#'  2022 municipalities shapefiles, provided by ISTAT.
 #'  In theory, a shapefile should be used for each year.
 #'  Still, administrative units boundaries are unchanged at least
-#'  from 2021 to 2023 ---------------------------------------------------------#
-#'
-#'  Still, we leave the static shapefile in order NOT to need internet connection:
+#'  from 2021 to 2024 ---------------------------------------------------------#
 
-load("input/Shp.RData")
+load(url("https://github.com/lcef97/CAV_Puglia/raw/main/input/Shp.RData"))
+Centroids <- Shp
+sf::st_agr(Centroids) <- "constant"
+Centroids <- sf::st_point_on_surface(Centroids)
 
 #'  Function to extract numeric digits from a strings vector (needed to filter age):
 nn_extract <- function(string){
@@ -101,26 +95,29 @@ nn_extract <- function(string){
 #'  Female population aged >= 15 years. Source data: 
 #'  http://dati.istat.it/Index.aspx?DataSetCode=DCIS_POPRES1#  ----------------#
 
-Popolazione_Puglia_2021 <- readr::read_csv("input/Popolazione_Puglia_2021.csv") %>% 
+Popolazione_Puglia_2021 <- readr::read_csv(
+  "https://github.com/lcef97/CAV_Puglia/raw/main/input/Popolazione_Puglia_2021.csv") %>% 
   dplyr::select(.data$ITTER107, .data$Territorio, .data$SEXISTAT1, .data$ETA1, .data$Value) %>% 
   dplyr::filter(.data$ETA1 != "TOTAL") %>% 
   dplyr::mutate(ETA1 = nn_extract(.data$ETA1)) %>% 
   dplyr::mutate(ITTER107 = as.numeric(.data$ITTER107))
 
-Popolazione_Puglia_2022 <- readr::read_csv("input/Popolazione_Puglia_2022.csv") %>% 
+Popolazione_Puglia_2022 <- readr::read_csv(
+  "https://github.com/lcef97/CAV_Puglia/raw/main/input/Popolazione_Puglia_2022.csv") %>% 
   dplyr::select(.data$ITTER107, .data$Territorio, .data$SEXISTAT1, .data$ETA1, .data$Value) %>% 
   dplyr::filter(.data$ETA1 != "TOTAL") %>% 
   dplyr::mutate(ETA1 = nn_extract(.data$ETA1)) %>% 
   dplyr::mutate(ITTER107 = as.numeric(.data$ITTER107))
 
-Popolazione_Puglia_2023 <- readr::read_csv("input/Popolazione_Puglia_2023.csv") %>% 
+Popolazione_Puglia_2023 <- readr::read_csv(
+  "https://github.com/lcef97/CAV_Puglia/raw/main/input/Popolazione_Puglia_2023.csv") %>% 
   dplyr::select(.data$ITTER107, .data$Territorio, .data$SEXISTAT1, .data$ETA1, .data$Value) %>% 
   dplyr::filter(.data$ETA1 != "TOTAL") %>% 
   dplyr::mutate(ETA1 = nn_extract(.data$ETA1)) %>% 
   dplyr::mutate(ITTER107 = as.numeric(.data$ITTER107))
 
-Popolazione_Puglia_2024 <- readr::read_csv("input/Popolazione_Puglia_2024.csv",
-                                           quote = "")  %>% 
+Popolazione_Puglia_2024 <- readr::read_csv(
+  "https://github.com/lcef97/CAV_Puglia/raw/main/input/Popolazione_Puglia_2024.csv",quote = "")  %>% 
   dplyr::filter(.data$AGE != "TOTAL") %>% 
   dplyr::mutate(ETA1 = nn_extract(.data$AGE)) %>% 
   dplyr::mutate(ITTER107 = as.numeric(.data$REF_AREA)) %>% 
@@ -138,7 +135,8 @@ Pop_f_15 <- Popolazione_Puglia_2021 %>%
                    by =  c("ITTER107",  "SEXISTAT1", "ETA1"))
 
 names(Pop_f_15) <-  c("PRO_COM", "Comune", "Sesso", "Eta", 
-                      "Popolazione_21", "Popolazione_22", "Popolazione_23", "Popolazione_24")
+                      "Popolazione_21", "Popolazione_22", 
+                      "Popolazione_23", "Popolazione_24")
 
 Pop_f_15 <- Pop_f_15 %>% dplyr::filter(.data$Sesso == 2) %>% 
   dplyr::filter(.data$Eta > 14) %>% 
@@ -168,42 +166,9 @@ dd <- Shp %>% dplyr::left_join(Pop_f_15[, -2], by = "PRO_COM") %>%
 dd$N_ACC[is.na(dd$N_ACC)] <- 0
 
 #' "access ratio" -------------------------------------------------------------#
-dd$LN_ACC <- log(dd$N_ACC/dd$nn)
+dd$Log_accesses <- log(dd$N_ACC/dd$nn)
+dd$F_accesses <- dd$N_ACC/dd$nn
 
-ggy21 <- ggplot2::ggplot() +
-  ggplot2::geom_sf(data = dplyr::filter(dd, .data$Year == "2021"), 
-                   ggplot2::aes(fill = .data$LN_ACC))+
-  ggplot2::scale_fill_viridis_c(na.value = "white",
-                                limits = c(-9.5, -4.6))+
-  ggplot2::ggtitle("Year: 2021") +
-  ggplot2::theme_classic()
-
-ggy22 <- ggplot2::ggplot() +
-  ggplot2::geom_sf(data = dplyr::filter(dd, .data$Year == "2022"), 
-                   ggplot2::aes(fill = .data$LN_ACC))+
-  ggplot2::scale_fill_viridis_c(na.value = "white",
-                                limits = c(-9.5, -4.6))+
-  ggplot2::ggtitle("Year: 2022") +
-  ggplot2::theme_classic()
-
-ggy23 <- ggplot2::ggplot() +
-  ggplot2::geom_sf(data = dplyr::filter(dd, .data$Year == "2023"), 
-                   ggplot2::aes(fill = .data$LN_ACC))+
-  ggplot2::scale_fill_viridis_c(na.value = "white",
-                                limits = c(-9.5, -4.6))+
-  ggplot2::ggtitle("Year: 2023") +
-  ggplot2::theme_classic()
-
-ggy24 <- ggplot2::ggplot() +
-  ggplot2::geom_sf(data = dplyr::filter(dd, .data$Year == "2024"), 
-                   ggplot2::aes(fill = .data$LN_ACC))+
-  ggplot2::scale_fill_viridis_c(na.value = "white",
-                                limits = c(-9.5, -4.6))+
-  ggplot2::ggtitle("Year: 2024")+
-  ggplot2::theme_classic()
-
-
-gridExtra::grid.arrange(ggy21, ggy22, ggy23, ggy24, nrow = 2, ncol = 2)
 
 #' Tremiti Islands are a singleton --> 
 #'   need to remove them to perform spatial analysis --------------------------#
@@ -219,30 +184,42 @@ suppressWarnings({
 #'  Loop to compute minimal distances
 #'
 #'
-#'  Municipalities hosting a support center:
-#'  munWcav_22 <- c(71020, 71024, 71051, 
-#'                  72004, 72006, 72011, 72014, 72019, 72021, 72029, 72031, 72033, 72035, 
-#'                  73013, 73027, 
-#'                  74001, 74009, 
-#'                  75018, 75029, 75035, 75059,
-#'                  110001, 110002, 110009)
-#'  
-#'  munWcav_23 <- c(71020, 71024, 71029, 71051, 
-#'                  72004, 72006, 72011, 72014, 72019, 72021, 72029, 72031, 72033, 72035,
-#'                  73013, 73027, 
-#'                  74001, 74009, 
-#'                  75029, 75035, 75059,
-#'                  110001, 110002, 110009)
-#'  
-#' Sportelli_CAV <- readxl::read_excel("input_excel/Sportelli_CAV.xlsx", sheet = "CAV")
-#' munWcav_24 <- unique(sort(as.numeric(Sportelli_CAV$PRO_COM))) 
-#' munWcav_24 == c(71020, 71024, 71029, 71051,
-#'                  72004, 72006, 72011, 72014, 72019, 72021, 72029, 72031, 72033, 72035,
-#'                  73013, 73027,
-#'                  74001, 74009, 74019,
-#'                  75029, 75035, 75059,
-#'                  110001, 110002, 110009)
 #'
+#'
+#'
+#'  Municipalities hosting a support center:
+#'  
+#'  #' Dubious status: Castrignano de'Greci (Dafne ==> active until 2022 I guess) 
+#'  #' and Cerignola (why missing??)
+  munWcav_21 <- c(71024,	71051,
+                  72004,	72006,	72011,	72014,	72019,	72021,	72029,	72031,	72035,	
+                  73013,	73027,	
+                  74001,	74009,	
+                  75029,	75035,  75059,
+                  110001,	110002,	110009)
+  
+  
+  munWcav_22 <- c(71020, 71024, 71051, 
+                  72004, 72006, 72011, 72014, 72019, 72021, 72029, 72031, 72033, 72035, 
+                  73013, 73027, 
+                  74001, 74009, 
+                  75018, 75029, 75035, 75059,
+                  110001, 110002, 110009)
+  
+  munWcav_23 <- c(71020, 71024, 71029, 71051, 
+                  72004, 72006, 72011, 72014, 72019, 72021, 72029, 72031, 72033, 72035,
+                  73013, 73027, 
+                  74001, 74009, 
+                  75029, 75035, 75059,
+                  110001, 110002, 110009)
+  
+  munWcav_24 <- c(71020, 71024, 71029, 71051,
+                  72004, 72006, 72011, 72014, 72019, 72021, 72029, 72031, 72033, 72035,
+                  73013, 73027,
+                  74001, 74009, 74019,
+                  75029, 75035, 75059,
+                  110001, 110002, 110009)
+  
 #'  Routine to compute distances from closest municipality
 #'  with an AVC ---------------------------------------------------------------#
 #'  
@@ -270,19 +247,20 @@ suppressWarnings({
 #'  names(dists_th_24) <- c("PRO_COM", "TEP_th_24")
 
 
-#'munWdesk <- c(
-#'  71004,  71006,  71008,  71010,  71012,  71020,  71021,  71022,  71024,  
-#'  71025,  71027,  71028,  71035,  71036,  71038,  71041,  71043,  71046,  
-#'  71047,  71049,  71050,  71051,  71053,  71054,  71055,  71056,  71058,  
-#'  71059,  71060,  71063,  72003,  72006,  72010,  72011,  72012,  72016,  
-#'  72020,  72022,  72023,  72024,  72025,  72027,  72033,  72038,  72039,  
-#'  72041,  72043,  73003,  73007,  73008,  73015,  73019,  73020,  73021,  
-#'  73024,  73027,  73029,  74002,  74003,  74005,  74006,  74007,  74008, 
-#'  74011,  74012,  74014,  74018,  74020,  75002,  75003,  75010,  75012, 
-#'  75016,  75021,  75022,  75024,  75028,  75030,  75031,  75035,  75037,
-#'  75039,  75040,  75043,  75044,  75050,  75051,  75052,  75057,  75063, 
-#'  75064,  75073,  75077,  75081,  75085,  75086,  75088,  75089,  75093, 
-#'  75097, 110003, 110004, 110005, 110007, 110010)
+munWdesk <- c(
+  71004,  71006,  71008,  71010,  71012,  71020,  71021,  71022,  71024,  
+  71025,  71027,  71028,  71035,  71036,  71038,  71041,  71043,  71046,  
+  71047,  71049,  71050,  71051,  71053,  71054,  71055,  71056,  71058,  
+  71059,  71060,  71063,  72003,  72006,  72010,  72011,  72012,  72016,  
+  72020,  72022,  72023,  72024,  72025,  72027,  72033,  72038,  72039,  
+  72041,  72043,  73003,  73007,  73008,  73015,  73019,  73020,  73021,  
+  73024,  73027,  73029,  74002,  74003,  74005,  74006,  74007,  74008, 
+  74011,  74012,  74014,  74018,  74020,  75002,  75003,  75010,  75012, 
+  75016,  75021,  75022,  75024,  75028,  75030,  75031,  75035,  75037,
+  75039,  75040,  75043,  75044,  75050,  75051,  75052,  75057,  75063, 
+  75064,  75073,  75077,  75081,  75085,  75086,  75088,  75089,  75093, 
+  75097, 110003, 110004, 110005, 110007, 110010)
+
 #'dists_desk <- NULL
 #'dd24 <- dd %>% dplyr::filter(.data$Year == "2024") %>% 
 #'  dplyr::filter(!.data$PRO_COM %in% singletons)
@@ -303,18 +281,66 @@ suppressWarnings({
 #'  dists_desk <- data.frame(rbind(dists_desk, ret))
 #'}
 
+load(url("https://github.com/lcef97/CAV_Puglia/raw/main/input/dists_th_21.RData"))
+load(url("https://github.com/lcef97/CAV_Puglia/raw/main/input/dists_th_22.RData"))
+load(url("https://github.com/lcef97/CAV_Puglia/raw/main/input/dists_th_23.RData"))
+load(url("https://github.com/lcef97/CAV_Puglia/raw/main/input/dists_th_24.RData"))
+load(url("https://github.com/lcef97/CAV_Puglia/raw/main/input/dists_desk.RData"))
 
-load("input/dists_th_22.RData")
-load("input/dists_th_23.RData")
-load("input/dists_th_24.RData")
-load("input/dists_desk.RData")
-
-names(dists_th_22)[2] <- names(dists_th_23)[2] <- names(dists_th_24)[2] <- "TEP_th"
-distances <- rbind(dists_th_22, dists_th_22, dists_th_23, dists_th_24) %>% 
+names(dists_th_21)[2] <- names(dists_th_22)[2] <- 
+  names(dists_th_23)[2] <- names(dists_th_24)[2] <- "AVC_dist"
+distances <- rbind(dists_th_21, dists_th_22, dists_th_23, dists_th_24) %>% 
   dplyr::mutate(Year = c(rep("2021", nrow(dists_th_22)),
                          rep("2022", nrow(dists_th_22)),
                          rep("2023", nrow(dists_th_23)),
                          rep("2024", nrow(dists_th_24))) )
+
+#' Centroids of municipalities with an AVC ------------------------------------#
+Centroids_21 <- dplyr::filter(Centroids, PRO_COM %in% munWcav_21)
+Centroids_22 <- dplyr::filter(Centroids, PRO_COM %in% munWcav_22)
+Centroids_23 <- dplyr::filter(Centroids, PRO_COM %in% munWcav_23)
+Centroids_24 <- dplyr::filter(Centroids, PRO_COM %in% munWcav_24)
+
+
+ggy21 <- ggplot2::ggplot() +
+  ggplot2::geom_sf(data = dplyr::filter(dd, .data$Year == "2021"), 
+                   ggplot2::aes(fill = .data$Log_accesses))+
+  ggplot2::scale_fill_viridis_c(na.value = "white",
+                                limits = c(-9.5, -4.6))+
+  ggplot2::geom_sf(data = Centroids_21, color = "#00ffff",size  = 1.2) +
+  ggplot2::ggtitle("Year: 2021") +
+  ggplot2::theme_classic()
+
+ggy22 <- ggplot2::ggplot() +
+  ggplot2::geom_sf(data = dplyr::filter(dd, .data$Year == "2022"), 
+                   ggplot2::aes(fill = .data$Log_accesses))+
+  ggplot2::scale_fill_viridis_c(na.value = "white",
+                                limits = c(-9.5, -4.6))+
+  ggplot2::geom_sf(data = Centroids_22, color = "#00ffff",size  = 1.2)+
+  ggplot2::ggtitle("Year: 2022") +
+  ggplot2::theme_classic()
+
+ggy23 <- ggplot2::ggplot() +
+  ggplot2::geom_sf(data = dplyr::filter(dd, .data$Year == "2023"), 
+                   ggplot2::aes(fill = .data$Log_accesses))+
+  ggplot2::scale_fill_viridis_c(na.value = "white",
+                                limits = c(-9.5, -4.6))+
+  ggplot2::geom_sf(data = Centroids_23, color = "#00ffff",size  = 1.2)+
+  ggplot2::ggtitle("Year: 2023") +
+  ggplot2::theme_classic()
+
+ggy24 <- ggplot2::ggplot() +
+  ggplot2::geom_sf(data = dplyr::filter(dd, .data$Year == "2024"), 
+                   ggplot2::aes(fill = .data$Log_accesses))+
+  ggplot2::scale_fill_viridis_c(na.value = "white",
+                                limits = c(-9.5, -4.6))+
+  ggplot2::geom_sf(data = Centroids_24, color = "#00ffff",size  = 1.2)+
+  ggplot2::ggtitle("Year: 2024")+
+  ggplot2::theme_classic()
+
+
+gridExtra::grid.arrange(ggy21, ggy22, ggy23, ggy24, nrow = 2, ncol = 2)
+
 
 
 
@@ -323,12 +349,12 @@ distances <- rbind(dists_th_22, dists_th_22, dists_th_23, dists_th_24) %>%
 dd_con <- dd %>% dplyr::filter(!.data$PRO_COM %in% singletons) %>% 
   dplyr::left_join(distances, by = c("PRO_COM", "Year")) %>% 
   dplyr::left_join(dists_desk, by = "PRO_COM") %>% 
-  dplyr::mutate(CAV = as.numeric(.data$TEP_th == 0)) %>% 
+  dplyr::mutate(CAV = as.numeric(.data$AVC_dist == 0)) %>% 
   dplyr::mutate(Y_2021 = as.numeric(.data$Year == "2021")) %>% 
   dplyr::mutate(Y_2022 = as.numeric(.data$Year == "2022")) %>% 
   dplyr::mutate(Y_2023 = as.numeric(.data$Year == "2023")) %>% 
   dplyr::mutate(Y_2024 = as.numeric(.data$Year == "2024")) %>% 
-  dplyr::mutate(TEP_th = as.vector(scale(.data$TEP_th))) %>% 
+  dplyr::mutate(AVC_dist = as.vector(scale(.data$AVC_dist))) %>% 
   dplyr::mutate(AES = as.vector(scale(.data$AES))) %>% 
   dplyr::mutate(Desk_dist = as.vector(scale(.data$Desk_dist))) %>% 
   dplyr::mutate(MFI = as.vector(scale(.data$MFI)))  %>% 
@@ -352,7 +378,7 @@ dd_con <- dd %>% dplyr::filter(!.data$PRO_COM %in% singletons) %>%
 n <- length(unique(dd_con$PRO_COM))
 
 #' sd of travel time: around 14 minutes ---------------------------------------#
-attr(scale(dists_th_22$TEP_th), "scaled:scale")
+attr(scale(dists_th_22$AVC_dist), "scaled:scale")
 
 #' neighbours list ------------------------------------------------------------#
 nb_con <- spdep::poly2nb(dd_con[c(1:n), ])
@@ -377,97 +403,20 @@ constr.BYM <- list(
 
 
 #' Full GLM --> for model matrix
-glm_all_X <- glm(N_ACC ~ 1 + Desk_dist + TEP_th + MFI + AES + PDI + ELL + ER +
+glm_all_X <- glm(N_ACC ~ 1 + Desk_dist + AVC_dist + MFI + AES + PDI + ELL + ER +
                    PGR + UIS + ELI + offset(log(nn)),
                  data = dd_con, family = "poisson")
 #' model matrix
 X <- model.matrix(glm_all_X)
 
 
-#' Deconfounding with Spatial+ 
-#' First approach, more radical: fitting an ICAR model on covariates
-
-ICAR_ELL <- inla(ELL ~ 1 + f(Area, model = "besag", graph = W_con,
-                             hyper = list(prec=list(prior = "PC.prec"))),
-                 data = dd_con[c(1:n), ],
-                 family = "gaussian", 
-                 control.compute = list(internal.opt = F),
-                 num.threads = 1, verbose = T)
-
-ICAR_ER <- inla(ER ~ 1 + f(Area, model = "besag", graph = W_con,
-                           hyper = list(prec=list(prior = "PC.prec"))),
-                data = dd_con[c(1:n), ],
-                family = "gaussian", 
-                control.compute = list(internal.opt = F),
-                num.threads = 1, verbose = T)
-
-dd_con[c(1:n), ]%>% 
-  dplyr::mutate(xhat = ICAR_ELL$summary.random$Area$mean) %>% 
-  ggplot2::ggplot() +
-  ggplot2::geom_sf(ggplot2::aes(fill = .data$xhat))+
-  ggplot2::labs( fill = "xhat") +
-  ggplot2::scale_fill_viridis_c(na.value = "white", direction = -1) +
-  ggplot2::theme_classic()
-
-ELL_nosp_resid <- as.vector(scale(dd_con$ELL - ICAR_ELL$summary.random$Area$mean))
-ER_nosp_resid <- as.vector(scale(dd_con$ER - ICAR_ER$summary.random$Area$mean))
-
-
-#' Here some internal functions that may or may not be useful -----------------#
-zhat_plot <- function(model, main = NULL){
-  
-  zbound <- range(model$summary.random$ID$mean)
-  
-  if(is.null(main)) main <- deparse(substitute(model))
-  
-  ggzhat21 <- dd_con %>%
-    dplyr::filter(.data$Y_2021 == 1) %>% 
-    dplyr::mutate(zhat_21 = model$summary.random$ID$mean[c(1:n)]) %>% 
-    ggplot2::ggplot() +
-    ggplot2::geom_sf(ggplot2::aes(fill = .data$zhat_21))+
-    ggplot2::scale_fill_viridis_c(na.value = "white", direction = -1, limits = zbound) +
-    ggplot2::theme_classic()
-  
-  ggzhat22 <- dd_con %>% 
-    dplyr::filter(.data$Y_2022 == 1) %>% 
-    dplyr::mutate(zhat_22 = model$summary.random$ID$mean[c(n+(1:n))]) %>% 
-    ggplot2::ggplot() +
-    ggplot2::geom_sf(ggplot2::aes(fill = .data$zhat_22))+
-    ggplot2::scale_fill_viridis_c(na.value = "white", direction = -1, limits = zbound) +
-    ggplot2::theme_classic()
-  
-  ggzhat23 <- dd_con %>% 
-    dplyr::filter(.data$Y_2023 == 1) %>% 
-    dplyr::mutate(zhat_23 = model$summary.random$ID$mean[c((2*n)+(1:n))]) %>% 
-    ggplot2::ggplot() +
-    ggplot2::geom_sf(ggplot2::aes(fill = .data$zhat_23))+
-    ggplot2::scale_fill_viridis_c(na.value = "white", direction = -1, limits = zbound) +
-    ggplot2::theme_classic()
-  
-  ggzhat24 <- dd_con %>% 
-    dplyr::filter(.data$Y_2024 == 1) %>% 
-    dplyr::mutate(zhat_24 = model$summary.random$ID$mean[c((2*n)+(1:n))]) %>% 
-    ggplot2::ggplot() +
-    ggplot2::geom_sf(ggplot2::aes(fill = .data$zhat_24))+
-    ggplot2::scale_fill_viridis_c(na.value = "white", direction = -1, limits = zbound) +
-    ggplot2::theme_classic()
-  
-  gridExtra::grid.arrange(ggzhat21, ggzhat22, ggzhat23, ggzhat24, nrow = 2, ncol = 2,
-                          top = main)
-  
-}
-
-#' Expected accesses, may turn out to be useful -------------------------------#
-Exp_Acc <- dd_con$nn * mean(dd_con$N_ACC/dd_con$nn)
-
-
 #' Spatial filtering of Laplacian eigenvectors --------------------------------#
 
 #' Speed-up initialising:
-covars <- c("MFI", "HMI", "MWR", "PA", "LRA", "LC", "AES", "PDI",
-            "ELL", "ER", "PGR", "UIS", "ELI","TEP_th")
+#covars <- c("MFI", "HMI", "MWR", "PA", "LRA", "LC", "AES", "PDI",
+#            "ELL", "ER", "PGR", "UIS", "ELI","AVC_dist")
 
-n.eigen <- rep(10, length(covars))
+#n.eigen <- rep(10, length(covars))
 VV <- eigen(Lapl_con)$vectors
 
 
@@ -483,11 +432,10 @@ filter.spatplus <- function(data, covars = c(), V, n.eigen = c(), rescale = T, c
     s <- var(xx)
     coef <- solve(a=V, b=xx)
     eigen.in <- c( 1:(nrow(V) - n.eigen[j]))
-    eigen.out <- c((nrow(V) - n.eigen[j]+1) : nrow(V) )
+    eigen.out <- setdiff(c(1:nrow(V)), eigen.in)#c((nrow(V) - n.eigen[j]+1) : nrow(V) )
     nrep <- nrow(data)/nrow(xx)
-    xx.nosp <- scale(V[, eigen.in] %*% coef[eigen.in], 
-                     scale = rescale, center = center)
-    xx.nosp <- rep(as.vector(xx.nosp), nrep)
+    xx.nosp <- rep(V[, eigen.in] %*% coef[eigen.in], nrep)
+    xx.nosp <- as.vector(scale(xx.nosp, scale = rescale, center = center))
     xx.sp <-  as.vector(V[, eigen.out] %*% coef[eigen.out])
     trends[[j]] <- xx.sp
     names(trends)[[j]] <- names(data)[m]
@@ -497,8 +445,67 @@ filter.spatplus <- function(data, covars = c(), V, n.eigen = c(), rescale = T, c
   return(list(data = res, trends = trends.df))
 }
 
-dd_filtered <- filter.spatplus(dd_con, covars=c("ER", "ELL", "UIS"), V = VV,
-                               n.eigen = c(15, 15, 15))
+dd_filtered_10 <- filter.spatplus(dd_con, covars=c("ELI", "ELL"), V = VV,
+                                  n.eigen = c(10, 10))
+dd_filtered_15 <- filter.spatplus(dd_con, covars=c("ELI", "ELL"), V = VV,
+                                  n.eigen = c(15, 15))
+dd_filtered_20 <- filter.spatplus(dd_con, covars=c("ELI", "ELL"), V = VV,
+                                  n.eigen = c(20, 20))
+dd_filtered_25 <- filter.spatplus(dd_con, covars=c("ELI", "ELL"), V = VV,
+                                  n.eigen = c(25, 25))
+
+
+#' R function for forest plots ------------------------------------------------#
+
+inla.forestplot.beta <- function(models, covar.in = NULL, model_names = NULL,           
+                                 xlab = expression(beta), 
+                                 main = "") {
+  
+  if (is.null(model_names)) model_names <- paste0("Model ", seq_along(models))
+  stopifnot(length(model_names) == length(models))
+  
+  beta.df <- purrr::map2_dfr(models, model_names, ~{
+    sf <- .x$summary.fixed %>% as.data.frame() %>%
+      tibble::rownames_to_column("Var") %>% dplyr::transmute(
+        Var=.data$Var, mean = .data$mean,
+        LB  = .data$`0.025quant`, UB  = .data$`0.975quant`, 
+      model = .y )  
+  })
+  
+  if(is.null(covar.in)) covar.in <- unique(beta.df$Var)
+  beta.df <- beta.df %>% dplyr::filter(Var %in% covar.in)  %>% 
+    dplyr::mutate(Var = factor(.data$Var, levels = rev(covar.in)))  
+  
+  
+  n_vars   <- length(unique(beta.df$Var))
+  n_models <- length(unique(beta.df$model))
+  
+  # automatic scaling
+  line_scale  <- 2.5 / sqrt(max(length(unique(beta.df$model)), 1))
+  point_scale <- 4.5 / sqrt(max(length(unique(beta.df$model)), 1))
+  
+  dodge <- ggplot2::position_dodge(width = 0.6)
+  p <- ggplot2::ggplot(beta.df, ggplot2::aes(
+    x = .data$mean, y = .data$Var, color = .data$model)) +
+    ggplot2::geom_vline(xintercept = 0, linetype = "dashed") +
+    ggplot2::geom_errorbarh(
+      ggplot2::aes(xmin = .data$LB, xmax = .data$UB),
+      height = 0, position = dodge, linewidth = line_scale) +
+    ggplot2::geom_point(position = dodge, size = point_scale) +
+    ggplot2::labs(x = xlab, y = NULL, color = "Model", title = main) +
+    ggplot2::theme_bw(base_size = 12) +
+    ggplot2::scale_y_discrete(expand = ggplot2::expansion(mult = c(0.05, 0.05))) +
+    ggplot2::theme(
+      axis.text.y = ggplot2::element_text(margin = ggplot2::margin(r = 6, b=10, t=10),
+                                          lineheight = 1.8),
+      panel.spacing.y = ggplot2::unit(1.2, "lines"),
+      panel.grid.minor = ggplot2::element_blank(),
+      legend.position = "bottom")+
+    ggplot2::guides(color = ggplot2::guide_legend(ncol = 8))
+
+  
+  return(list(data = beta.df, plot = p))
+}
 
 
 #' ----------------------------------------------------------------------------#
@@ -513,9 +520,9 @@ library(INLA)
 
 inla.IMCAR.AR1  <- function(...){
   INLA::inla.rgeneric.define(inla.rgeneric.IMCAR.AR1,
-                             scale.model = TRUE, 
+                             scale.model = TRUE, heteroskedastic = F,
                              alpha.sd = 1/100, U.sd = 1,
-                             PC.ar1 = T, alpha.corr = 0.6, U.corr = 0.3,
+                             PC.ar1 = T, alpha.corr = 0.8, U.corr = 0.4,
                              chisq = FALSE, ...)
 } 
 
@@ -533,7 +540,7 @@ inla.rgeneric.IMCAR.AR1  <-
       } else L <- L_unscaled
       assign("L", L, envir=envir)
       if(PC.ar1){
-        dpc.corr.ar1 <- function(x, t=k, n=1000, alpha=0.6, U=0.3, log=F){
+        dpc.corr.ar1 <- function(x, t=k, n=1000, alpha=0.8, U=0.4, log=F){
           x <- pmax(abs(x), 1e-12) * ifelse(x < 0, -1, 1)
           KLD <- function(x, t, n){
             return(n/2 * ( log(1-x^2) + t*x^2/(1-x^2) ))
@@ -542,7 +549,7 @@ inla.rgeneric.IMCAR.AR1  <-
             return(n*x*( -1/(1-x^2) + t/((1-x^2)^2)  ) )
           }
           dist.zero <- sqrt(2*KLD(U, t=t, n=n))
-          rate <- -log(alpha)/dist.zero
+          rate <- -log(1-alpha)/dist.zero
           ff <- stats::dexp(x=sqrt(2*KLD(x=x, t=t, n=n)), rate = rate)*
             1/sqrt(2*KLD(x=x, t=t, n=n)) * abs(deriv.KLD(x=x, t=t, n=n)) / 2
           
@@ -550,17 +557,19 @@ inla.rgeneric.IMCAR.AR1  <-
         }
         assign("dpc.corr.ar1", dpc.corr.ar1, envir = envir)
       }
+      n.prec <- ifelse(heteroskedastic, k, 1)
+      assign("n.prec", n.prec, envir = envir)
       assign("cache.done", TRUE, envir=envir)
     }
     interpret.theta <- function() {
-      prec <- exp(theta[1]) 
-      corr  <- 2/(1 + exp(-theta[2])) - 1
+      prec <- exp(theta[1:n.prec]) 
+      corr  <- 2/(1 + exp(-theta[n.prec+1])) - 1
       invR <- Matrix::bandSparse(
         n=k, m=k, k = c(-1, 0, 1),
         diagonals = list(rep(-corr, k-1), rep(1+corr^2, k), rep(-corr, k-1)))
       #' Not so elegant but works when k==1; otherwise, c(..., rep(., k-2)) would crash
       invR[1,1] <- invR[k,k] <- 1 
-      PREC <-  prec * invR 
+      PREC <-  diag(sqrt(prec), nrow = k) %*% invR %*% diag(sqrt(prec), nrow=k)
       return(list(corr=corr, PREC=PREC))
     }
     graph <- function() {
@@ -585,21 +594,21 @@ inla.rgeneric.IMCAR.AR1  <-
     log.prior <- function() {
       param <- interpret.theta()
       #' Exponential prior on the sd
-      val <- theta[1] +
-        INLA:::inla.pc.dprec(exp(theta[1]), alpha = alpha.sd, u = U.sd)
+      val <- theta[1:n.prec] +
+        sum(INLA:::inla.pc.dprec(exp(theta[1:n.prec]), alpha = alpha.sd, u = U.sd))
       #val <- theta[1]/2 - log(2) + dexp(exp(log.sd/2), rate=sd.rate, log=T) 
       if(PC.ar1){
-        val <- val + log(2) - theta[2] - 2*log(1+exp(-theta[2])) +
+        val <- val + log(2) - theta[n.prec+1] - 2*log(1+exp(-theta[n.prec+1])) +
           dpc.corr.ar1(x=param$corr, n=nrow(W), t = k, alpha = alpha.corr, U = U.corr, log=T)
       } else {
         val <- val+ # log(2) - theta[k+1] - log(1+exp(-theta[k+1]))  +
-          dnorm(theta[2], sd = sqrt(1/0.15), log=T)
+          dnorm(theta[n.prec+1], sd = sqrt(1/0.15), log=T)
       }
       return(val)
     }
     initial <- function(){
       if(!exists("initial.values", envir= envir )){
-        return(c(4, -4))
+        return(c(rep(4, n.prec), -4))
       } else {
         return(initial.values)
       }
@@ -631,7 +640,6 @@ inla.rgeneric.PMCAR.AR1 <-
     if(!exists("cache.done", envir=envir)){
       D <- Matrix::Diagonal(n=nrow(W), x=rowSums(as.matrix(W))) 
       assign("D", D, envir = envir)
-      
       eigenvalues <- Re(eigen(solve(D) %*% W)$values)
       inla.pc.pmmcar.rho <- function(rho, eigenvalues, alpha = 2/3, U = 1/2){
         n <- length(eigenvalues)
@@ -659,7 +667,7 @@ inla.rgeneric.PMCAR.AR1 <-
       assign("eigenvalues", eigenvalues, envir = envir)
       
       
-      dpc.corr.ar1 <- function(x, t=k, n=1000, alpha=0.6, U=0.3, log=F){
+      dpc.corr.ar1 <- function(x, t=k, n=1000, alpha=0.8, U=0.4, log=F){
         x <- pmax(abs(x), 1e-12) * ifelse(x < 0, -1, 1)
         KLD <- function(x, t, n){
           return(n/2 * ( log(1-x^2) + t*x^2/(1-x^2) ))
@@ -668,7 +676,7 @@ inla.rgeneric.PMCAR.AR1 <-
           return(n*x*( -1/(1-x^2) + t/((1-x^2)^2)  ) )
         }
         dist.zero <- sqrt(2*KLD(U, t=t, n=n))
-        rate <- -log(alpha)/dist.zero
+        rate <- -log(1-alpha)/dist.zero
         ff <- stats::dexp(x=sqrt(2*KLD(x=x, t=t, n=n)), rate = rate)*
           1/sqrt(2*KLD(x=x, t=t, n=n)) * abs(deriv.KLD(x=x, t=t, n=n)) / 2
         
@@ -752,7 +760,7 @@ inla.PMCAR.AR1 <- function(...) {
   INLA::inla.rgeneric.define(inla.rgeneric.PMCAR.AR1,
                              PC.spat.cor = T, alpha.spat.cor = 2/3, U.spat.cor = 1/2,
                              alpha.sd = 1/100, U.sd = 1,
-                             PC.ar1 = T, alpha.corr = 0.6, U.corr = 0.3, 
+                             PC.ar1 = T, alpha.corr = 0.8, U.corr = 0.4, 
                              ...)}
 
 
@@ -766,7 +774,10 @@ inla.rgeneric.LMCAR.AR1 <-
       L <- Matrix::Diagonal(n=nrow(W), x=rowSums(as.matrix(W))) -  W
       In <- Matrix::Diagonal(n = nrow(W), x = 1)
       if(PC.lambda) {
-        eigenvalues <- eigen(L - In)$values
+        n <- nrow(W)
+        eigenvalues <- eigen(L - In, symmetric = T)$values
+        rankdef <- n - Matrix::rankMatrix(L, method = "qr")
+        eigenvalues[n - c(0:rankdef)] <- -1
         inla.pc.lmmcar.lambda <- function(lambda, eigenvalues, alpha = 2/3, U = 1/2){
           n <- length(eigenvalues)
           In <- Matrix::Diagonal(n = n, x = 1)
@@ -794,7 +805,7 @@ inla.rgeneric.LMCAR.AR1 <-
         assign("eigenvalues", eigenvalues, envir = envir)
       }
       if(PC.ar1){
-        dpc.corr.ar1 <- function(x, t=10, n=1000, alpha=0.6, U=0.3, log=F){
+        dpc.corr.ar1 <- function(x, t=10, n=1000, alpha=0.8, U=0.4, log=F){
           x <- pmax(abs(x), 1e-12) * ifelse(x < 0, -1, 1)
           KLD <- function(x, t, n){
             return(n/2 * ( log(1-x^2) + t*x^2/(1-x^2) ))
@@ -803,7 +814,7 @@ inla.rgeneric.LMCAR.AR1 <-
             return(n*x*( -1/(1-x^2) + t/((1-x^2)^2)  ) )
           }
           dist.zero <- sqrt(2*KLD(U, t=t, n=n))
-          rate <- -log(alpha)/dist.zero
+          rate <- -log(1-alpha)/dist.zero
           ff <- stats::dexp(x=sqrt(2*KLD(x=x, t=t, n=n)), rate = rate)*
             1/sqrt(2*KLD(x=x, t=t, n=n)) * abs(deriv.KLD(x=x, t=t, n=n)) / 2
           
@@ -892,7 +903,7 @@ inla.LMCAR.AR1 <- function(...) {
   INLA::inla.rgeneric.define(inla.rgeneric.LMCAR.AR1,
                              PC.lambda = T, alpha.lambda= 2/3, U.lambda = 1/2,
                              alpha.sd = 1/100, U.sd = 1,
-                             PC.ar1 = T, alpha.corr = 0.6, U.corr = 0.3,
+                             PC.ar1 = T, alpha.corr = 0.8, U.corr = 0.4,
                              ...)}
 
 ##' BYM -----------------------------------------------------------------------#
@@ -918,8 +929,7 @@ inla.rgeneric.MBYM.AR1 <- function(
     rankdef <- constr$rankdef
     eigenvalues <- eigen(invL, symmetric = T)$values - 1
     eigenvalues[(length(eigenvalues)-rankdef+1):length(eigenvalues)] <- 1
-#    eigenvectors <- eigen(invL)$vectors
-    inla.pc.mbym.phi <- function(phi, eigenvalues, alpha = 2/3, U = 1/2, force.const=1){
+    inla.pc.mbym.phi <- function(phi, eigenvalues, alpha, U, force.const=1){
       n <- length(eigenvalues)
       In <- Matrix::Diagonal(n = n, x = 1)
       log.p <- numeric(length(phi))
@@ -945,7 +955,10 @@ inla.rgeneric.MBYM.AR1 <- function(
       }
       return(sum(log.p))
     }
-    ff <- function(x) exp(inla.pc.mbym.phi(phi=x, eigenvalues=eigenvalues, alpha=alpha, U=U,force.const=1))
+    ff <- Vectorize(function(x) {
+      exp(inla.pc.mbym.phi(phi=x, eigenvalues=eigenvalues, alpha=alpha.phi, U=U.phi,force.const=1))
+    })
+    force.const <- stats::integrate(ff,0,1)$value
     if(PC.ar1){
       dpc.corr.ar1 <- function(x, t=10, n=1000, alpha=0.6, U=0.3, log=F){
         x <- pmax(abs(x), 1e-12) * ifelse(x < 0, -1, 1)
@@ -956,7 +969,7 @@ inla.rgeneric.MBYM.AR1 <- function(
           return(n*x*( -1/(1-x^2) + t/((1-x^2)^2)  ) )
         }
         dist.zero <- sqrt(2*KLD(U, t=t, n=n))
-        rate <- -log(alpha)/dist.zero
+        rate <- -log(1-alpha)/dist.zero
         ff <- stats::dexp(x=sqrt(2*KLD(x=x, t=t, n=n)), rate = rate)*
           1/sqrt(2*KLD(x=x, t=t, n=n)) * abs(deriv.KLD(x=x, t=t, n=n)) / 2
         
@@ -969,6 +982,7 @@ inla.rgeneric.MBYM.AR1 <- function(
     assign("invL", invL, envir = envir)
     assign("inla.pc.mbym.phi", inla.pc.mbym.phi, envir = envir)
     assign("eigenvalues", eigenvalues, envir = envir)
+    assign("force.const", force.const, envir=envir)
     #assign("eigenvectors", eigenvectors, envir = envir)
     assign("cache.done", TRUE, envir = envir)
   }
@@ -1017,7 +1031,7 @@ inla.rgeneric.MBYM.AR1 <- function(
       val <- -theta[1L] - 2 * log(1 + exp(-theta[1L]))
     } else {
       val <- inla.pc.mbym.phi(eigenvalues = eigenvalues, phi = param$phi,
-                              alpha = alpha.phi, U = U.phi) -
+                              alpha = alpha.phi, U = U.phi, force.const = force.const) -
         theta[1L] - 2 * log(1 + exp(-theta[1L]))
     }
     val <- val + theta[2] + INLA:::inla.pc.dprec(exp(theta[2]), alpha = alpha.sd,
@@ -1055,7 +1069,7 @@ inla.MBYM.AR1 <- function(...) {
                              sparse = TRUE, 
                              PC.phi = T, alpha.phi = 2/3, U.phi = 1/2,
                              alpha.sd = 1/100, U.sd = 1,
-                             PC.ar1 = T, alpha.corr = 0.6, U.corr = 0.3, 
+                             PC.ar1 = T, alpha.corr = 0.8, U.corr = 0.4, 
                              ...)}
 
 
@@ -1079,13 +1093,13 @@ ggplot2::ggplot(data = reshape2::melt(cor(X[,-1]))) +
 #' Before more involved analysis let us consider the nonspatial model ---------#
 cav_nosp_glm <- glm(
   N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 +
-    Desk_dist + TEP_th + ELI + PGR + UIS + ELL + PDI + ER, 
+    Desk_dist + AVC_dist + ELI + PGR + UIS + ELL + PDI + ER, 
   family = "poisson", offset = log(nn), data = dd_con)
 
 #' Model with offset ----------------------------------------------------------#
 cav_nosp_inla <- inla(
   N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 +
-  TEP_th + Desk_dist + ELI + PGR + UIS + ELL + PDI + ER,
+  AVC_dist + Desk_dist + ELI + PGR + UIS + ELL + PDI + ER,
   offset = log(nn),
   family = "poisson", data =dd_con,
   num.threads = 1, 
@@ -1093,15 +1107,78 @@ cav_nosp_inla <- inla(
   verbose = T)
 
 #' Model with expected accesses - equivalent in theory ------------------------#
-cav_nosp_inla_E <- inla(
-  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 +
-    TEP_th + Desk_dist + ELI + PGR + UIS + ELL + PDI + ER,
-  E = Exp,
-  family = "poisson", data = dd_con,
-  num.threads = 1, 
-  control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
-  verbose = T)
+#cav_nosp_inla_E <- inla(
+#  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 +
+#    AVC_dist + Desk_dist + ELI + PGR + UIS + ELL + PDI + ER,
+#  E = Exp,
+#  family = "poisson", data = dd_con,
+#  num.threads = 1, 
+#  control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+#  verbose = T)
 
+##' Plot distance
+
+Shp %>% dplyr::select(PRO_COM) %>% 
+  dplyr::left_join(dists_th_24) %>% 
+  ggplot2::ggplot()+
+  ggplot2::geom_sf(ggplot2::aes(fill = .data$AVC_dist))+
+  ggplot2::scale_fill_viridis_c(direction = -1)+
+  ggplot2::ggtitle("Distance from closest municipality hosting AVCs, 2024")+
+  ggplot2::theme_classic()
+
+dd  %>% dplyr::filter(.data$Year == "2024") %>%
+  dplyr::select(PRO_COM) %>% 
+  dplyr::left_join(dists_desk) %>% 
+  dplyr::mutate(DDist = ifelse(.data$Desk_dist>0, .data$Desk_dist, NA)) %>% 
+  ggplot2::ggplot()+
+  ggplot2::geom_sf(ggplot2::aes(fill = .data$DDist))+
+  ggplot2::scale_fill_viridis_c(direction = -1, na.value  = "white")+
+  ggplot2::ggtitle("Distance (minutes) from closest help desk")+
+  ggplot2::theme_classic()
+
+##' Plot covariates -----------------------------------------------------------#
+
+dd %>% dplyr::filter(.data$Year == "2024") %>% 
+  ggplot2::ggplot()+
+  ggplot2::geom_sf(ggplot2::aes( fill = .data$ELL ))+
+  ggplot2::scale_fill_viridis_c()+
+  ggplot2::ggtitle("Incidence of low education levels")+
+  ggplot2::theme_classic()
+  
+
+
+##' Tuning a priori -----------------------------------------------------------#
+
+dpc.corr.ar1 <- function(x, t=k, n=1000, alpha=0.8, U=0.4, log=F){
+  x <- pmax(abs(x), 1e-12) * ifelse(x < 0, -1, 1)
+  KLD <- function(x, t, n){
+    return(n/2 * ( log(1-x^2) + t*x^2/(1-x^2) ))
+  }
+  deriv.KLD <- function(x, t, n){
+    return(n*x*( -1/(1-x^2) + t/((1-x^2)^2)  ) )
+  }
+  dist.zero <- sqrt(2*KLD(U, t=t, n=n))
+  rate <- -log(1-alpha)/dist.zero
+  ff <- stats::dexp(x=sqrt(2*KLD(x=x, t=t, n=n)), rate = rate)*
+    1/sqrt(2*KLD(x=x, t=t, n=n)) * abs(deriv.KLD(x=x, t=t, n=n)) / 2
+  
+  return(ifelse(log, log(ff), ff))
+}
+
+
+u <- 0.5; alpha = 0.9
+rhos <- c(-499:-1, 1:499)/500
+ff.r <- Vectorize(function(x) dpc.corr.ar1(x=x, t=4, U=u, alpha = alpha))
+plot(rhos, ff.r(rhos), type = 'l', main = paste0("u = ",u, " alpha = ", alpha))
+abline(v=u)
+integrate(ff.r, 0, u)
+
+u <- 0.4; alpha = 0.8
+rhos <- c(-499:-1, 1:499)/500
+ff.r <- Vectorize(function(x) dpc.corr.ar1(x=x, t=4, U=u, alpha = alpha))
+plot(rhos, ff.r(rhos), type = 'l', main = paste0("u = ",u, " alpha = ", alpha))
+abline(v=u)
+integrate(ff.r, 0, u)
 
 
 
@@ -1109,27 +1186,11 @@ cav_nosp_inla_E <- inla(
 
  
 
-##' Tuning a priori -----------------------------------------------------------#
-u <- sqrt(1/2); alpha = 0.1
-ff <- Vectorize(function(x) INLA:::inla.pc.dprec(prec=x, u=u, alpha = alpha))
-plot(taus, ff(taus), type = 'l', main = paste0("u = ",u, " alpha = ", alpha))
-abline(v=u)
-abline(v=1.5, col="blue")
-abline(v=1/u^2, col="red")
-integrate(ff, 0, 1.5)
-integrate(ff,0, 1/u^2)
-
-u <- 1/3; alpha = 2/3
-rhos <- c(-499:-1, 1:499)/500
-ff.r <- Vectorize(function(x) dpc.corr.ar1(x=x, t=4, U=u, alpha = alpha))
-plot(rhos, ff.r(rhos), type = 'l', main = paste0("u = ",u, " alpha = ", alpha))
-abline(v=u)
-
 
 
 cav_IMCAR_inla.AR1 <- inla(
   N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + 
-    Desk_dist + TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+    Desk_dist + AVC_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
     f(ID, model = inla.IMCAR.AR1(k = 4, W = W_con, PC.ar1 = T, 
                                  alpha.sd = 0.1, U.sd = sqrt(1/2)), 
       extraconstr = list(A = A_constr, e = c(0,0,0,0))),
@@ -1139,16 +1200,46 @@ cav_IMCAR_inla.AR1 <- inla(
 cav_IMCAR_inla.AR1$waic$waic
 
 
+cav_IMCAR_inla.AR1_s15 <- inla(
+  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + 
+    Desk_dist + AVC_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.IMCAR.AR1(k = 4, W = W_con, PC.ar1 = T, 
+                                 alpha.sd = 0.1, U.sd = sqrt(1/2)), 
+      extraconstr = list(A = A_constr, e = c(0,0,0,0))),
+  offset = log(nn), family = "poisson", data =dd_filtered_15$data,
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, dic = T), 
+  verbose = T)
+
+cav_IMCAR_inla.AR1_s20 <- inla(
+    N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + 
+      Desk_dist + AVC_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
+      f(ID, model = inla.IMCAR.AR1(k = 4, W = W_con, PC.ar1 = T, 
+                                   alpha.sd = 0.1, U.sd = sqrt(1/2)), 
+        extraconstr = list(A = A_constr, e = c(0,0,0,0))),
+    offset = log(nn), family = "poisson", data =dd_filtered_20$data,
+    num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, dic = T), 
+    verbose = T)
+
+cav_IMCAR_inla.AR1_s25 <- inla(
+      N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + 
+        Desk_dist + AVC_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
+        f(ID, model = inla.IMCAR.AR1(k = 4, W = W_con, PC.ar1 = T, 
+                                     alpha.sd = 0.1, U.sd = sqrt(1/2)), 
+          extraconstr = list(A = A_constr, e = c(0,0,0,0))),
+      offset = log(nn), family = "poisson", data =dd_filtered_25$data,
+      num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, dic = T), 
+      verbose = T)
+
 
 ##  Spatiotemporal models: AR(1) - PCAR -----------------------------------------
 
 
+#' Simple input ---------------------------------------------------------------#
 
-
-
+##' Uniform -------------------------------------------------------------------#
 cav_PMCAR_inla.AR1.Unif <- inla(
   N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 +
-    Desk_dist + TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+    Desk_dist + AVC_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
     f(ID, model = inla.PMCAR.AR1(k = 4, W = W_con, PC.spat.cor = F, alpha.sd = 0.1, U.sd = sqrt(1/2)), 
       extraconstr = list(A = A_constr, e = c(0,0,0,0))
     ),
@@ -1156,11 +1247,10 @@ cav_PMCAR_inla.AR1.Unif <- inla(
   num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, dic = T), 
   verbose = T)
 
-
-
+##' Default PC-prior ----------------------------------------------------------#
 cav_PMCAR_inla.AR1.PC <- inla(
   N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + 
-    Desk_dist + TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+    Desk_dist + AVC_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
     f(ID, model = inla.PMCAR.AR1(k = 4, W = W_con, PC.ar1 = T, alpha.sd = 0.1, U.sd = sqrt(1/2)),
       extraconstr = list(A = A_constr, e = c(0,0,0,0))
     ),
@@ -1168,15 +1258,15 @@ cav_PMCAR_inla.AR1.PC <- inla(
   num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, dic = T), 
   verbose = T)
 
+##' Strict PC-prior -----------------------------------------------------------#
 #' Better
 cav_PMCAR_inla.AR1.PC.strict <- inla(
   N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 +
-    Desk_dist + TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+    Desk_dist + AVC_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
     f(ID, model = inla.PMCAR.AR1(k = 4, W = W_con, PC = T, PC.ar1 = T,
                                  alpha.spat.cor = 0.9, U.spat.cor = 0.6,
                                  alpha.sd = 0.1, U.sd = sqrt(1/2)),
-      extraconstr = list(A = A_constr, e = c(0,0,0,0))
-    ),
+      extraconstr = list(A = A_constr, e = c(0,0,0,0)) ),
   offset = log(nn), family = "poisson", data =dd_con,
   num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, dic = T), 
   verbose = T)
@@ -1184,36 +1274,144 @@ cav_PMCAR_inla.AR1.PC.strict <- inla(
 
 
 
-## Spatiotemporal models: AR(1) - LCAR -----------------------------------------
+##' FIltered removing 15 eigenvectors -----------------------------------------#
+##' Uniform prior -------------------------------------------------------------#
+cav_PMCAR_inla.AR1.Unif_s15 <- inla(
+  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 +
+    Desk_dist + AVC_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.PMCAR.AR1(k = 4, W = W_con, PC.spat.cor = F, alpha.sd = 0.1, U.sd = sqrt(1/2)), 
+      extraconstr = list(A = A_constr, e = c(0,0,0,0))
+    ),
+  offset = log(nn), family = "poisson", data =dd_filtered_15$data,
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, dic = T), 
+  verbose = T)
+
+##' Standard pC-prior ---------------------------------------------------------#
+cav_PMCAR_inla.AR1.PC_s15 <- inla(
+  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + 
+    Desk_dist + AVC_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.PMCAR.AR1(k = 4, W = W_con, PC.ar1 = T, alpha.sd = 0.1, U.sd = sqrt(1/2)),
+      extraconstr = list(A = A_constr, e = c(0,0,0,0))
+    ),
+  offset = log(nn), family = "poisson", data =dd_filtered_15$data,
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, dic = T), 
+  verbose = T)
+
+#' Better
+cav_PMCAR_inla.AR1.PC.strict_s15 <- inla(
+  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 +
+    Desk_dist + AVC_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.PMCAR.AR1(k = 4, W = W_con, PC = T, PC.ar1 = T,
+                                 alpha.spat.cor = 0.9, U.spat.cor = 0.6,
+                                 alpha.sd = 0.1, U.sd = sqrt(1/2)),
+      extraconstr = list(A = A_constr, e = c(0,0,0,0))
+    ),
+  offset = log(nn), family = "poisson", data =dd_filtered_15$data,
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, dic = T), 
+  verbose = T)
+
+#' Spatial filter - removed 20 eigenvectors -----------------------------------#
+
+cav_PMCAR_inla.AR1.Unif_s20 <- inla(
+  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 +
+    Desk_dist + AVC_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.PMCAR.AR1(k = 4, W = W_con, PC.spat.cor = F, alpha.sd = 0.1, U.sd = sqrt(1/2)), 
+      extraconstr = list(A = A_constr, e = c(0,0,0,0))
+    ),
+  offset = log(nn), family = "poisson", data =dd_filtered_20$data,
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, dic = T), 
+  verbose = T)
+
+cav_PMCAR_inla.AR1.PC_s20 <- inla(
+  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + 
+    Desk_dist + AVC_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.PMCAR.AR1(k = 4, W = W_con, PC.ar1 = T, alpha.sd = 0.1, U.sd = sqrt(1/2)),
+      extraconstr = list(A = A_constr, e = c(0,0,0,0))
+    ),
+  offset = log(nn), family = "poisson", data =dd_filtered_20$data,
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, dic = T), 
+  verbose = T)
+
+#' Better
+cav_PMCAR_inla.AR1.PC.strict_s20 <- inla(
+  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 +
+    Desk_dist + AVC_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.PMCAR.AR1(k = 4, W = W_con, PC = T, PC.ar1 = T,
+                                 alpha.spat.cor = 0.9, U.spat.cor = 0.6,
+                                 alpha.sd = 0.1, U.sd = sqrt(1/2)),
+      extraconstr = list(A = A_constr, e = c(0,0,0,0))
+    ),
+  offset = log(nn), family = "poisson", data =dd_filtered_20$data,
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, dic = T), 
+  verbose = T)
+
+#' Spatial filter - 25 eigenvectors -------------------------------------------#
+cav_PMCAR_inla.AR1.Unif_s25 <- inla(
+  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 +
+    Desk_dist + AVC_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.PMCAR.AR1(k = 4, W = W_con, PC.spat.cor = F, alpha.sd = 0.1, U.sd = sqrt(1/2)), 
+      extraconstr = list(A = A_constr, e = c(0,0,0,0))
+    ),
+  offset = log(nn), family = "poisson", data =dd_filtered_25$data,
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, dic = T), 
+  verbose = T)
+
+cav_PMCAR_inla.AR1.PC_s25 <- inla(
+  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + 
+    Desk_dist + AVC_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.PMCAR.AR1(k = 4, W = W_con, PC.ar1 = T, alpha.sd = 0.1, U.sd = sqrt(1/2)),
+      extraconstr = list(A = A_constr, e = c(0,0,0,0))
+    ),
+  offset = log(nn), family = "poisson", data =dd_filtered_25$data,
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, dic = T), 
+  verbose = T)
+
+#' Better
+cav_PMCAR_inla.AR1.PC.strict_s25 <- inla(
+  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 +
+    Desk_dist + AVC_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.PMCAR.AR1(k = 4, W = W_con, PC = T, PC.ar1 = T,
+                                 alpha.spat.cor = 0.9, U.spat.cor = 0.6,
+                                 alpha.sd = 0.1, U.sd = sqrt(1/2)),
+      extraconstr = list(A = A_constr, e = c(0,0,0,0))
+    ),
+  offset = log(nn), family = "poisson", data =dd_filtered_25$data,
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, dic = T), 
+  verbose = T)
+
+
+##  Spatiotemporal models: AR(1) - LCAR -----------------------------------------
  
 #' Yes, this model features sum-to-zero constraints.
 #' Why? It is not singular.
 #' No, it is not. Yet absence of constraints inflates variance.
 #' Better to avoid confounding with intercepts --------------------------------#
 
-
+#' Input data -----------------------------------------------------------------#
+##' Uniform prior -------------------------------------------------------------#
 cav_LMCAR_inla.AR1.Unif <- inla(
   N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + 
-    Desk_dist + TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+    Desk_dist + AVC_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
     f(ID, model = inla.LMCAR.AR1(k = 4, W = W_con, PC.lambda = F, alpha.sd = 0.1, U.sd = sqrt(1/2)), 
       extraconstr = list(A = A_constr, e = c(0,0,0,0)) ),
   offset = log(nn), family = "poisson", data =dd_con,
   num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, dic = T), 
   verbose = T)
 
+##' Standard PC-prior ----------------------------------------------------------#
 cav_LMCAR_inla.AR1.PC <- inla(
   N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + 
-    Desk_dist + TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+    Desk_dist + AVC_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
     f(ID, model = inla.LMCAR.AR1(k = 4, W = W_con, alpha.sd = 0.1, U.sd = sqrt(1/2)), 
       extraconstr = list(A = A_constr, e = c(0,0,0,0))),
   offset = log(nn), family = "poisson", data =dd_con,
   num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, dic = T), 
   verbose = T)
-
+##' strict PC-prior -----------------------------------------------------------#
 #' Better, though...
 cav_LMCAR_inla.AR1.PC.strict <- inla(
   N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 +
-    Desk_dist + TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+    Desk_dist + AVC_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
     f(ID, model = inla.LMCAR.AR1(k = 4, W = W_con, alpha.lambda =0.9, U.lambda = 0.6,
                                  alpha.sd = 0.1, U.sd = sqrt(1/2)), 
       extraconstr = list(A = A_constr, e = c(0,0,0,0)) ),
@@ -1221,37 +1419,135 @@ cav_LMCAR_inla.AR1.PC.strict <- inla(
   num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, dic = T), 
   verbose = T)
 
+#' Spatial filter - remove 15 eigenvectors ------------------------------------#
+##' Uniform prior -------------------------------------------------------------#
+
+cav_LMCAR_inla.AR1.Unif_s15 <- inla(
+  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + 
+    Desk_dist + AVC_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.LMCAR.AR1(k = 4, W = W_con, PC.lambda = F, alpha.sd = 0.1, U.sd = sqrt(1/2)), 
+      extraconstr = list(A = A_constr, e = c(0,0,0,0)) ),
+  offset = log(nn), family = "poisson", data =dd_filtered_15$data,
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, dic = T), 
+  verbose = T)
+
+##' Standard PC-prior ----------------------------------------------------------#
+cav_LMCAR_inla.AR1.PC_s15 <- inla(
+  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + 
+    Desk_dist + AVC_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.LMCAR.AR1(k = 4, W = W_con, alpha.sd = 0.1, U.sd = sqrt(1/2)), 
+      extraconstr = list(A = A_constr, e = c(0,0,0,0))),
+  offset = log(nn), family = "poisson", data =dd_filtered_15$data,
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, dic = T), 
+  verbose = T)
+##' strict PC-prior -----------------------------------------------------------#
+#' Better, though...
+cav_LMCAR_inla.AR1.PC.strict_s15 <- inla(
+  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 +
+    Desk_dist + AVC_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.LMCAR.AR1(k = 4, W = W_con, alpha.lambda =0.9, U.lambda = 0.6,
+                                 alpha.sd = 0.1, U.sd = sqrt(1/2)), 
+      extraconstr = list(A = A_constr, e = c(0,0,0,0)) ),
+  offset = log(nn), family = "poisson", data =dd_filtered_15$data,
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, dic = T), 
+  verbose = T)
+
+#' Spatial filter - remove 20 eigenvectors ------------------------------------#
+##' Uniform prior -------------------------------------------------------------#
+
+cav_LMCAR_inla.AR1.Unif_s20 <- inla(
+  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + 
+    Desk_dist + AVC_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.LMCAR.AR1(k = 4, W = W_con, PC.lambda = F, alpha.sd = 0.1, U.sd = sqrt(1/2)), 
+      extraconstr = list(A = A_constr, e = c(0,0,0,0)) ),
+  offset = log(nn), family = "poisson", data =dd_filtered_20$data,
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, dic = T), 
+  verbose = T)
+
+##' Standard PC-prior ----------------------------------------------------------#
+cav_LMCAR_inla.AR1.PC_s20 <- inla(
+  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + 
+    Desk_dist + AVC_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.LMCAR.AR1(k = 4, W = W_con, alpha.sd = 0.1, U.sd = sqrt(1/2)), 
+      extraconstr = list(A = A_constr, e = c(0,0,0,0))),
+  offset = log(nn), family = "poisson", data =dd_filtered_20$data,
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, dic = T), 
+  verbose = T)
+##' strict PC-prior -----------------------------------------------------------#
+#' Better, though...
+cav_LMCAR_inla.AR1.PC.strict_s20 <- inla(
+  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 +
+    Desk_dist + AVC_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.LMCAR.AR1(k = 4, W = W_con, alpha.lambda =0.9, U.lambda = 0.6,
+                                 alpha.sd = 0.1, U.sd = sqrt(1/2)), 
+      extraconstr = list(A = A_constr, e = c(0,0,0,0)) ),
+  offset = log(nn), family = "poisson", data =dd_filtered_20$data,
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, dic = T), 
+  verbose = T)
+
+
+#' Spatial filter - remove 25 eigenvectors ------------------------------------#
+##' Uniform prior -------------------------------------------------------------#
+
+cav_LMCAR_inla.AR1.Unif_s25<- inla(
+  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + 
+    Desk_dist + AVC_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.LMCAR.AR1(k = 4, W = W_con, PC.lambda = F, alpha.sd = 0.1, U.sd = sqrt(1/2)), 
+      extraconstr = list(A = A_constr, e = c(0,0,0,0)) ),
+  offset = log(nn), family = "poisson", data =dd_filtered_25$data,
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, dic = T), 
+  verbose = T)
+
+##' Standard PC-prior ----------------------------------------------------------#
+cav_LMCAR_inla.AR1.PC_s25 <- inla(
+  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + 
+    Desk_dist + AVC_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.LMCAR.AR1(k = 4, W = W_con, alpha.sd = 0.1, U.sd = sqrt(1/2)), 
+      extraconstr = list(A = A_constr, e = c(0,0,0,0))),
+  offset = log(nn), family = "poisson", data =dd_filtered_25$data,
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, dic = T), 
+  verbose = T)
+##' strict PC-prior -----------------------------------------------------------#
+#' Better, though...
+cav_LMCAR_inla.AR1.PC.strict_s25 <- inla(
+  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 +
+    Desk_dist + AVC_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.LMCAR.AR1(k = 4, W = W_con, alpha.lambda =0.9, U.lambda = 0.6,
+                                 alpha.sd = 0.1, U.sd = sqrt(1/2)), 
+      extraconstr = list(A = A_constr, e = c(0,0,0,0)) ),
+  offset = log(nn), family = "poisson", data =dd_filtered_25$data,
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, dic = T), 
+  verbose = T)
 
 
 
 
+##  Spatiotemporal models: AR(1) - BYM  ----------------------------------------
 
-## Spatiotemporal models: AR(1) - BYM  -----------------------------------------
+#' Input data -----------------------------------------------------------------#
 
-
+##' Uniform prior -------------------------------------------------------------#
 
 cav_MBYM_inla.AR1.Unif <- inla(
-  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + TEP_th + Desk_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
+  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + AVC_dist + Desk_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
     f(ID, model = inla.MBYM.AR1(k = 4, W = W_con, PC.ar1 = T, PC.phi = F, alpha.sd = 0.1, U.sd=sqrt(1/2)), 
       extraconstr = constr.BYM),
   offset = log(nn), family = "poisson", data =dd_con,
   num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, dic = T), 
   verbose = T)
-cav_MBYM_inla.AR1.Unif$waic$waic
 
+##' Standard PC-prior ---------------------------------------------------------#
 cav_MBYM_inla.AR1.PC <- inla(
-  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + TEP_th + Desk_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
+  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + AVC_dist + Desk_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
     f(ID, model = inla.MBYM.AR1(k = 4, W = W_con, PC.ar1 = T, PC.phi = T, alpha.sd =0.1, U.sd = sqrt(1/2)), 
       extraconstr = constr.BYM),
   offset = log(nn), family = "poisson", data =dd_con,
   num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, dic = T), 
   verbose = T)
-cav_MBYM_inla.AR1.PC$waic$waic
-
-
-
+ 
+##' Strict PC-prior -----------------------------------------------------------#
 cav_MBYM_inla.AR1.PC.strict <- inla(
-  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + TEP_th + Desk_dist+ ELI + PGR + UIS + ELL + PDI + ER+ 
+  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + AVC_dist + Desk_dist+ ELI + PGR + UIS + ELL + PDI + ER+ 
     f(ID, model = inla.MBYM.AR1(k = 4, W = W_con, PC.ar1 = T, alpha.phi =0.9, U.phi=0.6,
                                 alpha.sd =0.1, U.sd = sqrt(1/2)), 
       extraconstr = constr.BYM),
@@ -1260,11 +1556,166 @@ cav_MBYM_inla.AR1.PC.strict <- inla(
   verbose = T)
 
 
+#' Spatial filter - remove 15 eigenvectors ------------------------------------#
+
+##' Uniform prior -------------------------------------------------------------#
+
+cav_MBYM_inla.AR1.Unif_s15 <- inla(
+  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + AVC_dist + Desk_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.MBYM.AR1(k = 4, W = W_con, PC.ar1 = T, PC.phi = F, alpha.sd = 0.1, U.sd=sqrt(1/2)), 
+      extraconstr = constr.BYM),
+  offset = log(nn), family = "poisson", data =dd_filtered_15$data,
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, dic = T), 
+  verbose = T)
+
+##' Standard PC-prior ---------------------------------------------------------#
+cav_MBYM_inla.AR1.PC_s15 <- inla(
+  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + AVC_dist + Desk_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.MBYM.AR1(k = 4, W = W_con, PC.ar1 = T, PC.phi = T, alpha.sd =0.1, U.sd = sqrt(1/2)), 
+      extraconstr = constr.BYM),
+  offset = log(nn), family = "poisson", data =dd_filtered_15$data,
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, dic = T), 
+  verbose = T)
+
+##' Strict PC-prior -----------------------------------------------------------#
+cav_MBYM_inla.AR1.PC.strict_s15 <- inla(
+  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + AVC_dist + Desk_dist+ ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.MBYM.AR1(k = 4, W = W_con, PC.ar1 = T, alpha.phi =0.9, U.phi=0.6,
+                                alpha.sd =0.1, U.sd = sqrt(1/2)), 
+      extraconstr = constr.BYM),
+  offset = log(nn), family = "poisson", data =dd_filtered_15$data,
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, dic = T), 
+  verbose = T)
+ 
+
+
+
+#' Spatial filter - remove 20 eigenvectors ------------------------------------#
+
+##' Uniform prior -------------------------------------------------------------#
+
+cav_MBYM_inla.AR1.Unif_s20 <- inla(
+  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + AVC_dist +
+    Desk_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.MBYM.AR1(k = 4, W = W_con, PC.ar1 = T, PC.phi = F, alpha.sd = 0.1, U.sd=sqrt(1/2)), 
+      extraconstr = constr.BYM),
+  offset = log(nn), family = "poisson", data =dd_filtered_20$data,
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, dic = T), 
+  verbose = T)
+
+##' Standard PC-prior ---------------------------------------------------------#
+cav_MBYM_inla.AR1.PC_s20 <- inla(
+  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + AVC_dist +
+    Desk_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.MBYM.AR1(k = 4, W = W_con, PC.ar1 = T, PC.phi = T, alpha.sd =0.1, U.sd = sqrt(1/2)), 
+      extraconstr = constr.BYM),
+  offset = log(nn), family = "poisson", data =dd_filtered_20$data,
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, dic = T), 
+  verbose = T)
+
+##' Strict PC-prior -----------------------------------------------------------#
+cav_MBYM_inla.AR1.PC.strict_s20 <- inla(
+  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + AVC_dist + Desk_dist+ ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.MBYM.AR1(k = 4, W = W_con, PC.ar1 = T, alpha.phi =0.9, U.phi=0.6,
+                                alpha.sd =0.1, U.sd = sqrt(1/2)), 
+      extraconstr = constr.BYM),
+  offset = log(nn), family = "poisson", data =dd_filtered_20$data,
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, dic = T), 
+  verbose = T)
+
+#' Spatial filter - remove 25 eigenvectors ------------------------------------#
+
+##' Uniform prior -------------------------------------------------------------#
+
+cav_MBYM_inla.AR1.Unif_s25 <- inla(
+  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + 
+    AVC_dist + Desk_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.MBYM.AR1(k = 4, W = W_con, PC.ar1 = T, 
+                                PC.phi = F, alpha.sd = 0.1, U.sd=sqrt(1/2)), 
+      extraconstr = constr.BYM),
+  offset = log(nn), family = "poisson", data =dd_filtered_25$data,
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, dic = T), 
+  verbose = T)
+
+##' Standard PC-prior ---------------------------------------------------------#
+cav_MBYM_inla.AR1.PC_s25 <- inla(
+  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 +
+    AVC_dist + Desk_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.MBYM.AR1(k = 4, W = W_con, PC.ar1 = T, 
+                                PC.phi = T, alpha.sd =0.1, U.sd = sqrt(1/2)), 
+      extraconstr = constr.BYM),
+  offset = log(nn), family = "poisson", data =dd_filtered_25$data,
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, dic = T), 
+  verbose = T)
+
+##' Strict PC-prior -----------------------------------------------------------#
+cav_MBYM_inla.AR1.PC.strict_s25 <- inla(
+  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + 
+    AVC_dist + Desk_dist+ ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.MBYM.AR1(k = 4, W = W_con, PC.ar1 = T, alpha.phi =0.9, U.phi=0.6,
+                                alpha.sd =0.1, U.sd = sqrt(1/2)), 
+      extraconstr = constr.BYM),
+  offset = log(nn), family = "poisson", data =dd_filtered_25$data,
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, dic = T), 
+  verbose = T)
+
+
+#' Posterior summaries - can done more elegantly than this --------------------#
+
+#' Transformed marginals ------------------------------------------------------#
+phi.marg <- inla.tmarginal(
+  function(x) 1/(1+exp(-x)),
+  marginal = cav_MBYM_inla.AR1.Unif_s20$marginals.hyperpar[[1]])
+
+sigma.marg <- inla.tmarginal(
+  function(x) exp(-x/2),
+  marginal = cav_MBYM_inla.AR1.Unif_s20$marginals.hyperpar[[2]])
+
+sigmasq.marg <- inla.tmarginal(
+  function(x) exp(-x),
+  marginal = cav_MBYM_inla.AR1.Unif_s20$marginals.hyperpar[[2]])
+
+
+rho.marg <- inla.tmarginal(
+  function(x) 2/(1+exp(-x))-1,
+  marginal = cav_MBYM_inla.AR1.Unif_s20$marginals.hyperpar[[3]])
+
+
+hyper.post <- as.data.frame(round(do.call(rbind, lapply(
+  list(phi.marg, sigma.marg, sigmasq.marg, rho.marg), function(f) {
+    unlist(inla.zmarginal(f, silent=T))})), 3)) %>% 
+  dplyr::select(c(1,2,3,5,7)) %>% 
+  dplyr::mutate(param = c("phi", "sigma", "sigmaSq", "rho")) %>% 
+  dplyr::relocate(param, .before=1)
+print(xtable::xtable(hyper.post, digits=3), include.rowname = F)
 
 
 
 
-## TBD: model comparison draft -------------------------------------------------
+
+##  Model comparison -----------------------------------------------------------
+
+
+#' Forest plot for covariate effects, compare spatial and nonspatial models ---#
+
+
+.mods <- list(cav_nosp_inla, cav_IMCAR_inla.AR1, cav_PMCAR_inla.AR1.PC.strict,
+              cav_LMCAR_inla.AR1.PC.strict, cav_MBYM_inla.AR1.Unif,
+              cav_IMCAR_inla.AR1_s20, cav_PMCAR_inla.AR1.PC.strict_s20,
+              cav_LMCAR_inla.AR1.PC.strict_s20, cav_MBYM_inla.AR1.Unif_s20)
+
+covar.in <- c("Desk_dist","AVC_dist","ELI","PGR","UIS","ELL","PDI","ER")
+
+forestplot. <- inla.forestplot.beta(
+  models = .mods,  covar.in = covar.in,
+  model_names = c(".Nonspatial", "base ICAR", "base PCAR", "base LCAR", "base BYM",
+                  "S+ ICAR", "S+ PCAR", "S+ LCAR", "S+ BYM"),
+  main = "Credible intervals of covariate effects")
+
+#' !!!!!!!!!!!!!! Warning!! currently saved with dim 9.64 x 6.5 !!!!!!!!!!!!!!!!
+#' 
+
+#' WAIC and DIC, no spatial confounding treatment -----------------------------#
 
 mm.tot <- list(nosp= cav_nosp_inla, 
                ICAR = cav_IMCAR_inla.AR1, 
@@ -1278,115 +1729,79 @@ mm.tot <- list(nosp= cav_nosp_inla,
                BYM_PC_d = cav_MBYM_inla.AR1.PC,
                BYM_PC__s = cav_MBYM_inla.AR1.PC.strict)
 
-ICS <- as.data.frame(do.call(rbind, lapply(mm.tot, function(x) {
-  cbind(x$waic$waic, x$waic$p.eff, x$dic$dic, x$dic$p.eff)} )))
-names(ICS) <- c("WAIC", "WAIC_P_eff", "DIC", "DIC_P_eff")
-ICS$models <- names(mm.tot)
-ICS <- ICS[,c(5,1,2,3,4)]
-
-print(xtable::xtable(ICS, n.digits = 3), include.rowname = F)
-
-#' LGOCV - to overcome problems with LOOCV in INLA ----------------------------#
-
-#' List of models
-mm <- mm.tot
-
-#' Wrapper function to summarise the output of inla.group.cv
-lpml.lgo <- function(models, num.level.sets){
-  res <- lapply(models, function(x){
-    obj <- inla.group.cv(x, num.level.sets = num.level.sets)
-    cv <- obj$cv
-    groups <- obj$groups
-    lpml <- -sum(log(obj$cv))
-    return(list(cv = cv, lpml = lpml, groups = groups))
-  })
-  if(!is.null(names(models))) names(res) <- names(models)
-  return(res)
-}
-
-#' Summary with the scores of various numbers of level sets
-LPMLs <- function(models, num.level.sets){
-  num.level.sets<- as.list(num.level.sets)
-  LPMLs_list <- lapply(lapply(num.level.sets, function(x){
-    lpml.lgo(models, x)
-  }), function(x){
-    return(lapply(x, function(x){
-      return(x$lpml)
-    }))
-  })
-  names(LPMLs_list) <- paste0("Out_", as.character(unlist(num.level.sets)), "_sets")
-  df <- as.data.frame(do.call(rbind, lapply(LPMLs_list, unlist)))
-  return(df)
-}
-#LPMLs_df <- LPMLs(models = mm, c(1:6, 8, 10, 12, 15, 20, 25))
-LPMLs_short <- LPMLs(models = mm, c(1, 2, 5, 8, 10, 15))
-print(xtable::xtable( t(LPMLs_short),
-                     n.digits = 3), include.rowname = T)
+#' WAIC comparison with spatial+ treatment.
+#' Ensure all these models have been run, with these eigenvector
+#' removal patterns -----------------------------------------------------------#
+mm.tot_s15 <- list(
+  ICAR = cav_IMCAR_inla.AR1_s15, 
+  PCAR_Un = cav_PMCAR_inla.AR1.Unif_s15,
+  PCAR_PC_d= cav_PMCAR_inla.AR1.PC_s15,
+  PCAR_PC_s=cav_PMCAR_inla.AR1.PC.strict_s15,
+  LCAR_Un = cav_LMCAR_inla.AR1.Unif_s15, 
+  LCAR_PC_d=cav_LMCAR_inla.AR1.PC_s15,
+  LCAR_PC_s=cav_LMCAR_inla.AR1.PC.strict_s15,
+  BYM_Un=cav_MBYM_inla.AR1.Unif_s15,
+  BYM_PC_d = cav_MBYM_inla.AR1.PC_s15,
+  BYM_PC__s = cav_MBYM_inla.AR1.PC.strict_s15)
 
 
-##' MISC - to be deleted -------------------------------------------------------
-#############'
-inla.pc.mbym.phi <- function(phi, eigenvalues.invm1, alpha = 2/3, U = 1/2, force.const = 1){
-  n <- length(eigenvalues.invm1)
-  In <- Matrix::Diagonal(n = n, x = 1)
-  log.p <- numeric(length(phi))
-  KLD <- function(phi, eigenvalues.invm1){
-    res <- -1/2 * sum(log(1 + phi*eigenvalues.invm1)) +
-      1/2 * phi*sum(eigenvalues.invm1)
-    return(res)
-  }
-  deriv.KLD <- function(phi, eigenvalues.invm1){
-    res <- 1/2 * sum(-eigenvalues.invm1/(1+phi*eigenvalues.invm1) +
-                       eigenvalues.invm1)
-    return(res)
-  }
-  for(j in c(1:length(phi))){
-    KLD_j <- KLD(phi = phi[j], eigenvalues.invm1 = eigenvalues.invm1)
-    if(KLD_j < 0){
-      message("!!! PROBLEM !!!! \n!!! NEGATIVE KLD - MUST FIX MODEL !!!")
-      return(NULL)
-    }
-    derivative <- 1/2 * sum(eigenvalues.invm1 - 
-                              eigenvalues.invm1 / (1 + phi[j] * eigenvalues.invm1))
-    rate <- -1/sqrt(2*KLD(U, eigenvalues.invm1 = eigenvalues.invm1)) * log(1 - alpha)
-    log.p[j] <- dexp(x=sqrt(2*KLD_j), rate = rate, log = T) +
-      log(1/sqrt(2*KLD_j)) + log(abs(derivative)) - log(force.const)
-  }
-  return(sum(log.p))
-}
-W <- W_con
-L_unscaled <- Matrix::Diagonal(n=nrow(W), x=rowSums(as.matrix(W))) -  W
-constr <- INLA:::inla.bym.constr.internal(L_unscaled, adjust.for.con.comp = T)
-scaleQ <- INLA:::inla.scale.model.internal(
-  L_unscaled, constr = list(A = constr$constr$A, e = constr$constr$e))
-L <- scaleQ$Q
-invL <- INLA:::inla.ginv(L)
-In <- Matrix::Diagonal(n = nrow(W), x = 1)
-eigenvalues <- eigen(L, symmetric = T)$values
-rankdef <- constr$rankdef
-eigenvalues.invm1 <- sort(1/eigenvalues, decreasing = T) - 1
-#eigenvalues <- eigen(invL - In, symmetric = T)$values 
-eigenvalues.invm1[(length(eigenvalues.invm1)-rankdef+1):length(eigenvalues.invm1)] <- - 1
+mm.tot_s20 <- list(
+  ICAR = cav_IMCAR_inla.AR1_s20, 
+  PCAR_Un = cav_PMCAR_inla.AR1.Unif_s20,
+  PCAR_PC_d= cav_PMCAR_inla.AR1.PC_s20,
+  PCAR_PC_s=cav_PMCAR_inla.AR1.PC.strict_s20,
+  LCAR_Un = cav_LMCAR_inla.AR1.Unif_s20, 
+  LCAR_PC_d=cav_LMCAR_inla.AR1.PC_s20,
+  LCAR_PC_s=cav_LMCAR_inla.AR1.PC.strict_s20,
+  BYM_Un=cav_MBYM_inla.AR1.Unif_s20,
+  BYM_PC_d = cav_MBYM_inla.AR1.PC_s20,
+  BYM_PC__s = cav_MBYM_inla.AR1.PC.strict_s20)
+
+mm.tot_s25<- list(
+  ICAR = cav_IMCAR_inla.AR1_s25, 
+  PCAR_Un = cav_PMCAR_inla.AR1.Unif_s25,
+  PCAR_PC_d= cav_PMCAR_inla.AR1.PC_s25,
+  PCAR_PC_s=cav_PMCAR_inla.AR1.PC.strict_s25,
+  LCAR_Un = cav_LMCAR_inla.AR1.Unif_s25, 
+  LCAR_PC_d=cav_LMCAR_inla.AR1.PC_s25,
+  LCAR_PC_s=cav_LMCAR_inla.AR1.PC.strict_s25,
+  BYM_Un=cav_MBYM_inla.AR1.Unif_s25,
+  BYM_PC_d = cav_MBYM_inla.AR1.PC_s25,
+  BYM_PC__s = cav_MBYM_inla.AR1.PC.strict_s25)
 
 
-u <- 0.5; alpha <- 0.8
-phis <- c( 1:500)/500
-ff <- Vectorize(function(x) exp(inla.pc.mbym.phi(phi=x,eigenvalues.invm1 = eigenvalues.invm1,
-                                                 U=u, alpha = alpha, force.const=1)))
-marginal.variances <- diag(invL)
-eigen.L <- eigen(L, symmetric = T)$values
-inla.pc.bym.phi.auto <- 
-  INLA:::inla.pc.bym.phi(eigenvalues = eigen.L,
-                         rankdef = 1, alpha=alpha, u=u, 
-                         marginal.variances = marginal.variances)
 
-ff.auto <- Vectorize(function(x) exp(inla.pc.bym.phi.auto(phi=x )))
+WAICS <- as.data.frame(do.call(rbind, lapply(mm.tot, function(x) {
+  cbind(x$waic$waic, x$waic$p.eff)} )))
+names(WAICS) <- c("WAIC", "ow_P_eff")
+WAICS$models <- names(mm.tot)
+WAICS <- WAICS[,c(3,1,2)]
 
-plot(phis, ff(phis), type = 'l', main = paste0("u = ",u, " alpha = ", alpha))
-lines(ff.auto(phis))
+WAICS_s15 <- as.data.frame(do.call(rbind, lapply(mm.tot_s15, function(x) {
+  cbind(x$waic$waic, x$waic$p.eff)} )))
+names(WAICS_s15) <- c("WAIC_s15", "ow_P_eff_s15")
+WAICS_s15$models <- names(mm.tot_s15)
+WAICS_s15 <- WAICS_s15[,c(3,1,2)]
 
-abline(v=u)
+WAICS_s20 <- as.data.frame(do.call(rbind, lapply(mm.tot_s20, function(x) {
+  cbind(x$waic$waic, x$waic$p.eff)} )))
+names(WAICS_s20) <- c("WAIC_s20", "ow_P_eff_s20")
+WAICS_s20$models <- names(mm.tot_s20)
+WAICS_s20 <- WAICS_s20[,c(3,1,2)]
+
+WAICS_s25 <- as.data.frame(do.call(rbind, lapply(mm.tot_s25, function(x) {
+  cbind(x$waic$waic, x$waic$p.eff)} )))
+names(WAICS_s25) <- c("WAIC_s25", "ow_P_eff_s25")
+WAICS_s25$models <- names(mm.tot_s25)
+WAICS_s25 <- WAICS_s25[,c(3,1,2)]
+
+WAICS.all <- dplyr::left_join(WAICS, WAICS_s15, by = "models") %>% 
+  dplyr::left_join(WAICS_s20, by = "models") %>% 
+  dplyr::left_join(WAICS_s25, by = "models")
+
+print(xtable::xtable(WAICS.all, n.digits = 3), include.rowname = F)
 
 
-integrate(ff, 0, u)
-integrate(ff, 0 ,1)
+
+
+
