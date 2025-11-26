@@ -1200,6 +1200,7 @@ cav_IMCAR_inla.AR1 <- inla(
 cav_IMCAR_inla.AR1$waic$waic
 
 
+
 cav_IMCAR_inla.AR1_s15 <- inla(
   N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + 
     Desk_dist + AVC_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
@@ -1230,6 +1231,30 @@ cav_IMCAR_inla.AR1_s25 <- inla(
       num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, dic = T), 
       verbose = T)
 
+
+#' This can be done as card(\theta) = 2 ----------------------------------------
+
+jh <- cav_IMCAR_inla.AR1$joint.hyper
+
+names(jh) <- c("AR.corr", "prec", "logpost", "logweight")
+
+jh$dens <- exp(jh$logpost - max(jh$logpost))  # rescale to avoid underflow
+
+
+interp_res <- with(jh,  akima::interp(
+  x = AR.corr,y = prec,z = dens,  duplicate = "mean"))
+
+plotly::plot_ly(x = interp_res$x,
+                 y = interp_res$y,
+                 z = interp_res$z) %>%
+  plotly::add_surface() %>%
+  plotly::layout(
+    scene = list(
+      xaxis = list(title = "AR.corr"),
+      yaxis = list(title = "prec"),
+      zaxis = list(title = "Posterior density")
+    )
+  )
 
 ##  Spatiotemporal models: AR(1) - PCAR -----------------------------------------
 

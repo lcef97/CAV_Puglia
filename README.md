@@ -14,8 +14,9 @@ so here are some.
 
   - [Slides](https://lcef97.github.io/CAV_Puglia/#1). This clearly serves as a presentation.
   Few, selected models are included here, 
-  as they are multivariate ones with 10 -- 14 hyperparameters. This should be the presentation at the PRIN workshop
-  held in Lecce, Salento, Apulia, Italy, on September 19--20th, 2025.
+  as they are multivariate ones with 10 -- 14 hyperparameters. This was the presentation at the PRIN workshop
+  held in Lecce, Salento, Apulia, Italy, on September 19--20th, 2025. However we moved away from the 
+  general multivariate model towards a spatiotemporal one.
   
   - R script [`CAV_full`](https://github.com/lcef97/CAV_Puglia/blob/main/CAV_full.R): complete analysis performed over four years, 
   which is the full information currently available.
@@ -37,4 +38,9 @@ so here are some.
   - [inputs](https://github.com/lcef97/CAV_Puglia/tree/main/input): all data this analysis is based on. 
   As said before, some datasets are derived by aggregation of sensible data, 
   which we should not make publicly available
+  
+## Manuscript
+
+ The paper has been submitted to a journal and is now under consideration. While all we can do is hope 
+ at this stage, here is the [arXiv preprint](https://arxiv.org/abs/2511.20481).
  

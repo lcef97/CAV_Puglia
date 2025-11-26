@@ -2356,7 +2356,6 @@ inla.rgeneric.Mmodel.BYM <-
   if(!exists("Wishart.on.scale", envir = envir)) assign("Wishart.on.scale", TRUE, envir = envir)
   #if(!exists("sparse", envir = envir)) assign("sparse", TRUE, envir = envir)
   if(!exists("cache.done", envir=envir)){
-    cat("Initialising ... \n")
     #' Laplacian matrix scaling: only needs being done once
     L_unscaled <- Matrix::Diagonal(n=nrow(W), x=rowSums(as.matrix(W))) -  W
     constr <- INLA:::inla.bym.constr.internal(L_unscaled, adjust.for.con.comp = T)
@@ -2913,7 +2912,7 @@ vcov_summary <- function (model, n.sample = 10000, mode = F) {
                                         function(x) x$rho))
     summary.cor <- t(data.frame(apply(cor.sample, 2, function(x) .summary(x, mode = mode))))
     
-    rownames(summary.cor) <- paste0("rho_", apply(combn(k, 2), 2,
+    rownames(summary.cor) <- paste0("r_", apply(combn(k, 2), 2,
                                                 function(x) paste0(x, collapse = "")))
     
     var.sample <- do.call(rbind, lapply(param.sample, 
