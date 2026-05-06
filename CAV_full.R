@@ -81,10 +81,7 @@ CAV_mun_24 <- CAV_mun_24 %>% dplyr::rename(N_ACC_2024 = .data$N_ACC)
 #'        dplyr::select(.data$COD_PROV, .data$PRO_COM, .data$COMUNE)
 #'  
 #'  In theory, a shapefile should be used for each year.
-#'  Still, administrative units boundaries are unchanged at least
-#'  from 2021 to 2023 ---------------------------------------------------------#
-#'
-#'  Still, we leave the static shapefile in order NOT to need internet connection:
+#'  Still, administrative units boundaries are unchanged in 2021-24
 
 load("input/Shp.RData")
 
@@ -95,6 +92,9 @@ nn_extract <- function(string){
   res <- unlist(lapply(ls.out, function(x) as.numeric(paste(x, collapse = ""))))  
   return(res)
 }
+Centroids <- Shp
+sf::st_agr(Centroids) <- "constant"
+Centroids <- sf::st_point_on_surface(Centroids)
 
 #'  Female population aged >= 15 years. Source data: 
 #'  http://dati.istat.it/Index.aspx?DataSetCode=DCIS_POPRES1#  ----------------#
@@ -166,42 +166,8 @@ dd <- Shp %>% dplyr::left_join(Pop_f_15[, -2], by = "PRO_COM") %>%
 dd$N_ACC[is.na(dd$N_ACC)] <- 0
 
 #' "access ratio" -------------------------------------------------------------#
-dd$LN_ACC <- log(dd$N_ACC/dd$nn)
-
-ggy21 <- ggplot2::ggplot() +
-  ggplot2::geom_sf(data = dplyr::filter(dd, .data$Year == "2021"), 
-                   ggplot2::aes(fill = .data$LN_ACC))+
-  ggplot2::scale_fill_viridis_c(na.value = "white",
-                                limits = c(-9.5, -4.6))+
-  ggplot2::ggtitle("Year: 2021") +
-  ggplot2::theme_classic()
-
-ggy22 <- ggplot2::ggplot() +
-  ggplot2::geom_sf(data = dplyr::filter(dd, .data$Year == "2022"), 
-                   ggplot2::aes(fill = .data$LN_ACC))+
-  ggplot2::scale_fill_viridis_c(na.value = "white",
-                                limits = c(-9.5, -4.6))+
-  ggplot2::ggtitle("Year: 2022") +
-  ggplot2::theme_classic()
-
-ggy23 <- ggplot2::ggplot() +
-  ggplot2::geom_sf(data = dplyr::filter(dd, .data$Year == "2023"), 
-                   ggplot2::aes(fill = .data$LN_ACC))+
-  ggplot2::scale_fill_viridis_c(na.value = "white",
-                                limits = c(-9.5, -4.6))+
-  ggplot2::ggtitle("Year: 2023") +
-  ggplot2::theme_classic()
-
-ggy24 <- ggplot2::ggplot() +
-  ggplot2::geom_sf(data = dplyr::filter(dd, .data$Year == "2024"), 
-                   ggplot2::aes(fill = .data$LN_ACC))+
-  ggplot2::scale_fill_viridis_c(na.value = "white",
-                                limits = c(-9.5, -4.6))+
-  ggplot2::ggtitle("Year: 2024")+
-  ggplot2::theme_classic()
-
-
-gridExtra::grid.arrange(ggy21, ggy22, ggy23, ggy24, nrow = 2, ncol = 2)
+dd$Log_accesses <- log(dd$N_ACC/dd$nn)
+dd$F_accesses <- dd$N_ACC/dd$nn
 
 source("Auxiliary/Functions.R")
 
@@ -216,23 +182,35 @@ suppressWarnings({
 
 #'  Mapping municipalities from support centers   ----------------------------#
 #'  
-#'  Loop to compute minimal distances
-#'
-#'
 #'  Municipalities hosting a support center:
-#'  munWcav_22 <- c(71020, 71024, 71051, 
-#'                  72004, 72006, 72011, 72014, 72019, 72021, 72029, 72031, 72033, 72035, 
-#'                  73013, 73027, 
-#'                  74001, 74009, 
-#'                  75018, 75029, 75035, 75059,
-#'                  110001, 110002, 110009)
-#'  
-#'  munWcav_23 <- c(71020, 71024, 71029, 71051, 
-#'                  72004, 72006, 72011, 72014, 72019, 72021, 72029, 72031, 72033, 72035,
-#'                  73013, 73027, 
-#'                  74001, 74009, 
-#'                  75029, 75035, 75059,
-#'                  110001, 110002, 110009)
+munWcav_21 <- c(71024,	71051,
+                72004,	72006,	72011,	72014,	72019,	72021,	72029,	72031,	72035,	
+                73013,	73027,	
+                74001,	74009,	
+                75029,	75035,  75059,
+                110001,	110002,	110009)
+
+
+munWcav_22 <- c(71020, 71024, 71051, 
+                72004, 72006, 72011, 72014, 72019, 72021, 72029, 72031, 72033, 72035, 
+                73013, 73027, 
+                74001, 74009, 
+                75018, 75029, 75035, 75059,
+                110001, 110002, 110009)
+
+munWcav_23 <- c(71020, 71024, 71029, 71051, 
+                72004, 72006, 72011, 72014, 72019, 72021, 72029, 72031, 72033, 72035,
+                73013, 73027, 
+                74001, 74009, 
+                75029, 75035, 75059,
+                110001, 110002, 110009)
+
+munWcav_24 <- c(71020, 71024, 71029, 71051,
+                72004, 72006, 72011, 72014, 72019, 72021, 72029, 72031, 72033, 72035,
+                73013, 73027,
+                74001, 74009, 74019,
+                75029, 75035, 75059,
+                110001, 110002, 110009)
 #'  
 #' Sportelli_CAV <- readxl::read_excel("input_excel/Sportelli_CAV.xlsx", sheet = "CAV")
 #' munWcav_24 <- unique(sort(as.numeric(Sportelli_CAV$PRO_COM))) 
@@ -267,22 +245,23 @@ suppressWarnings({
 #'    ret <- c(X, dists[m])
 #'    dists_th_24 <- data.frame(rbind(dists_th_24, ret))
 #'  }
-#'  names(dists_th_24) <- c("PRO_COM", "TEP_th_24")
+#'  names(dists_th_24) <- c("PRO_COM", "AVC_dist_24")
+
+munWdesk <- c(
+  71004,  71006,  71008,  71010,  71012,  71020,  71021,  71022,  71024,  
+  71025,  71027,  71028,  71035,  71036,  71038,  71041,  71043,  71046,  
+  71047,  71049,  71050,  71051,  71053,  71054,  71055,  71056,  71058,  
+  71059,  71060,  71063,  72003,  72006,  72010,  72011,  72012,  72016,  
+  72020,  72022,  72023,  72024,  72025,  72027,  72033,  72038,  72039,  
+  72041,  72043,  73003,  73007,  73008,  73015,  73019,  73020,  73021,  
+  73024,  73027,  73029,  74002,  74003,  74005,  74006,  74007,  74008, 
+  74011,  74012,  74014,  74018,  74020,  75002,  75003,  75010,  75012, 
+  75016,  75021,  75022,  75024,  75028,  75030,  75031,  75035,  75037,
+  75039,  75040,  75043,  75044,  75050,  75051,  75052,  75057,  75063, 
+  75064,  75073,  75077,  75081,  75085,  75086,  75088,  75089,  75093, 
+  75097, 110003, 110004, 110005, 110007, 110010)
 
 
-#munWdesk <- c(
-#  71004,  71006,  71008,  71010,  71012,  71020,  71021,  71022,  71024,  
-#  71025,  71027,  71028,  71035,  71036,  71038,  71041,  71043,  71046,  
-#  71047,  71049,  71050,  71051,  71053,  71054,  71055,  71056,  71058,  
-#  71059,  71060,  71063,  72003,  72006,  72010,  72011,  72012,  72016,  
-#  72020,  72022,  72023,  72024,  72025,  72027,  72033,  72038,  72039,  
-#  72041,  72043,  73003,  73007,  73008,  73015,  73019,  73020,  73021,  
-#  73024,  73027,  73029,  74002,  74003,  74005,  74006,  74007,  74008, 
-#  74011,  74012,  74014,  74018,  74020,  75002,  75003,  75010,  75012, 
-#  75016,  75021,  75022,  75024,  75028,  75030,  75031,  75035,  75037,
-#  75039,  75040,  75043,  75044,  75050,  75051,  75052,  75057,  75063, 
-#  75064,  75073,  75077,  75081,  75085,  75086,  75088,  75089,  75093, 
-#  75097, 110003, 110004, 110005, 110007, 110010)
 #dists_desk <- NULL
 #dd24 <- dd %>% dplyr::filter(.data$Year == "2024") %>% 
 #  dplyr::filter(!.data$PRO_COM %in% singletons)
@@ -303,32 +282,78 @@ suppressWarnings({
 #  dists_desk <- data.frame(rbind(dists_desk, ret))
 #}
 
-
+load("input/dists_th_21.RData")
 load("input/dists_th_22.RData")
 load("input/dists_th_23.RData")
 load("input/dists_th_24.RData")
 load("input/dists_desk.RData")
 
-names(dists_th_22)[2] <- names(dists_th_23)[2] <- names(dists_th_24)[2] <- "TEP_th"
-distances <- rbind(dists_th_22, dists_th_22, dists_th_23, dists_th_24) %>% 
+names(dists_th_21)[2] <- names(dists_th_22)[2] <- 
+  names(dists_th_23)[2] <- names(dists_th_24)[2] <- "AVC_dist"
+distances <- rbind(dists_th_21, dists_th_22, dists_th_23, dists_th_24) %>% 
   dplyr::mutate(Year = c(rep("2021", nrow(dists_th_22)),
                          rep("2022", nrow(dists_th_22)),
                          rep("2023", nrow(dists_th_23)),
                          rep("2024", nrow(dists_th_24))) )
 
+#' Centroids of municipalities with an AVC ------------------------------------#
+Centroids_21 <- dplyr::filter(Centroids, PRO_COM %in% munWcav_21)
+Centroids_22 <- dplyr::filter(Centroids, PRO_COM %in% munWcav_22)
+Centroids_23 <- dplyr::filter(Centroids, PRO_COM %in% munWcav_23)
+Centroids_24 <- dplyr::filter(Centroids, PRO_COM %in% munWcav_24)
 
+
+ggy21 <- ggplot2::ggplot() +
+  ggplot2::geom_sf(data = dplyr::filter(dd, .data$Year == "2021"), 
+                   ggplot2::aes(fill = .data$Log_accesses))+
+  ggplot2::scale_fill_viridis_c(na.value = "white",
+                                limits = c(-9.5, -4.6))+
+  ggplot2::geom_sf(data = Centroids_21, color = "#00ffff",size  = 1.2) +
+  ggplot2::ggtitle("Year: 2021") +
+  ggplot2::theme_classic()
+
+ggy22 <- ggplot2::ggplot() +
+  ggplot2::geom_sf(data = dplyr::filter(dd, .data$Year == "2022"), 
+                   ggplot2::aes(fill = .data$Log_accesses))+
+  ggplot2::scale_fill_viridis_c(na.value = "white",
+                                limits = c(-9.5, -4.6))+
+  ggplot2::geom_sf(data = Centroids_22, color = "#00ffff",size  = 1.2)+
+  ggplot2::ggtitle("Year: 2022") +
+  ggplot2::theme_classic()
+
+ggy23 <- ggplot2::ggplot() +
+  ggplot2::geom_sf(data = dplyr::filter(dd, .data$Year == "2023"), 
+                   ggplot2::aes(fill = .data$Log_accesses))+
+  ggplot2::scale_fill_viridis_c(na.value = "white",
+                                limits = c(-9.5, -4.6))+
+  ggplot2::geom_sf(data = Centroids_23, color = "#00ffff",size  = 1.2)+
+  ggplot2::ggtitle("Year: 2023") +
+  ggplot2::theme_classic()
+
+ggy24 <- ggplot2::ggplot() +
+  ggplot2::geom_sf(data = dplyr::filter(dd, .data$Year == "2024"), 
+                   ggplot2::aes(fill = .data$Log_accesses))+
+  ggplot2::scale_fill_viridis_c(na.value = "white",
+                                limits = c(-9.5, -4.6))+
+  ggplot2::geom_sf(data = Centroids_24, color = "#00ffff",size  = 1.2)+
+  ggplot2::ggtitle("Year: 2024")+
+  ggplot2::theme_classic()
+
+
+gridExtra::grid.arrange(ggy21, ggy22, ggy23, ggy24, nrow = 2, ncol = 2)
 
 #' This is the dataset we will concretely work on.
 #' Covariates are all scaled to zero mean and unit variance -------------------#
+
 dd_con <- dd %>% dplyr::filter(!.data$PRO_COM %in% singletons) %>% 
   dplyr::left_join(distances, by = c("PRO_COM", "Year")) %>% 
   dplyr::left_join(dists_desk, by = "PRO_COM") %>% 
-  dplyr::mutate(CAV = as.numeric(.data$TEP_th == 0)) %>% 
+  dplyr::mutate(CAV = as.numeric(.data$AVC_dist == 0)) %>% 
   dplyr::mutate(Y_2021 = as.numeric(.data$Year == "2021")) %>% 
   dplyr::mutate(Y_2022 = as.numeric(.data$Year == "2022")) %>% 
   dplyr::mutate(Y_2023 = as.numeric(.data$Year == "2023")) %>% 
   dplyr::mutate(Y_2024 = as.numeric(.data$Year == "2024")) %>% 
-  dplyr::mutate(TEP_th = as.vector(scale(.data$TEP_th))) %>% 
+  dplyr::mutate(AVC_dist = as.vector(scale(.data$AVC_dist))) %>% 
   dplyr::mutate(AES = as.vector(scale(.data$AES))) %>% 
   dplyr::mutate(Desk_dist = as.vector(scale(.data$Desk_dist))) %>% 
   dplyr::mutate(MFI = as.vector(scale(.data$MFI)))  %>% 
@@ -338,6 +363,7 @@ dd_con <- dd %>% dplyr::filter(!.data$PRO_COM %in% singletons) %>%
   dplyr::mutate(PGR = as.vector(scale(.data$PGR)))  %>% 
   dplyr::mutate(UIS = as.vector(scale(.data$UIS)))  %>% 
   dplyr::mutate(ELI = as.vector(scale(.data$ELI)))  %>% 
+  dplyr::mutate(Exp = .data$nn * mean(.data$N_ACC/.data$nn)) %>% 
   dplyr::mutate(Year = as.numeric(as.factor(.data$Year))) %>% 
   dplyr::mutate(ID = c(1:nrow(.))) %>% 
   dplyr::mutate(Area = as.numeric(as.factor(.data$PRO_COM)))
@@ -374,7 +400,7 @@ dd_list <- df2ls(dd_con, id_cols = c("ID", "COMUNE", "nn"), names_from = c("Y_20
 n <- length(unique(dd_con$PRO_COM))
 
 #' sd of travel time: around 14 minutes ---------------------------------------#
-attr(scale(dists_th_22$TEP_th), "scaled:scale")
+attr(scale(dists_th_22$AVC_dist), "scaled:scale")
 
 #' neighbours list ------------------------------------------------------------#
 nb_con <- spdep::poly2nb(dd_con[c(1:n), ])
@@ -399,11 +425,11 @@ constr.BYM <- list(
 
 
 #' Full GLM --> for model matrix
-#glm_all_X <- glm(N_ACC ~ 1 + TEP_th + MFI + AES + PDI + ELL + ER +
-#                   PGR + UIS + ELI + offset(log(nn)),
-#                 data = dd_con, family = "poisson")
+glm_all_X <- glm(N_ACC ~ 1 + Desk_dist + AVC_dist + MFI + AES + PDI + ELL + ER +
+                   PGR + UIS + ELI + offset(log(nn)),
+                 data = dd_con, family = "poisson")
 #' model matrix
-#X <- model.matrix(glm_all_X)
+X <- model.matrix(glm_all_X)
 
 
 #' Deconfounding with Spatial+ 
@@ -491,7 +517,7 @@ scale.fac.prior <- t(chol(V.prior))
 
 #' Speed-up initialising:
 covars <- c("MFI", "HMI", "MWR", "PA", "LRA", "LC", "AES", "PDI",
-            "ELL", "ER", "PGR", "UIS", "ELI","TEP_th")
+            "ELL", "ER", "PGR", "UIS", "ELI","AVC_dist")
 n.eigen <- rep(10, length(covars))
 VV <- eigen(Lapl_con)$vectors
 
@@ -508,11 +534,10 @@ filter.spatplus <- function(data, covars = c(), V, n.eigen = c(), rescale = T, c
     s <- var(xx)
     coef <- solve(a=V, b=xx)
     eigen.in <- c( 1:(nrow(V) - n.eigen[j]))
-    eigen.out <- c((nrow(V) - n.eigen[j]+1) : nrow(V) )
+    eigen.out <- setdiff(c(1:nrow(V)), eigen.in)#c((nrow(V) - n.eigen[j]+1) : nrow(V) )
     nrep <- nrow(data)/nrow(xx)
-    xx.nosp <- scale(V[, eigen.in] %*% coef[eigen.in], 
-                     scale = rescale, center = center)
-    xx.nosp <- rep(as.vector(xx.nosp), nrep)
+    xx.nosp <- rep(V[, eigen.in] %*% coef[eigen.in], nrep)
+    xx.nosp <- as.vector(scale(xx.nosp, scale = rescale, center = center))
     xx.sp <-  as.vector(V[, eigen.out] %*% coef[eigen.out])
     trends[[j]] <- xx.sp
     names(trends)[[j]] <- names(data)[m]
@@ -522,8 +547,14 @@ filter.spatplus <- function(data, covars = c(), V, n.eigen = c(), rescale = T, c
   return(list(data = res, trends = trends.df))
 }
 
-dd_filtered <- filter.spatplus(dd_con, covars=covars, V = VV, n.eigen = n.eigen)
-
+dd_filtered_10 <- filter.spatplus(dd_con, covars=c("ELI", "ELL"), V = VV,
+                                  n.eigen = c(10, 10))
+dd_filtered_15 <- filter.spatplus(dd_con, covars=c("ELI", "ELL"), V = VV,
+                                  n.eigen = c(15, 15))
+dd_filtered_20 <- filter.spatplus(dd_con, covars=c("ELI", "ELL"), V = VV,
+                                  n.eigen = c(20, 20))
+dd_filtered_25 <- filter.spatplus(dd_con, covars=c("ELI", "ELL"), V = VV,
+                                  n.eigen = c(25, 25))
 
 #' ----------------------------------------------------------------------------#
 
@@ -543,145 +574,129 @@ ggplot2::ggplot(data = reshape2::melt(cor(X[,-1]))) +
 
 #' Before more involved analysis let us consider the nonspatial model ---------#
 cav_nosp_glm <- glm(
-  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 +TEP_th + ELI + PGR + UIS + ELL + PDI + ER, 
+  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 +AVC_dist + Desk_dist + ELI + PGR + UIS + ELL + PDI + ER, 
   family = "poisson", offset = log(nn), data = dd_con)
 
 #' Model with offset ----------------------------------------------------------#
 cav_nosp_inla <- inla(
   N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 +
-  TEP_th + Desk_dist + ELI + PGR + UIS + ELL + PDI + ER,
+  AVC_dist + Desk_dist + ELI + PGR + UIS + ELL + PDI + ER,
   offset = log(nn),
   family = "poisson", data =dd_con,
   num.threads = 1, 
-  control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  control.compute = list(internal.opt = F, cpo = T, waic = T, config = F), 
   verbose = T)
 
-#' Model with expected accesses - equivalent in theory ------------------------#
-cav_nosp_inla_E <- inla(
-  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024+TEP_th + ELI + PGR + UIS + ELL + PDI + ER,
-  E = Exp_Acc,
-  family = "poisson", data = dplyr::mutate(dd_con, Exp_Acc = Exp_Acc),
-  num.threads = 1, 
-  control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
-  verbose = T)
-
-cav_nosp_inla.alt <- inla(
-  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + CAV + ELI + PGR + UIS + ELL + PDI + ER,
-  offset = log(nn),
-  family = "poisson", data =dd_con,
-  num.threads = 1, 
-  control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
-  verbose = T)
-
+## Univariate models - are they useful? -----------------------------------------
 #' Univariate models: ICAR
 #' 
 
 cav_icar_INLA_2021 <- inla(
-  N_ACC ~ 1 + TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+  N_ACC ~ 1 + AVC_dist + Desk_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
     f(c(1:n), model = "besag", graph = W_con, scale.model = T, constr = T),
   offset = log(nn), 
   family = "poisson", data =dd_con[c(1:n),],
-  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = F), 
   verbose = T)
 
 cav_icar_INLA_2022 <- inla(
-  N_ACC ~ 1 + TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+  N_ACC ~ 1 + AVC_dist + Desk_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
     f(c(1:n), model = "besag", graph = W_con, scale.model = T, constr = T),
   offset = log(nn), 
   family = "poisson", data =dd_con[n+c(1:n),],
-  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = F), 
   verbose = T)
 
 cav_icar_INLA_2023 <- inla(
-  N_ACC ~ 1 + TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+  N_ACC ~ 1 + AVC_dist + Desk_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
     f(c(1:n), model = "besag", graph = W_con, scale.model = T, constr = T),
   offset = log(nn), 
   family = "poisson", data =dd_con[n+n+c(1:n),],
-  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = F), 
   verbose = T)
 
 cav_icar_INLA_2024 <- inla(
-  N_ACC ~ 1 + TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+  N_ACC ~ 1 + AVC_dist + Desk_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
     f(c(1:n), model = "besag", graph = W_con, scale.model = T, constr = T),
   offset = log(nn), 
   family = "poisson", data =dd_con[n+n+n+c(1:n),],
-  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = F), 
   verbose = T)
 
 
 #' LCAR ------------------------------------------------------------------------
 cav_lcar_INLA_2021 <- inla(
-  N_ACC ~ 1 + TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+  N_ACC ~ 1 + AVC_dist + Desk_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
     f(c(1:n), model = "besagproper2", graph = W_con, constr = T),
   offset = log(nn), 
   family = "poisson", data =dd_con[c(1:n),],
-  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = F), 
   verbose = T)
 
 cav_lcar_INLA_2022 <- inla(
-  N_ACC ~ 1 + TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+  N_ACC ~ 1 + AVC_dist + Desk_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
     f(c(1:n), model = "besagproper2", graph = W_con, constr = T),
   offset = log(nn), 
   family = "poisson", data =dd_con[n+c(1:n),],
-  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = F), 
   verbose = T)
 
 cav_lcar_INLA_2023 <- inla(
-  N_ACC ~ 1 + TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+  N_ACC ~ 1 + AVC_dist + Desk_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
     f(c(1:n), model = "besagproper2", graph = W_con, constr = T),
   offset = log(nn), 
   family = "poisson", data =dd_con[n+n+c(1:n),],
-  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = F), 
   verbose = T)
 
 cav_lcar_INLA_2024 <- inla(
-  N_ACC ~ 1 + TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+  N_ACC ~ 1 + AVC_dist + Desk_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
     f(c(1:n), model = "besagproper2", graph = W_con, constr = T),
   offset = log(nn), 
   family = "poisson", data =dd_con[n+n+n+c(1:n),],
-  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = F), 
   verbose = T)
 
 
 #' BYM -------------------------------------------------------------------------
 
 cav_bym_INLA_2021 <- inla(
-  N_ACC ~ 1 + TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+  N_ACC ~ 1 + AVC_dist + Desk_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
     f(c(1:n), model = "bym2", graph = W_con, scale.model = T),
   offset = log(nn), 
   family = "poisson", data =dd_con[c(1:n),],
-  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = F), 
   verbose = T)
 
 
 cav_bym_INLA_2022 <- inla(
-  N_ACC ~ 1 + TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+  N_ACC ~ 1 + AVC_dist + Desk_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
     f(c(1:n), model = "bym2", graph = W_con, scale.model = T),
   offset = log(nn), 
   family = "poisson", data =dd_con[n+c(1:n),],
-  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = F), 
   verbose = T)
 
 cav_bym_INLA_2023 <- inla(
-  N_ACC ~ 1 + TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+  N_ACC ~ 1 + AVC_dist + Desk_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
     f(c(1:n), model = "bym2", graph = W_con, scale.model = T),
   offset = log(nn), 
   family = "poisson", data =dd_con[n+n+c(1:n),],
-  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = F), 
   verbose = T)
 
 cav_bym_INLA_2024 <- inla(
-  N_ACC ~ 1 + TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+  N_ACC ~ 1 + AVC_dist + Desk_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
     f(c(1:n), model = "bym2", graph = W_con, scale.model = T),
   offset = log(nn), 
   family = "poisson", data =dd_con[n+n+n+c(1:n),],
-  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = F), 
   verbose = T)
 
 ## Spatiotemporal models: AR(1) - ICAR -----------------------------------------
 
 cav_icar_inla.iid <- inla(
-  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + AVC_dist + Desk_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
     f(Area, model = "besag", graph = W_con, group = Year, control.group = list(model="iid"),
       extraconstr = list(A = matrix(1, nrow=1, ncol=n), e = 0)),
   offset = log(nn), family = "poisson", data =dd_con,
@@ -690,7 +705,7 @@ cav_icar_inla.iid <- inla(
 
 
 cav_icar_inla.AR1 <- inla(
-  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + AVC_dist + Desk_dist+ ELI + PGR + UIS + ELL + PDI + ER+ 
     f(Area, model = "besag", graph = W_con, control.group =list(model="ar1"), group = Year,
       constr = TRUE, scale.model =T),
   offset = log(nn), family = "poisson", data = dd_filtered$data,
@@ -699,7 +714,7 @@ cav_icar_inla.AR1 <- inla(
 
 
 cav_icar_inla.AR.II <- inla(
-  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + AVC_dist + Desk_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
     f(Area, model = "bym2", graph=W_con, scale.model = T)+
     f(Area.., model = "besag", graph = W_con, control.group =list(model="ar1"), group = Year,
       extraconstr = list(A = matrix(1, nrow=1, ncol=n), e = 0)),
@@ -731,7 +746,7 @@ abline(v=u)
 
 
 cav_IMCAR_inla.AR1.N <- inla(
-  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + AVC_dist + Desk_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
     f(ID, model = inla.IMCAR.AR1(k = 4, W = W_con, PC.ar1 = F), 
       extraconstr = list(A = A_constr, e = c(0,0,0,0))),
   offset = log(nn), family = "poisson", data =dd_con,
@@ -741,7 +756,7 @@ cav_IMCAR_inla.AR1.N <- inla(
 
 
 cav_IMCAR_inla.AR1 <- inla(
-  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + AVC_dist + Desk_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
     f(ID, model = inla.IMCAR.AR1(k = 4, W = W_con, PC.ar1 = T), 
       extraconstr = list(A = A_constr, e = c(0,0,0,0))),
   offset = log(nn), family = "poisson", data =dd_con,
@@ -749,7 +764,7 @@ cav_IMCAR_inla.AR1 <- inla(
   verbose = T)
 
 cav_IMCAR_inla.AR1.v1 <- inla(
-  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + AVC_dist + Desk_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
     f(ID, model = inla.IMCAR.AR1(k = 4, W = W_con, PC.ar1 = T, alpha.sd = 0.1, U.sd = sqrt(1/2)), 
       extraconstr = list(A = A_constr, e = c(0,0,0,0))),
   offset = log(nn), family = "poisson", data =dd_con,
@@ -766,7 +781,7 @@ cav_IMCAR_inla.AR1.v1$waic$waic
 
  
 cav_PMCAR_inla.AR1.N <- inla(
-  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + AVC_dist + Desk_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
     f(ID, model = inla.PMCAR.AR1(k = 4, W = W_con, PC.ar1 = F, alpha.sd = 0.1, U.sd = sqrt(1/2)), 
       extraconstr = list(A = A_constr, e = c(0,0,0,0))),
   offset = log(nn), family = "poisson", data =dd_con,
@@ -774,7 +789,7 @@ cav_PMCAR_inla.AR1.N <- inla(
   verbose = T)
 
 cav_PMCAR_inla.AR1.PC <- inla(
-  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + AVC_dist + Desk_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
     f(ID, model = inla.PMCAR.AR1(k = 4, W = W_con, PC.ar1 = T, alpha.sd = 0.1, U.sd = sqrt(1/2)), 
       extraconstr = list(A = A_constr, e = c(0,0,0,0))),
   offset = log(nn), family = "poisson", data =dd_con,
@@ -783,7 +798,7 @@ cav_PMCAR_inla.AR1.PC <- inla(
 
 #' Better
 cav_PMCAR_inla.AR1.PC.strict <- inla(
-  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + AVC_dist + Desk_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
     f(ID, model = inla.PMCAR.AR1(k = 4, W = W_con, PC = T, PC.ar1 = T,
                                  alpha.spat.cor = 0.9, U.spat.cor = 0.6,
                                  alpha.sd = 0.1, U.sd = sqrt(1/2)), 
@@ -793,7 +808,7 @@ cav_PMCAR_inla.AR1.PC.strict <- inla(
   verbose = T)
 
 cav_PMCAR_inla.AR1.PC.strict.v1 <- inla(
-  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + AVC_dist + Desk_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
     f(ID, model = inla.PMCAR.AR1(k = 4, W = W_con, PC = T, PC.ar1 = T,
                                  alpha.spat.cor = 0.9, U.spat.cor = 0.6,
                                  alpha.sd = 0.1, U.sd = sqrt(1/2)), 
@@ -803,7 +818,7 @@ cav_PMCAR_inla.AR1.PC.strict.v1 <- inla(
   verbose = T)
 
 cav_PMCAR_inla.AR1.Un.PC.1 <- inla(
-  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + AVC_dist + Desk_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
     f(ID, model = inla.PMCAR.AR1(k = 4, W = W_con, PC.spat.cor = F, alpha.sd = 0.1, U.sd = sqrt(1/2)), 
       extraconstr = list(A = A_constr, e = c(0,0,0,0))),
   offset = log(nn), family = "poisson", data =dd_con,
@@ -812,7 +827,7 @@ cav_PMCAR_inla.AR1.Un.PC.1 <- inla(
 
 #' meh
 cav_PMCAR_inla.AR1.PC.2 <- inla(
-  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + AVC_dist + Desk_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
     f(ID, model = inla.PMCAR.AR1(k = 4, W = W_con, PC = T, PC.ar1 = T, alpha = 0.8, U = 0.5,
                                  alpha.sd = 0.1, U.sd = sqrt(1/2)), 
       extraconstr = list(A = A_constr, e = c(0,0,0,0))),
@@ -825,7 +840,7 @@ cav_PMCAR_inla.AR1.PC.2 <- inla(
  
 
 cav_LMCAR_inla.AR1.N <- inla(
-  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + AVC_dist + Desk_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
     f(ID, model = inla.LMCAR.AR1(k = 4, W = W_con, PC.ar1 = F, alpha.sd = 0.1, U.sd = sqrt(1/2)), 
       extraconstr = list(A = A_constr, e = c(0,0,0,0))),
   offset = log(nn), family = "poisson", data =dd_con,
@@ -833,7 +848,7 @@ cav_LMCAR_inla.AR1.N <- inla(
   verbose = T)
 
 cav_LMCAR_inla.AR1.Un <- inla(
-  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + AVC_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
     f(ID, model = inla.LMCAR.AR1(k = 4, W = W_con, PC.lambda = F, alpha.sd = 0.1, U.sd = sqrt(1/2)), 
       extraconstr = list(A = A_constr, e = c(0,0,0,0))),
   offset = log(nn), family = "poisson", data =dd_con,
@@ -841,7 +856,7 @@ cav_LMCAR_inla.AR1.Un <- inla(
   verbose = T)
 
 cav_LMCAR_inla.AR1 <- inla(
-  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + AVC_dist + Desk_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
     f(ID, model = inla.LMCAR.AR1(k = 4, W = W_con, alpha.sd = 0.1, U.sd = sqrt(1/2)), 
       extraconstr = list(A = A_constr, e = c(0,0,0,0))),
   offset = log(nn), family = "poisson", data =dd_con,
@@ -850,7 +865,7 @@ cav_LMCAR_inla.AR1 <- inla(
 
 #' Better, though...
 cav_LMCAR_inla.AR1.strict <- inla(
-  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + AVC_dist + Desk_dist+ ELI + PGR + UIS + ELL + PDI + ER+ 
     f(ID, model = inla.LMCAR.AR1(k = 4, W = W_con, alpha.lambda =0.9, U.lambda = 0.6,
                                  alpha.sd = 0.1, U.sd = sqrt(1/2)), 
       extraconstr = list(A = A_constr, e = c(0,0,0,0))),
@@ -863,7 +878,7 @@ cav_LMCAR_inla.AR1.strict <- inla(
 
 
 cav_MBYM_inla.AR1.Un <- inla(
-  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + TEP_th + Desk_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
+  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + AVC_dist + Desk_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
     f(ID, model = inla.MBYM.AR1(k = 4, W = W_con, PC.ar1 = T, PC.phi = F, alpha.sd = 0.1, U.sd=sqrt(1/2)), 
       extraconstr = constr.BYM),
   offset = log(nn), family = "poisson", data =dd_con,
@@ -872,7 +887,7 @@ cav_MBYM_inla.AR1.Un <- inla(
 cav_MBYM_inla.AR1.Un$waic$waic
 
 cav_MBYM_inla.AR1 <- inla(
-  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + TEP_th + Desk_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
+  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + AVC_dist + Desk_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
     f(ID, model = inla.MBYM.AR1(k = 4, W = W_con, PC.ar1 = T, PC.phi = T, alpha.sd =0.1, U.sd = sqrt(1/2)), 
       extraconstr = constr.BYM),
   offset = log(nn), family = "poisson", data =dd_con,
@@ -883,7 +898,7 @@ cav_MBYM_inla.AR1$waic$waic
 
 
 cav_MBYM_inla.AR1.strict <- inla(
-  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + TEP_th + Desk_dist+ ELI + PGR + UIS + ELL + PDI + ER+ 
+  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + AVC_dist + Desk_dist+ ELI + PGR + UIS + ELL + PDI + ER+ 
     f(ID, model = inla.MBYM.AR1(k = 4, W = W_con, PC.ar1 = T, alpha.phi =0.9, U.phi=0.6,
                                 alpha.sd =0.1, U.sd = sqrt(1/2)), 
       extraconstr = constr.BYM),
@@ -894,60 +909,63 @@ cav_MBYM_inla.AR1.strict <- inla(
 
 ## Spatial analysis: Block-factorisable models ---------------------
 
-
-
-
 #' IMPORTANT: ICAR model here -------------------------------------------------#
 #' This has to be compared to M-models in next section
 
 cav_IMCAR_inla <- inla(
-  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + 
+    AVC_dist + Desk_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
     f(ID, model = inla.IMCAR.Bartlett(k = 4, W = W_con, df = 8), 
       extraconstr = list(A = A_constr, e = c(0,0,0,0))),
   offset = log(nn), family = "poisson", data =dd_con,
-  #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
-  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = F), 
   verbose = T)
 vcov_summary(cav_IMCAR_inla)
-
-#' Matrix-valued parameter for the Bartlett factors of the covariance
-#' set in order that E[\sigma_ii] = 1 a priori
-cav_IMCAR_inla.scale.fac <- inla(
-  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
-    f(ID, model = inla.IMCAR.Bartlett(k = 4, W = W_con, df=6, scale.fac = scale.fac.prior/sqrt(6/6) ), 
-      extraconstr = list(A = A_constr, e = c(0,0,0,0))),
-  offset = log(nn), family = "poisson", data =dd_con,
-  #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
-  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
-  verbose = T)
-
-#' Departure from the panel data model: time-varying covariate effects.
-#' Interpretation gets harder -------------------------------------------------#
-cav_IMCAR_inla_ls <- inla(
-  N_ACC ~ 0 + dd_list$Intercept + dd_list$TEP_th + dd_list$ELI + dd_list$PGR + dd_list$UIS + dd_list$ELL + dd_list$PDI + dd_list$ER+ 
-    f(ID, model = inla.IMCAR.Bartlett(k = 4, W = W_con, df=8), 
-      extraconstr = list(A = A_constr, e = c(0,0,0,0))),
-  offset = log(nn), family = rep("poisson",4), data =dd_list,
-  #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
-  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
-  verbose = T)
-
-#' This may deserve more attention.
-dd_nosp <- dd_con %>% dplyr::mutate(ELL = as.vector(scale(ELL_nosp_resid)))%>% 
-  dplyr::mutate(ER = as.vector(scale(ER_nosp_resid)))
-cav_IMCAR_inla_spatplus <- inla(
-  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
-    f(ID, model = inla.IMCAR.Bartlett(k = 4, W = W_con, df = 8), 
-      extraconstr = list(A = A_constr, e = c(0,0,0,0))),
-  offset = log(nn), family = "poisson", data =dd_nosp,
-  #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
-  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
-  verbose = T)
-
+save(cav_IMCAR_inla, file = "cav_IMCAR_inla.RData")
 
 #' For correlations. Change model ---------------------------------------------#
-vcov_summary(cav_IMCAR_inla )
 
+
+cav_IMCAR_inla_s10 <- inla(
+  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + 
+    Desk_dist + AVC_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.IMCAR.Bartlett(k = 4, W = W_con, df = 8), 
+      extraconstr = list(A = A_constr, e = c(0,0,0,0))),
+  offset = log(nn), family = "poisson", data =dd_filtered_10$data,
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, dic = T, config=F), 
+  verbose = T)
+save(cav_IMCAR_inla_s10, file = "cav_IMCAR_inla_s10.RData")
+
+cav_IMCAR_inla_s15 <- inla(
+  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + 
+    Desk_dist + AVC_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.IMCAR.Bartlett(k = 4, W = W_con, df = 8), 
+      extraconstr = list(A = A_constr, e = c(0,0,0,0))),
+  offset = log(nn), family = "poisson", data =dd_filtered_15$data,
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, dic = T, config=F), 
+  verbose = T)
+save(cav_IMCAR_inla_s15, file = "cav_IMCAR_inla_s15.RData")
+
+
+cav_IMCAR_inla_s20 <- inla(
+  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + 
+    Desk_dist + AVC_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.IMCAR.Bartlett(k = 4, W = W_con, df = 8), 
+      extraconstr = list(A = A_constr, e = c(0,0,0,0))),
+  offset = log(nn), family = "poisson", data =dd_filtered_20$data,
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, dic = T, config=F), 
+  verbose = T)
+save(cav_IMCAR_inla_s20, file = "cav_IMCAR_inla_s20.RData")
+
+cav_IMCAR_inla_s25 <- inla(
+  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + 
+    Desk_dist + AVC_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.IMCAR.Bartlett(k = 4, W = W_con, df = 8), 
+      extraconstr = list(A = A_constr, e = c(0,0,0,0))),
+  offset = log(nn), family = "poisson", data =dd_filtered_25$data,
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, dic = T, config=F), 
+  verbose = T)
+save(cav_IMCAR_inla_s25, file = "cav_IMCAR_inla_s25.RData")
 #' ----------------------------------------------------------------------------#
 #' The simplest way to take into account the three different years
 #' is defining a multivariate model in which each year corresponds
@@ -964,43 +982,43 @@ vcov_summary(cav_IMCAR_inla )
 
 cav_PMCAR_inla <- inla(
   N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + 
-    TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+    AVC_dist + Desk_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
     f(ID, model = inla.PMCAR.Bartlett(W = W_con, k = 4,  df = 8 )),
   offset = log(nn), family = "poisson", data = dd_con,
-  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T, dic = T), 
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = F, dic = T), 
   verbose = T)
 
 
 cav_PMCAR_inla_PC <- inla(
   N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + 
-    TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+    AVC_dist + Desk_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
     f(ID, model = inla.PMCAR.Bartlett(W = W_con, k = 4,  df = 8, PC = TRUE)),
   offset = log(nn), family = "poisson", data = dd_con,
   #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
-  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T, dic = T), 
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = F, dic = T), 
   verbose = T)
 
 
 
 cav_LMCAR_inla <- inla(
   N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + 
-    TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+    AVC_dist + Desk_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
     f(ID, model = inla.LMCAR.Bartlett(k = 4, W = W_con, df = 8)),
   offset = log(nn),
   family = "poisson", data =dd_con,
   #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
-  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T, dic = T), 
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = F, dic = T), 
   verbose = T)
 
 
 cav_LMCAR_inla_PC <- inla(
   N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + 
-    TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+    AVC_dist + Desk_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
     f(ID, model = inla.LMCAR.Bartlett(k = 4, W = W_con, df = 8, PC = T)),
   offset = log(nn),
   family = "poisson", data =dd_con,
   #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
-  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T, dic = T), 
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = F, dic = T), 
   verbose = T)
  
 
@@ -1010,24 +1028,24 @@ cav_LMCAR_inla_PC <- inla(
 
 cav_MBYM_inla <- inla(
   N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 +
-    TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+    AVC_dist + Desk_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
     f(ID, model = inla.MBYM.Bartlett(k = 4, W = W_con, df = 8 ),
       extraconstr = constr.BYM) ,
   offset = log(nn),
   family = "poisson", data =dd_con,
   control.inla = list(stupid.search = FALSE), safe = FALSE,
-  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = F), 
   verbose = T)
 
 cav_MBYM_inla_PC <- inla(
   N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 +
-    TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+    AVC_dist + Desk_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
     f(ID, model = inla.MBYM.Bartlett(k = 4, W = W_con, df = 8, PC = TRUE ),
       extraconstr = constr.BYM) ,
   offset = log(nn),
   family = "poisson", data =dd_con,
   control.inla = list(stupid.search = FALSE), safe = FALSE,
-  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = F), 
   verbose = T)
  
 
@@ -1035,173 +1053,637 @@ cav_MBYM_inla_PC <- inla(
 
 cav_indicar_inla <- inla(
   N_ACC ~  0+ Y_2021 + Y_2022 + Y_2023 + Y_2024 +
-    TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+    AVC_dist + Desk_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
     f(Area, model = "besag", graph=W_con, group = Year, control.group = list(model = "ar1")),
   offset = log(nn),
   family = "poisson", data =dd_con,
   num.threads = 1, control.compute = list(internal.opt = F, waic = T), 
   verbose = T)
 
-## M-Model regression here -----------------------------------------------------
+## Plots for AR(1) PC-prior ----------------------------------------------------
 
-#' To be brief, for now only 2 PC-prior settings are tested per model, 
-#' i.e. p(theta < 1/2) = 2/3, and p(theta > 3/5) = 9/10
-#' Uniform prior is also compared
+dpc.corr.ar1 <- function(x, t=10, n=1000, alpha=0.8, U=0.4, log=F){
+  x <- pmax(abs(x), 1e-12) * ifelse(x < 0, -1, 1)
+  KLD <- function(x, t, n){
+    return(n/2 * ( log(1-x^2) + t*x^2/(1-x^2) ))
+  }
+  deriv.KLD <- function(x, t, n){
+    return(n*x*( -1/(1-x^2) + t/((1-x^2)^2)  ) )
+  }
+  dist.zero <- sqrt(2*KLD(U, t=t, n=n))
+  rate <- -log(1-alpha)/dist.zero
+  ff <- stats::dexp(x=sqrt(2*KLD(x=x, t=t, n=n)), rate = rate)*
+    1/sqrt(2*KLD(x=x, t=t, n=n)) * abs(deriv.KLD(x=x, t=t, n=n)) / 2
+  
+  return(ifelse(log, log(ff), ff))
+}
 
-#' This is for calls to bigDM package
-inla.PMMCAR.bigDM <- function(...) INLA::inla.rgeneric.define(bigDM::Mmodel_pcar, ... )
-inla.LMMCAR.bigDM <- function(...) INLA::inla.rgeneric.define(bigDM::Mmodel_lcar, ... )
-
-
-##' PCAR model ----------------------------------------------------------------#
-
-#' bigDM R package: 6 degrees of freedom; user-defined initial values.
-#' Initial value for the AR parameter set as +3
-cav_PMMCAR_bigDM <- inla(
-  N_ACC ~ 0+ Y_2021 + Y_2022 + Y_2023 + Y_2024 +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
-    f(ID, model = inla.PMMCAR.bigDM(J = 4, W = W_con,  alpha.min = 0,alpha.max = 1,
-                                    initial.values = c(rep(-2,4), rep(0,6)))),
-  offset = log(nn),
-  family = "poisson", data =dd_con,
-  #inla.mode = "classic", control.inla = list(strategy = "laplace", int.strategy = "grid"),
-  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
-  verbose = T)
+ff <- Vectorize(function(x) dpc.corr.ar1(x, t=10, alpha = 0.9, U = 0.2, log = F))
+integrate(ff, lower = -1, upper = 1)
 
 
-#' Manual model. 8 degrees of freedom 
-#' and I_k as Wishart scale (hyper)hyperparameter
+rhos <- c(c(-999:-1), c(1:999))/1000
+
+
+alphas <- c(0.6, 0.7, 0.8, 0.9)
+U <- 0.4
+
+p_0.6 <- sapply(rhos, function(x) {
+  dpc.corr.ar1(x, alpha=0.6, U=0.4, t=4)
+})
+p_0.7 <- sapply(rhos, function(x) {
+  dpc.corr.ar1(x, alpha=0.7, U=0.4, t=4)
+})
+p_0.8 <- sapply(rhos, function(x) {
+  dpc.corr.ar1(x, alpha=0.8, U=0.4, t=4)
+})
+p_0.9 <- sapply(rhos, function(x) {
+  dpc.corr.ar1(x, alpha=0.9, U=0.4, t=4)
+})
+
+
+d.f. <- data.frame(
+  rho = rep(rhos, 4), 
+  pi = c(p_0.6, p_0.7, p_0.8, p_0.9),
+  alpha = rep(c("0.6", "0.7", "0.8", "0.9"), each = length(rhos)))
+  
+  
+ggplot2::ggplot(d.f.)+
+  ggplot2::geom_line(mapping=ggplot2::aes(
+    x=.data$rho, y = .data$pi, colour = .data$alpha))+#, linewidth = 0.8
+  ggplot2::labs( x = expression(r), y = expression(pi(r)),
+                 title = "PC-prior for AR(1) autocorrelation parameter with U=0.4") +
+  ggplot2::theme_bw()
+  
+
+
+## M-Model PCAR ----------------------------------------------------------------
+
 
 cav_PMMCAR_inla_unif <- inla(
   N_ACC ~  0+ Y_2021 + Y_2022 + Y_2023 + Y_2024 +
-    TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
-    f(ID, model = inla.PMMCAR.model(k = 4, W = W_con, df = 8, PC = F)),
+    AVC_dist + Desk_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.PMMCAR.model(k = 4, W = W_con, df = 8, PC = F),
+      extraconstr = list(A = A_constr, e = c(0,0,0,0))),
   offset = log(nn), control.inla = list(stupid.search = F),
   family = "poisson", data =dd_con, safe = F,
-  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = F), 
   verbose = T)
+save(cav_PMMCAR_inla_unif, file = "cav_PMMCAR_inla_unif.RData")
 
 
 cav_PMMCAR_inla_pc_default <- inla(
   N_ACC ~  0+ Y_2021 + Y_2022 + Y_2023 + Y_2024 +
-    TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
-    f(ID, model = inla.PMMCAR.model(k = 4, W = W_con, df = 8, PC = T   )),
+    AVC_dist + Desk_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.PMMCAR.model(k = 4, W = W_con, df = 8, PC = T),
+      extraconstr = list(A = A_constr, e = c(0,0,0,0))),
   offset = log(nn),
   family = "poisson", data =dd_con,
-  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = F), 
   verbose = T)
+save(cav_PMMCAR_inla_pc_default, file = "cav_PMMCAR_inla_pc_default.RData")
 
 
 cav_PMMCAR_inla_pc_strict <- inla(
   N_ACC ~  0+ Y_2021 + Y_2022 + Y_2023 + Y_2024 +
-    TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
-    f(ID, model = inla.PMMCAR.model(k = 4, W = W_con, df = 8, PC = T, alpha=9/10, U = 3/5)),
+    AVC_dist + Desk_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.PMMCAR.model(k = 4, W = W_con, df = 8, PC = T, alpha.rho=9/10, U.rho = 3/5),
+      extraconstr = list(A = A_constr, e = c(0,0,0,0))),
   offset = log(nn),
   family = "poisson", data =dd_con,
-  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = F), 
   verbose = T)
+save(cav_PMMCAR_inla_pc_strict, file = "cav_PMMCAR_inla_pc_strict.RData")
 
 
+## M-Model PCAR - deconfounding ------------------------------------------------
 
-##' LCAR model ----------------------------------------------------------------#
+cav_PMMCAR_inla_unif_s10 <- inla(
+  N_ACC ~  0+ Y_2021 + Y_2022 + Y_2023 + Y_2024 +
+    AVC_dist + Desk_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.PMMCAR.model(k = 4, W = W_con, df = 8, PC = F),
+      extraconstr = list(A = A_constr, e = c(0,0,0,0))),
+  offset = log(nn), control.inla = list(stupid.search = F),
+  family = "poisson", data =dd_filtered_10$data, safe = F,
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = F), 
+  verbose = T)
+save(cav_PMMCAR_inla_unif_s10, file = "cav_PMMCAR_inla_unif_s10.RData")
 
-
-cav_LMMCAR_bigDM <- inla(
-  N_ACC ~ 0+ Y_2021 + Y_2022 + Y_2023 +Y_2024 +
-    +TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
-    f(ID, model = inla.LMMCAR.bigDM(J = 4, W = W_con,  alpha.min = 0,alpha.max = 1,
-                                       initial.values = rep(0, 10))),
+cav_PMMCAR_inla_pc_default_s10 <- inla(
+  N_ACC ~  0+ Y_2021 + Y_2022 + Y_2023 + Y_2024 +
+    AVC_dist + Desk_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.PMMCAR.model(k = 4, W = W_con, df = 8, PC = T),
+      extraconstr = list(A = A_constr, e = c(0,0,0,0))),
   offset = log(nn),
-  family = "poisson", data =dd_con,
-  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  family = "poisson", data =dd_filtered_10$data,
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = F), 
   verbose = T)
+save(cav_PMMCAR_inla_pc_default_s10, file = "cav_PMMCAR_inla_pc_default_s10.RData")
+
+cav_PMMCAR_inla_pc_strict_s10 <- inla(
+  N_ACC ~  0+ Y_2021 + Y_2022 + Y_2023 + Y_2024 +
+    AVC_dist + Desk_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.PMMCAR.model(k = 4, W = W_con, df = 8, PC = T, alpha.rho=9/10, U.rho = 3/5),
+      extraconstr = list(A = A_constr, e = c(0,0,0,0))),
+  offset = log(nn),
+  family = "poisson", data =dd_filtered_10$data,
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = F), 
+  verbose = T)
+save(cav_PMMCAR_inla_pc_strict_s10, file = "cav_PMMCAR_inla_pc_strict_s10.RData")
+
+
+
+cav_PMMCAR_inla_unif_s15 <- inla(
+  N_ACC ~  0+ Y_2021 + Y_2022 + Y_2023 + Y_2024 +
+    AVC_dist + Desk_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.PMMCAR.model(k = 4, W = W_con, df = 8, PC = F),
+      extraconstr = list(A = A_constr, e = c(0,0,0,0))),
+  offset = log(nn), control.inla = list(stupid.search = F),
+  family = "poisson", data =dd_filtered_15$data, safe = F,
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = F), 
+  verbose = T)
+save(cav_PMMCAR_inla_unif_s15, file = "cav_PMMCAR_inla_unif_s15.RData")
+
+
+cav_PMMCAR_inla_pc_default_s15 <- inla(
+  N_ACC ~  0+ Y_2021 + Y_2022 + Y_2023 + Y_2024 +
+    AVC_dist + Desk_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.PMMCAR.model(k = 4, W = W_con, df = 8, PC = T),
+      extraconstr = list(A = A_constr, e = c(0,0,0,0))),
+  offset = log(nn),
+  family = "poisson", data =dd_filtered_15$data,
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = F), 
+  verbose = T)
+save(cav_PMMCAR_inla_pc_default_s15, file = "cav_PMMCAR_inla_pc_default_s15.RData")
+
+cav_PMMCAR_inla_pc_strict_s15 <- inla(
+  N_ACC ~  0+ Y_2021 + Y_2022 + Y_2023 + Y_2024 +
+    AVC_dist + Desk_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.PMMCAR.model(k = 4, W = W_con, df = 8, PC = T, alpha.rho=9/10, U.rho = 3/5),
+      extraconstr = list(A = A_constr, e = c(0,0,0,0))),
+  offset = log(nn),
+  family = "poisson", data =dd_filtered_15$data,
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = F), 
+  verbose = T)
+save(cav_PMMCAR_inla_pc_strict_s15, file = "cav_PMMCAR_inla_pc_strict_s15.RData")
+
+cav_PMMCAR_inla_unif_s20<- inla(
+  N_ACC ~  0+ Y_2021 + Y_2022 + Y_2023 + Y_2024 +
+    AVC_dist + Desk_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.PMMCAR.model(k = 4, W = W_con, df = 8, PC = F),
+      extraconstr = list(A = A_constr, e = c(0,0,0,0))),
+  offset = log(nn), control.inla = list(stupid.search = F),
+  family = "poisson", data =dd_filtered_20$data, safe = F,
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = F), 
+  verbose = T)
+save(cav_PMMCAR_inla_unif_s20, file = "cav_PMMCAR_inla_unif_s20.RData")
+
+cav_PMMCAR_inla_pc_default_s20 <- inla(
+  N_ACC ~  0+ Y_2021 + Y_2022 + Y_2023 + Y_2024 +
+    AVC_dist + Desk_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.PMMCAR.model(k = 4, W = W_con, df = 8, PC = T),
+      extraconstr = list(A = A_constr, e = c(0,0,0,0))),
+  offset = log(nn),
+  family = "poisson", data =dd_filtered_20$data,
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = F), 
+  verbose = T)
+save(cav_PMMCAR_inla_pc_default_s20, file = "cav_PMMCAR_inla_pc_default_s20.RData")
+
+cav_PMMCAR_inla_pc_strict_s20 <- inla(
+  N_ACC ~  0+ Y_2021 + Y_2022 + Y_2023 + Y_2024 +
+    AVC_dist + Desk_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.PMMCAR.model(k = 4, W = W_con, df = 8, PC = T, alpha.rho=9/10, U.rho = 3/5),
+      extraconstr = list(A = A_constr, e = c(0,0,0,0))),
+  offset = log(nn),
+  family = "poisson", data =dd_filtered_20$data,
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = F), 
+  verbose = T)
+save(cav_PMMCAR_inla_pc_strict_s20, file = "cav_PMMCAR_inla_pc_strict_s20.RData")
+
+
+cav_PMMCAR_inla_unif_s25 <- inla(
+  N_ACC ~  0+ Y_2021 + Y_2022 + Y_2023 + Y_2024 +
+    AVC_dist + Desk_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.PMMCAR.model(k = 4, W = W_con, df = 8, PC = F),
+      extraconstr = list(A = A_constr, e = c(0,0,0,0))),
+  offset = log(nn), control.inla = list(stupid.search = F),
+  family = "poisson", data =dd_filtered_25$data, safe = F,
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = F), 
+  verbose = T)
+save(cav_PMMCAR_inla_unif_s25, file = "cav_PMMCAR_inla_unif_s25.RData")
+
+
+cav_PMMCAR_inla_pc_default_s25 <- inla(
+  N_ACC ~  0+ Y_2021 + Y_2022 + Y_2023 + Y_2024 +
+    AVC_dist + Desk_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.PMMCAR.model(k = 4, W = W_con, df = 8, PC = T),
+      extraconstr = list(A = A_constr, e = c(0,0,0,0))),
+  offset = log(nn),
+  family = "poisson", data =dd_filtered_25$data,
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = F), 
+  verbose = T)
+save(cav_PMMCAR_inla_pc_default_s25, file = "cav_PMMCAR_inla_pc_default_s25.RData")
+
+
+cav_PMMCAR_inla_pc_strict_s25 <- inla(
+  N_ACC ~  0+ Y_2021 + Y_2022 + Y_2023 + Y_2024 +
+    AVC_dist + Desk_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.PMMCAR.model(k = 4, W = W_con, df = 8, PC = T, alpha.rho=9/10, U.rho = 3/5),
+      extraconstr = list(A = A_constr, e = c(0,0,0,0))),
+  offset = log(nn),
+  family = "poisson", data =dd_filtered_25$data,
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = F), 
+  verbose = T)
+save(cav_PMMCAR_inla_pc_strict_s25, file = "cav_PMMCAR_inla_pc_strict_s25.RData")
+
+## M-model LCAR ----------------------------------------------------------------
 
 
 cav_LMMCAR_inla_unif <- inla(
   N_ACC ~ 0+ Y_2021 + Y_2022 + Y_2023 + Y_2024 + 
-    TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
-    f(ID, model = inla.LMMCAR.model(k = 4, W = W_con, df = 8, PC = F )),
+    AVC_dist + Desk_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.LMMCAR.model(k = 4, W = W_con, df = 8, PC = F ),
+      extraconstr = list(A = A_constr, e = c(0,0,0,0))),
   offset = log(nn),
   family = "poisson", data =dd_con, 
-  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = F), 
   verbose = T)
+save(cav_LMMCAR_inla_unif, file = "cav_LMMCAR_inla_unif.RData")
 
 
 cav_LMMCAR_inla_pc_default  <- inla(
   N_ACC ~ 0+ Y_2021 + Y_2022 + Y_2023 + Y_2024+
-    TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
-    f(ID, model = inla.LMMCAR.model(k = 4, W = W_con,  df = 8, PC = T)),
+    AVC_dist + Desk_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.LMMCAR.model(k = 4, W = W_con,  df = 8, PC = T),
+      extraconstr = list(A = A_constr, e = c(0,0,0,0))),
   offset = log(nn),
   family = "poisson", data =dd_con, 
-  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = F), 
   verbose = T)
-
+save(cav_LMMCAR_inla_pc_default, file = "cav_LMMCAR_inla_pc_default.RData")
 
 cav_LMMCAR_inla_pc_strict <- inla(
   N_ACC ~ 0+ Y_2021 + Y_2022 + Y_2023 + Y_2024+
-    TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
-    f(ID, model = inla.LMMCAR.model(k = 4, W = W_con,  df = 8, PC = T,
-                                    alpha=9/10, U=3/5)),
+    AVC_dist + Desk_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.LMMCAR.model(k = 4, W = W_con, df = 8, PC = T, alpha.lambda=9/10, U.lambda=3/5),
+      extraconstr = list(A = A_constr, e = c(0,0,0,0))),
   offset = log(nn),
   family = "poisson", data =dd_con, 
-  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = F), 
   verbose = T)
-
+save(cav_LMMCAR_inla_pc_strict, file = "CAV_LMMCAR_inla_pc_strict.RData")
 
 
  
- 
+## M-model LCAR: deconfounding -------------------------------------------------
  
 
-#' BYM model ------------------------------------------------------------------à
+#' 10 eigenvectors out --------------------------------------------------------#
+cav_LMMCAR_inla_unif_s10 <- inla(
+  N_ACC ~ 0+ Y_2021 + Y_2022 + Y_2023 + Y_2024 + 
+    AVC_dist + Desk_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.LMMCAR.model(k = 4, W = W_con, df = 8, PC = F ),
+      extraconstr = list(A = A_constr, e = c(0,0,0,0))),
+  offset = log(nn),
+  family = "poisson", data = dd_filtered_10$data, 
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = F), 
+  verbose = T)
+save(cav_LMMCAR_inla_unif_s10, file = "cav_LMMCAR_inla_unif_s10.RData")
+
+
+cav_LMMCAR_inla_pc_default_s10  <- inla(
+  N_ACC ~ 0+ Y_2021 + Y_2022 + Y_2023 + Y_2024+
+    AVC_dist + Desk_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.LMMCAR.model(k = 4, W = W_con,  df = 8, PC = T),
+      extraconstr = list(A = A_constr, e = c(0,0,0,0))),
+  offset = log(nn),
+  family = "poisson", data = dd_filtered_10$data, 
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = F), 
+  verbose = T)
+save(cav_LMMCAR_inla_pc_default_s10, file = "cav_LMMCAR_inla_pc_default_s10.RData")
+
+
+cav_LMMCAR_inla_pc_strict_s10 <- inla(
+  N_ACC ~ 0+ Y_2021 + Y_2022 + Y_2023 + Y_2024+
+    AVC_dist + Desk_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.LMMCAR.model(k = 4, W = W_con, df = 8, PC = T, alpha.lambda=9/10, U.lambda=3/5),
+      extraconstr = list(A = A_constr, e = c(0,0,0,0))),
+  offset = log(nn),
+  family = "poisson", data =dd_filtered_10$data, 
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = F), 
+  verbose = T)
+save(cav_LMMCAR_inla_pc_strict_s10, file = "CAV_LMMCAR_inla_pc_strict_s10.RData")
+
+#' 15 eigenvectors out --------------------------------------------------------#
+cav_LMMCAR_inla_unif_s15 <- inla(
+  N_ACC ~ 0+ Y_2021 + Y_2022 + Y_2023 + Y_2024 + 
+    AVC_dist + Desk_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.LMMCAR.model(k = 4, W = W_con, df = 8, PC = F ),
+      extraconstr = list(A = A_constr, e = c(0,0,0,0))),
+  offset = log(nn),
+  family = "poisson", data = dd_filtered_15$data, 
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = F), 
+  verbose = T)
+save(cav_LMMCAR_inla_unif_s15, file = "cav_LMMCAR_inla_unif_s15.RData")
+
+
+cav_LMMCAR_inla_pc_default_s15  <- inla(
+  N_ACC ~ 0+ Y_2021 + Y_2022 + Y_2023 + Y_2024+
+    AVC_dist + Desk_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.LMMCAR.model(k = 4, W = W_con,  df = 8, PC = T),
+      extraconstr = list(A = A_constr, e = c(0,0,0,0))),
+  offset = log(nn),
+  family = "poisson", data = dd_filtered_15$data, 
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = F), 
+  verbose = T)
+save(cav_LMMCAR_inla_pc_default_s15, file = "cav_LMMCAR_inla_pc_default_s15.RData")
+
+
+cav_LMMCAR_inla_pc_strict_s15 <- inla(
+  N_ACC ~ 0+ Y_2021 + Y_2022 + Y_2023 + Y_2024+
+    AVC_dist + Desk_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.LMMCAR.model(k = 4, W = W_con, df = 8, PC = T, alpha.lambda=9/10, U.lambda=3/5),
+      extraconstr = list(A = A_constr, e = c(0,0,0,0))),
+  offset = log(nn),
+  family = "poisson", data =dd_filtered_15$data, 
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = F), 
+  verbose = T)
+save(cav_LMMCAR_inla_pc_strict_s15, file = "CAV_LMMCAR_inla_pc_strict_s15.RData")
+
+
+#' 20 eigenvectors out --------------------------------------------------------#
+cav_LMMCAR_inla_unif_s20 <- inla(
+  N_ACC ~ 0+ Y_2021 + Y_2022 + Y_2023 + Y_2024 + 
+    AVC_dist + Desk_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.LMMCAR.model(k = 4, W = W_con, df = 8, PC = F ),
+      extraconstr = list(A = A_constr, e = c(0,0,0,0))),
+  offset = log(nn),
+  family = "poisson", data = dd_filtered_20$data, 
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = F), 
+  verbose = T)
+save(cav_LMMCAR_inla_unif_s20, file = "cav_LMMCAR_inla_unif_s20.RData")
+
+
+cav_LMMCAR_inla_pc_default_s20  <- inla(
+  N_ACC ~ 0+ Y_2021 + Y_2022 + Y_2023 + Y_2024+
+    AVC_dist + Desk_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.LMMCAR.model(k = 4, W = W_con,  df = 8, PC = T),
+      extraconstr = list(A = A_constr, e = c(0,0,0,0))),
+  offset = log(nn),
+  family = "poisson", data = dd_filtered_20$data, 
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = F), 
+  verbose = T)
+save(cav_LMMCAR_inla_pc_default_s20, file = "cav_LMMCAR_inla_pc_default_s20.RData")
+
+
+cav_LMMCAR_inla_pc_strict_s20 <- inla(
+  N_ACC ~ 0+ Y_2021 + Y_2022 + Y_2023 + Y_2024+
+    AVC_dist + Desk_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.LMMCAR.model(k = 4, W = W_con, df = 8, PC = T, alpha.lambda=9/10, U.lambda=3/5),
+      extraconstr = list(A = A_constr, e = c(0,0,0,0))),
+  offset = log(nn),
+  family = "poisson", data =dd_filtered_20$data, 
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = F), 
+  verbose = T)
+save(cav_LMMCAR_inla_pc_strict_s20, file = "CAV_LMMCAR_inla_pc_strict_s20.RData")
+
+#' 25 eigenvectors out --------------------------------------------------------#
+cav_LMMCAR_inla_unif_s25 <- inla(
+  N_ACC ~ 0+ Y_2021 + Y_2022 + Y_2023 + Y_2024 + 
+    AVC_dist + Desk_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.LMMCAR.model(k = 4, W = W_con, df = 8, PC = F ),
+      extraconstr = list(A = A_constr, e = c(0,0,0,0))),
+  offset = log(nn),
+  family = "poisson", data = dd_filtered_25$data, 
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = F), 
+  verbose = T)
+save(cav_LMMCAR_inla_unif_s25, file = "cav_LMMCAR_inla_unif_s25.RData")
+
+
+cav_LMMCAR_inla_pc_default_s25  <- inla(
+  N_ACC ~ 0+ Y_2021 + Y_2022 + Y_2023 + Y_2024+
+    AVC_dist + Desk_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.LMMCAR.model(k = 4, W = W_con,  df = 8, PC = T),
+      extraconstr = list(A = A_constr, e = c(0,0,0,0))),
+  offset = log(nn),
+  family = "poisson", data = dd_filtered_25$data, 
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = F), 
+  verbose = T)
+save(cav_LMMCAR_inla_pc_default_s25, file = "cav_LMMCAR_inla_pc_default_s25.RData")
+
+
+cav_LMMCAR_inla_pc_strict_s25 <- inla(
+  N_ACC ~ 0+ Y_2021 + Y_2022 + Y_2023 + Y_2024+
+    AVC_dist + Desk_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.LMMCAR.model(k = 4, W = W_con, df = 8, PC = T, alpha.lambda=9/10, U.lambda=3/5),
+      extraconstr = list(A = A_constr, e = c(0,0,0,0))),
+  offset = log(nn),
+  family = "poisson", data =dd_filtered_25$data, 
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = F), 
+  verbose = T)
+save(cav_LMMCAR_inla_pc_strict_s25, file = "CAV_LMMCAR_inla_pc_strict_s25.RData")
+
+
+## M-model BYM  ---------------------------------------------------------------
+
 
 cav_MMBYM_inla_unif <- inla(
   N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 +
-    TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+    AVC_dist + Desk_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
     f(ID, model = inla.MMBYM.model(k = 4, W = W_con,  PC= F, df = 8) ,
        extraconstr = constr.BYM),
   offset = log(nn),
   family = "poisson", data =dd_con,
-  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = F), 
   verbose = T)
-
-#cav_MMBYM_INLA.scale.fac <- inla(
-#  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 +
-#    TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
-#    f(ID, model = inla.MMBYM.model(k = 4, W = W_con,  PC= F, df = 8) ,
-#                                    scale.fac = scale.fac.prior, 
-#      extraconstr = constr.BYM),
-#  offset = log(nn), control.inla = list(h = 1e-5),
-#  family = "poisson", data =dd_con,
-#  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
-#  verbose = T)
+save(cav_MMBYM_inla_unif, file = "cav_MMBYM_inla_unif.RData")
 
 cav_MMBYM_inla_pc_default <- inla(
   N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 +
-    TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+    AVC_dist + Desk_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
     f(ID, model = inla.MMBYM.model(k = 4, W = W_con,  PC= T, df = 8) , 
       extraconstr = constr.BYM),
   offset = log(nn), #control.inla = list(h = 1e-5),
   family = "poisson", data =dd_con,
-  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = F), 
   verbose = T)
+save(cav_MMBYM_inla_pc_default, file = "cav_MMBYM_inla_pc_default.RData")
+
 
 cav_MMBYM_inla_pc_strict <- inla(
   N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 +
-    TEP_th + ELI + PGR + UIS + ELL + PDI + ER+ 
+    AVC_dist + Desk_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
     f(ID, model = inla.MMBYM.model(k = 4, W = W_con,  PC= T, df = 8, alpha.phi = 9/10, U.phi = 3/5) , 
       extraconstr = constr.BYM),
   offset = log(nn), #control.inla = list(h = 1e-5),
   family = "poisson", data =dd_con,
-  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = F), 
   verbose = T)
+save(cav_MMBYM_inla_pc_strict, file = "cav_MMBYM_inla_pc_strict.RData")
 
 
-set.seed(11)
+
+
+
+
+#set.seed(11)
 cav_MMBYM_hyper <- rbind(
   Mmodel_compute_mixing(cav_MMBYM_inla_pc_strict),
   do.call(rbind, vcov_summary(cav_MMBYM_inla_pc_strict))) %>% 
   dplyr::select(-.data$sd)
 xtable::xtable(cav_MMBYM_hyper, digits=3)
+
+## M-Model BYM, deconfounded ---------------------------------------------------
+
+#' 10 eigenvectors out ---------------------------------------------------------
+
+cav_MMBYM_inla_unif_s10 <- inla(
+  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 +
+    AVC_dist + Desk_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.MMBYM.model(k = 4, W = W_con,  PC= F, df = 8) ,
+      extraconstr = constr.BYM),
+  offset = log(nn),
+  family = "poisson", data = dd_filtered_10$data,
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = F), 
+  verbose = T)
+save(cav_MMBYM_inla_unif_s10, file = "cav_MMBYM_inla_unif_s10.RData")
+
+cav_MMBYM_inla_pc_default_s10 <- inla(
+  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 +
+    AVC_dist + Desk_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.MMBYM.model(k = 4, W = W_con,  PC= T, df = 8) , 
+      extraconstr = constr.BYM),
+  offset = log(nn), #control.inla = list(h = 1e-5),
+  family = "poisson", data = dd_filtered_10$data,
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = F), 
+  verbose = T)
+save(cav_MMBYM_inla_pc_default_s10, file = "cav_MMBYM_inla_pc_default_s10.RData")
+
+
+cav_MMBYM_inla_pc_strict_s10 <- inla(
+  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 +
+    AVC_dist + Desk_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.MMBYM.model(k = 4, W = W_con,  PC= T, df = 8, alpha.phi = 9/10, U.phi = 3/5) , 
+      extraconstr = constr.BYM),
+  offset = log(nn), #control.inla = list(h = 1e-5),
+  family = "poisson", data = dd_filtered_10$data,
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = F), 
+  verbose = T)
+save(cav_MMBYM_inla_pc_strict_s10, file = "cav_MMBYM_inla_pc_strict_s10.RData")
+
+
+#' 15 eigenvectors out ---------------------------------------------------------
+
+cav_MMBYM_inla_unif_s15 <- inla(
+  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 +
+    AVC_dist + Desk_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.MMBYM.model(k = 4, W = W_con,  PC= F, df = 8) ,
+      extraconstr = constr.BYM),
+  offset = log(nn),
+  family = "poisson", data = dd_filtered_15$data,
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = F), 
+  verbose = T)
+save(cav_MMBYM_inla_unif_s15, file = "cav_MMBYM_inla_unif_s15.RData")
+
+
+cav_MMBYM_inla_pc_default_s15 <- inla(
+  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 +
+    AVC_dist + Desk_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.MMBYM.model(k = 4, W = W_con,  PC= T, df = 8) , 
+      extraconstr = constr.BYM),
+  offset = log(nn),
+  family = "poisson", data = dd_filtered_15$data,
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = F), 
+  verbose = T)
+save(cav_MMBYM_inla_pc_default_s15, file = "cav_MMBYM_inla_pc_default_s15.RData")
+
+
+cav_MMBYM_inla_pc_strict_s15 <- inla(
+  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 +
+    AVC_dist + Desk_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.MMBYM.model(k = 4, W = W_con,  PC= T, df = 8, alpha.phi = 9/10, U.phi = 3/5) , 
+      extraconstr = constr.BYM),
+  offset = log(nn), 
+  family = "poisson", data = dd_filtered_15$data,
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = F), 
+  verbose = T)
+save(cav_MMBYM_inla_pc_strict_s15, file = "cav_MMBYM_inla_pc_strict_s15.RData")
+
+#' 20 eigenvectors out --------------------------------------------------------#
+cav_MMBYM_inla_unif_s20 <- inla(
+  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 +
+    AVC_dist + Desk_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.MMBYM.model(k = 4, W = W_con,  PC= F, df = 8) ,
+      extraconstr = constr.BYM),
+  offset = log(nn),
+  family = "poisson", data = dd_filtered_20$data,
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = F), 
+  verbose = T)
+save(cav_MMBYM_inla_unif_s20, file = "cav_MMBYM_inla_unif_s20.RData")
+
+
+cav_MMBYM_inla_pc_default_s20 <- inla(
+  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 +
+    AVC_dist + Desk_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.MMBYM.model(k = 4, W = W_con,  PC= T, df = 8) , 
+      extraconstr = constr.BYM),
+  offset = log(nn),
+  family = "poisson", data = dd_filtered_20$data,
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = F), 
+  verbose = T)
+save(cav_MMBYM_inla_pc_default_s20, file = "cav_MMBYM_inla_pc_default_s20.RData")
+
+
+cav_MMBYM_inla_pc_strict_s20 <- inla(
+  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 +
+    AVC_dist + Desk_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.MMBYM.model(k = 4, W = W_con,  PC= T, df = 8, alpha.phi = 9/10, U.phi = 3/5) , 
+      extraconstr = constr.BYM),
+  offset = log(nn), 
+  family = "poisson", data = dd_filtered_20$data,
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = F), 
+  verbose = T)
+save(cav_MMBYM_inla_pc_strict_s20, file = "cav_MMBYM_inla_pc_strict_s20.RData")
+
+
+#' 25 eigenvectors out --------------------------------------------------------#
+cav_MMBYM_inla_unif_s25 <- inla(
+  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 +
+    AVC_dist + Desk_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.MMBYM.model(k = 4, W = W_con,  PC= F, df = 8) ,
+      extraconstr = constr.BYM),
+  offset = log(nn),
+  family = "poisson", data = dd_filtered_25$data,
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = F), 
+  verbose = T)
+save(cav_MMBYM_inla_unif_s25, file = "cav_MMBYM_inla_unif_s25.RData")
+
+
+cav_MMBYM_inla_pc_default_s25 <- inla(
+  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 +
+    AVC_dist + Desk_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.MMBYM.model(k = 4, W = W_con,  PC= T, df = 8) , 
+      extraconstr = constr.BYM),
+  offset = log(nn),
+  family = "poisson", data = dd_filtered_25$data,
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = F), 
+  verbose = T)
+save(cav_MMBYM_inla_pc_default_s25, file = "cav_MMBYM_inla_pc_default_s25.RData")
+
+
+cav_MMBYM_inla_pc_strict_s25 <- inla(
+  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 +
+    AVC_dist + Desk_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
+    f(ID, model = inla.MMBYM.model(k = 4, W = W_con,  PC= T, df = 8, alpha.phi = 9/10, U.phi = 3/5) , 
+      extraconstr = constr.BYM),
+  offset = log(nn), 
+  family = "poisson", data = dd_filtered_25$data,
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = F), 
+  verbose = T)
+save(cav_MMBYM_inla_pc_strict_s25, file = "cav_MMBYM_inla_pc_strict_s25.RData")
+
+
+
 
 ## TBD: model comparison draft -------------------------------------------------
 
@@ -1309,7 +1791,7 @@ cav_PMCAR_sim.W<- inla(
   y.sim ~ 1+ 
     f(ID, model = inla.PMCAR.Bartlett(k = 4, W = W_con, df=6, Wishart.on.scale = T )),
   family = "poisson", data = data.frame(y.sim = y.sim, ID = seq(length(y.sim))),
-  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = F), 
   verbose = T)
 
 
@@ -1317,7 +1799,7 @@ cav_PMCAR_sim.IW<- inla(
   y.sim ~ 1+ 
     f(ID, model = inla.PMCAR.Bartlett(k = 4, W = W_con, df=6, Wishart.on.scale = F )),
   family = "poisson", data = data.frame(y.sim = y.sim, ID = seq(length(y.sim))),
-  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = F), 
   verbose = T)
 
 Mmodel_compute_cor_bigDM(cav_PMCAR_sim.IW, J=4)[c(1,3)]
@@ -1326,7 +1808,7 @@ cav_PMMCAR_sim.W.0 <- inla(
   y.sim ~ 1+ 
     f(ID, model = inla.PMMCAR.model(k = 4, W = W_con, df=6)),
   family = "poisson", data = data.frame(y.sim = y.sim, ID = seq(length(y.sim))),
-  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = F), 
   verbose = T)
  
 
@@ -1334,14 +1816,14 @@ cav_PMMCAR_sim.W.1 <- inla(
   y.sim ~ 1+ 
     f(ID, model = inla.PMMCAR.model(k = 4, W = W_con, df=6, scale.fac = scale.fac.prior)),
   family = "poisson", data = data.frame(y.sim = y.sim, ID = seq(length(y.sim))),
-  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = F), 
   verbose = T)
 
 cav_PMMCAR_sim.W.2 <- inla(
   y.sim ~ 1+ 
     f(ID, model = inla.PMMCAR.model(k = 4, W = W_con, df=6, scale.fac = sqrt(1000)*scale.fac.prior)),
   family = "poisson", data = data.frame(y.sim = y.sim, ID = seq(length(y.sim))),
-  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = F), 
   verbose = T)
 
 cav_PMMCAR_sim.IW_init <- inla(
@@ -1349,7 +1831,7 @@ cav_PMMCAR_sim.IW_init <- inla(
     f(ID, model = inla.PMMCAR.model(k = 4, W = W_con, df=6, Wishart.on.scale=F,
                                     initial.values = c(0, 0, 0, 0, cav_PMCAR_sim.IW$summary.hyperpar$mode[-1]))),
   family = "poisson", data = data.frame(y.sim = y.sim, ID = seq(length(y.sim))),
-  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = F), 
   verbose = T)
 
 
@@ -1358,6 +1840,44 @@ cav_PMMCAR_sim.W <- inla(
     f(ID, model = inla.PMMCAR.bigDM(J = 4, W = W_con,  alpha.min = 0,alpha.max = 1,
                                     initial.values = cav_PMCAR_sim.W$summary.hyperpar$mode[-1])),
   family = "poisson", data = data.frame(y.sim = y.sim, ID = seq(length(y.sim))),
-  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
+  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, config = F), 
   verbose = T)
 
+##' tweaking on AR(1)-ST PC-prior ---------------------------------------------#
+##' dpc.corr.ar1 <- function(x, t=k, n=1000, alpha=0.8, U=0.4, log=F){
+
+x <- 0.88
+t <- 10
+n <- 1000000000
+x <- pmax(abs(x), 1e-12) * ifelse(x < 0, -1, 1)
+
+
+
+h <- function(x, t)( log(1-x^2) + t*x^2/(1-x^2) )
+KLD <- function(x, t, n){
+  return(n/2 * ( log(1-x^2) + t*x^2/(1-x^2) ))
+}
+deriv.h <- function(x, t) 2*x*( -1/(1-x^2) + t/((1-x^2)^2)  )
+deriv.KLD <- function(x, t, n){
+  return(n*x*( -1/(1-x^2) + t/((1-x^2)^2)  ) )
+}
+dist.zero <- sqrt(2*KLD(U, t=t, n=n))
+rate <- -log(1-alpha)/dist.zero
+
+ff <- stats::dexp(x=sqrt(2*KLD(x=x, t=t, n=n)), rate = rate)*
+  1/sqrt(2*KLD(x=x, t=t, n=n)) * abs(deriv.KLD(x=x, t=t, n=n)) / 2
+
+ff.man.step <- 1/2 * 1/sqrt(n) * 1/sqrt(h(x=U, t=t)) * log(1/(1-alpha)) * 
+  exp(log(1-alpha)*sqrt(h(x=x, t=t)/h(x=U,t=t)))*
+  (1/sqrt(n)) * (1/sqrt(h(x=x, t=t))) * (n/2) * abs(deriv.h(x=x, t=t))
+
+ff.man.1 <-  1/4 * (1/(sqrt(h(x=U, t=t))*sqrt(h(x=x, t=t)))) * log(1/(1-alpha)) * 
+  exp(log(1-alpha)*sqrt(h(x=x, t=t)/h(x=U,t=t)))*
+  abs(deriv.h(x=x, t=t))
+
+ff.man <- 1/4 * (1/sqrt(h(x=x, t=t)*h(x=U, t=t))) * 
+  log(1/(1-alpha)) * exp(log(1-alpha) * sqrt(h(x=x, t=t)/h(x=U, t=t))) * 
+  abs(deriv.h(x=x, t=t))
+
+ff/ff.man
+ 

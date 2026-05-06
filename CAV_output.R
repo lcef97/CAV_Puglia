@@ -1077,17 +1077,60 @@ inla.MBYM.AR1 <- function(...) {
 
 
 ##  Exploratory analysis --------------------------------------------------------
-#'
-#' Covariates correlation plot. It has now become 
-#' a standard -----------------------------------------------------------------#
-ggplot2::ggplot(data = reshape2::melt(cor(X[,-1]))) +
-  ggplot2::geom_tile(ggplot2::aes(
-    x = .data$Var2, y = .data$Var1, fill = .data$value), color = "black") +
-  ggplot2::geom_text(ggplot2::aes(
-    x = .data$Var2, y = .data$Var1, label = round(.data$value, 2))) +
-  ggplot2::scale_fill_gradient2(
-    low = "blue", mid = "white", high = "red", midpoint = 0) +
-  ggplot2::theme_minimal()
+
+##' Individual - level data ==> commented; anonymised file available on request.
+##CAV_anonymous_record <- readxl::read_excel("../input_excel/CAV_anonymous_record.xlsx",  sheet = "Sintesi")
+
+#nr.violence <- CAV_anonymous_record %>% 
+#  dplyr::transmute(V1 = as.numeric(!is.na(.data$VIO_1)),
+#                   V2 = as.numeric(!is.na(.data$VIO_2)),
+#                   V3 = as.numeric(!is.na(.data$VIO_3))) %>% 
+#  dplyr::mutate(NV = V1+V2+V3)
+
+##' SAVE PLOTS AS PORTRAITS!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+##' 
+##' Size: 6.59 x 5, != default (6.59 x 5.45)
+##' 
+#data.frame(Violence = c(CAV_anonymous_record$VIO_1, CAV_anonymous_record$VIO_2,
+#                     CAV_anonymous_record$VIO_3)) %>% 
+#  dplyr::filter(!is.na(.data$Violence)) %>% 
+#  dplyr::filter(.data$Violence != "Other") %>% 
+#  ggplot2::ggplot(ggplot2::aes(x=as.factor(.data$Violence)))+
+#  ggplot2::geom_bar(fill = "steelblue")+
+#  ggplot2::theme_classic()+
+#  ggplot2::coord_flip()+
+#  ggplot2::theme(axis.text.y = ggplot2::element_text(angle = 45, hjust = 0.8, vjust = 0.8, size =11))+
+#  ggplot2::theme(axis.text.x = ggplot2::element_text(size =11))+
+#  ggplot2::xlab("") + ggplot2::ylab("") +
+#  ggplot2::ggtitle("Reported violence")
+  
+
+#data.frame(Aggressor = c(CAV_anonymous_record$Aggressor_1, CAV_anonymous_record$Aggressor_2,
+#                        CAV_anonymous_record$Aggressor_3)) %>% 
+#  dplyr::filter(!is.na(.data$Aggressor)) %>% 
+#  ggplot2::ggplot(ggplot2::aes(x=as.factor(.data$Aggressor)))+
+#  ggplot2::geom_bar(fill = "steelblue") +
+#  ggplot2::theme_classic()+
+#  ggplot2::coord_flip()+
+#  ggplot2::theme(axis.text.y = ggplot2::element_text(angle = 45, hjust = 0.8, vjust = 0.8, size =11))+
+#  ggplot2::theme(axis.text.x = ggplot2::element_text(size =11))+  
+#  ggplot2::xlab("") + ggplot2::ylab("") + 
+#  ggplot2::ggtitle("Violence perpetrator")
+
+#data.frame(Need = c(CAV_anonymous_record$Need_1, CAV_anonymous_record$Need_2,
+#                         CAV_anonymous_record$Need_3, CAV_anonymous_record$Need_4,
+#                         CAV_anonymous_record$Need_5, CAV_anonymous_record$Need_6, 
+#                         CAV_anonymous_record$Need_7, CAV_anonymous_record$Need_8)) %>% 
+#  dplyr::filter(!is.na(.data$Need)) %>% 
+#  ggplot2::ggplot(ggplot2::aes(x=as.factor(.data$Need)))+
+#  ggplot2::geom_bar(fill = "steelblue") +
+#  ggplot2::theme_classic()+
+#  ggplot2::coord_flip()+
+#  ggplot2::theme(axis.text.y = ggplot2::element_text(angle = 45, hjust = 0.8, vjust = 0.8, size =11))+
+#  ggplot2::theme(axis.text.x = ggplot2::element_text(size =11))+
+#  ggplot2::xlab("") + ggplot2::ylab("")+
+#  ggplot2::ggtitle("Needs of women accessing AVCs")
+
 
 
 #' Before more involved analysis let us consider the nonspatial model ---------#
@@ -1106,15 +1149,6 @@ cav_nosp_inla <- inla(
   control.compute = list(internal.opt = F, cpo = T, waic = T, dic = T), 
   verbose = T)
 
-#' Model with expected accesses - equivalent in theory ------------------------#
-#cav_nosp_inla_E <- inla(
-#  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 +
-#    AVC_dist + Desk_dist + ELI + PGR + UIS + ELL + PDI + ER,
-#  E = Exp,
-#  family = "poisson", data = dd_con,
-#  num.threads = 1, 
-#  control.compute = list(internal.opt = F, cpo = T, waic = T, config = T), 
-#  verbose = T)
 
 ##' Plot distance
 
@@ -1197,7 +1231,6 @@ cav_IMCAR_inla.AR1 <- inla(
   offset = log(nn), family = "poisson", data =dd_con,
   num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, dic = T), 
   verbose = T)
-cav_IMCAR_inla.AR1$waic$waic
 
 
 
@@ -1232,6 +1265,7 @@ cav_IMCAR_inla.AR1_s25 <- inla(
       verbose = T)
 
 
+#' Not in the paper but may be useful
 #' This can be done as card(\theta) = 2 ----------------------------------------
 
 jh <- cav_IMCAR_inla.AR1$joint.hyper
@@ -1252,9 +1286,7 @@ plotly::plot_ly(x = interp_res$x,
     scene = list(
       xaxis = list(title = "AR.corr"),
       yaxis = list(title = "prec"),
-      zaxis = list(title = "Posterior density")
-    )
-  )
+      zaxis = list(title = "Posterior density")))
 
 ##  Spatiotemporal models: AR(1) - PCAR -----------------------------------------
 
@@ -1511,6 +1543,48 @@ cav_LMCAR_inla.AR1.PC.strict_s20 <- inla(
   verbose = T)
 
 
+#' Posterior summaries - can done more elegantly than this --------------------#
+
+#' Transformed marginals ------------------------------------------------------#
+lambda.marg <- inla.tmarginal(
+  function(x) 1/(1+exp(-x)),
+  marginal = cav_LMCAR_inla.AR1.PC.strict_s20$marginals.hyperpar[[1]])
+
+sigma.marg <- inla.tmarginal(
+  function(x) exp(-x/2),
+  marginal = cav_LMCAR_inla.AR1.PC.strict_s20$marginals.hyperpar[[2]])
+
+sigmasq.marg <- inla.tmarginal(
+  function(x) exp(-x),
+  marginal = cav_LMCAR_inla.AR1.PC.strict_s20$marginals.hyperpar[[2]])
+
+
+rho.marg <- inla.tmarginal(
+  function(x) 2/(1+exp(-x))-1,
+  marginal = cav_LMCAR_inla.AR1.PC.strict_s20$marginals.hyperpar[[3]])
+
+
+hyper.post <- as.data.frame(round(do.call(rbind, lapply(
+  list(lambda.marg, sigma.marg, sigmasq.marg, rho.marg), function(f) {
+    unlist(inla.zmarginal(f, silent=T))})), 3)) %>% 
+  dplyr::select(c(1,2,3,5,7)) %>% 
+  dplyr::mutate(param = c("lambda", "sigma", "sigmaSq", "rho")) %>% 
+  dplyr::relocate(param, .before=1)
+print(xtable::xtable(hyper.post, digits=3), include.rowname = F)
+
+##' Spatial covariance matrix using LCAR --------------------------------------#
+
+Omega.LCAR <- function(lambda){
+  Prec <- lambda * Lapl_con + (1-lambda)*Matrix::Diagonal(n=n, x=1)
+  if(lambda < 1) Omega <- solve (Prec) else Omega <- INLA:::inla.ginv(Prec)
+  return(Omega)
+}
+
+##' E[lambda | y] = 0.557, median = 0.559, mode = 0.557
+lambda.marg[which.max(lambda.marg[,2]),1]
+
+exp(mean(log(diag(Omega.LCAR(lambda = 0.557)))))
+
 #' Spatial filter - remove 25 eigenvectors ------------------------------------#
 ##' Uniform prior -------------------------------------------------------------#
 
@@ -1547,177 +1621,6 @@ cav_LMCAR_inla.AR1.PC.strict_s25 <- inla(
 
 
 
-##  Spatiotemporal models: AR(1) - BYM  ----------------------------------------
-
-#' Input data -----------------------------------------------------------------#
-
-##' Uniform prior -------------------------------------------------------------#
-
-cav_MBYM_inla.AR1.Unif <- inla(
-  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + AVC_dist + Desk_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
-    f(ID, model = inla.MBYM.AR1(k = 4, W = W_con, PC.ar1 = T, PC.phi = F, alpha.sd = 0.1, U.sd=sqrt(1/2)), 
-      extraconstr = constr.BYM),
-  offset = log(nn), family = "poisson", data =dd_con,
-  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, dic = T), 
-  verbose = T)
-
-##' Standard PC-prior ---------------------------------------------------------#
-cav_MBYM_inla.AR1.PC <- inla(
-  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + AVC_dist + Desk_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
-    f(ID, model = inla.MBYM.AR1(k = 4, W = W_con, PC.ar1 = T, PC.phi = T, alpha.sd =0.1, U.sd = sqrt(1/2)), 
-      extraconstr = constr.BYM),
-  offset = log(nn), family = "poisson", data =dd_con,
-  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, dic = T), 
-  verbose = T)
- 
-##' Strict PC-prior -----------------------------------------------------------#
-cav_MBYM_inla.AR1.PC.strict <- inla(
-  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + AVC_dist + Desk_dist+ ELI + PGR + UIS + ELL + PDI + ER+ 
-    f(ID, model = inla.MBYM.AR1(k = 4, W = W_con, PC.ar1 = T, alpha.phi =0.9, U.phi=0.6,
-                                alpha.sd =0.1, U.sd = sqrt(1/2)), 
-      extraconstr = constr.BYM),
-  offset = log(nn), family = "poisson", data =dd_con,
-  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, dic = T), 
-  verbose = T)
-
-
-#' Spatial filter - remove 15 eigenvectors ------------------------------------#
-
-##' Uniform prior -------------------------------------------------------------#
-
-cav_MBYM_inla.AR1.Unif_s15 <- inla(
-  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + AVC_dist + Desk_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
-    f(ID, model = inla.MBYM.AR1(k = 4, W = W_con, PC.ar1 = T, PC.phi = F, alpha.sd = 0.1, U.sd=sqrt(1/2)), 
-      extraconstr = constr.BYM),
-  offset = log(nn), family = "poisson", data =dd_filtered_15$data,
-  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, dic = T), 
-  verbose = T)
-
-##' Standard PC-prior ---------------------------------------------------------#
-cav_MBYM_inla.AR1.PC_s15 <- inla(
-  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + AVC_dist + Desk_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
-    f(ID, model = inla.MBYM.AR1(k = 4, W = W_con, PC.ar1 = T, PC.phi = T, alpha.sd =0.1, U.sd = sqrt(1/2)), 
-      extraconstr = constr.BYM),
-  offset = log(nn), family = "poisson", data =dd_filtered_15$data,
-  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, dic = T), 
-  verbose = T)
-
-##' Strict PC-prior -----------------------------------------------------------#
-cav_MBYM_inla.AR1.PC.strict_s15 <- inla(
-  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + AVC_dist + Desk_dist+ ELI + PGR + UIS + ELL + PDI + ER+ 
-    f(ID, model = inla.MBYM.AR1(k = 4, W = W_con, PC.ar1 = T, alpha.phi =0.9, U.phi=0.6,
-                                alpha.sd =0.1, U.sd = sqrt(1/2)), 
-      extraconstr = constr.BYM),
-  offset = log(nn), family = "poisson", data =dd_filtered_15$data,
-  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, dic = T), 
-  verbose = T)
- 
-
-
-
-#' Spatial filter - remove 20 eigenvectors ------------------------------------#
-
-##' Uniform prior -------------------------------------------------------------#
-
-cav_MBYM_inla.AR1.Unif_s20 <- inla(
-  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + AVC_dist +
-    Desk_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
-    f(ID, model = inla.MBYM.AR1(k = 4, W = W_con, PC.ar1 = T, PC.phi = F, alpha.sd = 0.1, U.sd=sqrt(1/2)), 
-      extraconstr = constr.BYM),
-  offset = log(nn), family = "poisson", data =dd_filtered_20$data,
-  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, dic = T), 
-  verbose = T)
-
-##' Standard PC-prior ---------------------------------------------------------#
-cav_MBYM_inla.AR1.PC_s20 <- inla(
-  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + AVC_dist +
-    Desk_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
-    f(ID, model = inla.MBYM.AR1(k = 4, W = W_con, PC.ar1 = T, PC.phi = T, alpha.sd =0.1, U.sd = sqrt(1/2)), 
-      extraconstr = constr.BYM),
-  offset = log(nn), family = "poisson", data =dd_filtered_20$data,
-  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, dic = T), 
-  verbose = T)
-
-##' Strict PC-prior -----------------------------------------------------------#
-cav_MBYM_inla.AR1.PC.strict_s20 <- inla(
-  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + AVC_dist + Desk_dist+ ELI + PGR + UIS + ELL + PDI + ER+ 
-    f(ID, model = inla.MBYM.AR1(k = 4, W = W_con, PC.ar1 = T, alpha.phi =0.9, U.phi=0.6,
-                                alpha.sd =0.1, U.sd = sqrt(1/2)), 
-      extraconstr = constr.BYM),
-  offset = log(nn), family = "poisson", data =dd_filtered_20$data,
-  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, dic = T), 
-  verbose = T)
-
-#' Spatial filter - remove 25 eigenvectors ------------------------------------#
-
-##' Uniform prior -------------------------------------------------------------#
-
-cav_MBYM_inla.AR1.Unif_s25 <- inla(
-  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + 
-    AVC_dist + Desk_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
-    f(ID, model = inla.MBYM.AR1(k = 4, W = W_con, PC.ar1 = T, 
-                                PC.phi = F, alpha.sd = 0.1, U.sd=sqrt(1/2)), 
-      extraconstr = constr.BYM),
-  offset = log(nn), family = "poisson", data =dd_filtered_25$data,
-  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, dic = T), 
-  verbose = T)
-
-##' Standard PC-prior ---------------------------------------------------------#
-cav_MBYM_inla.AR1.PC_s25 <- inla(
-  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 +
-    AVC_dist + Desk_dist + ELI + PGR + UIS + ELL + PDI + ER+ 
-    f(ID, model = inla.MBYM.AR1(k = 4, W = W_con, PC.ar1 = T, 
-                                PC.phi = T, alpha.sd =0.1, U.sd = sqrt(1/2)), 
-      extraconstr = constr.BYM),
-  offset = log(nn), family = "poisson", data =dd_filtered_25$data,
-  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, dic = T), 
-  verbose = T)
-
-##' Strict PC-prior -----------------------------------------------------------#
-cav_MBYM_inla.AR1.PC.strict_s25 <- inla(
-  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + 
-    AVC_dist + Desk_dist+ ELI + PGR + UIS + ELL + PDI + ER+ 
-    f(ID, model = inla.MBYM.AR1(k = 4, W = W_con, PC.ar1 = T, alpha.phi =0.9, U.phi=0.6,
-                                alpha.sd =0.1, U.sd = sqrt(1/2)), 
-      extraconstr = constr.BYM),
-  offset = log(nn), family = "poisson", data =dd_filtered_25$data,
-  num.threads = 1, control.compute = list(internal.opt = F, cpo = T, waic = T, dic = T), 
-  verbose = T)
-
-
-#' Posterior summaries - can done more elegantly than this --------------------#
-
-#' Transformed marginals ------------------------------------------------------#
-phi.marg <- inla.tmarginal(
-  function(x) 1/(1+exp(-x)),
-  marginal = cav_MBYM_inla.AR1.Unif_s20$marginals.hyperpar[[1]])
-
-sigma.marg <- inla.tmarginal(
-  function(x) exp(-x/2),
-  marginal = cav_MBYM_inla.AR1.Unif_s20$marginals.hyperpar[[2]])
-
-sigmasq.marg <- inla.tmarginal(
-  function(x) exp(-x),
-  marginal = cav_MBYM_inla.AR1.Unif_s20$marginals.hyperpar[[2]])
-
-
-rho.marg <- inla.tmarginal(
-  function(x) 2/(1+exp(-x))-1,
-  marginal = cav_MBYM_inla.AR1.Unif_s20$marginals.hyperpar[[3]])
-
-
-hyper.post <- as.data.frame(round(do.call(rbind, lapply(
-  list(phi.marg, sigma.marg, sigmasq.marg, rho.marg), function(f) {
-    unlist(inla.zmarginal(f, silent=T))})), 3)) %>% 
-  dplyr::select(c(1,2,3,5,7)) %>% 
-  dplyr::mutate(param = c("phi", "sigma", "sigmaSq", "rho")) %>% 
-  dplyr::relocate(param, .before=1)
-print(xtable::xtable(hyper.post, digits=3), include.rowname = F)
-
-
-
-
-
 ##  Model comparison -----------------------------------------------------------
 
 
@@ -1725,16 +1628,16 @@ print(xtable::xtable(hyper.post, digits=3), include.rowname = F)
 
 
 .mods <- list(cav_nosp_inla, cav_IMCAR_inla.AR1, cav_PMCAR_inla.AR1.PC.strict,
-              cav_LMCAR_inla.AR1.PC.strict, cav_MBYM_inla.AR1.Unif,
+              cav_LMCAR_inla.AR1.PC.strict, 
               cav_IMCAR_inla.AR1_s20, cav_PMCAR_inla.AR1.PC.strict_s20,
-              cav_LMCAR_inla.AR1.PC.strict_s20, cav_MBYM_inla.AR1.Unif_s20)
+              cav_LMCAR_inla.AR1.PC.strict_s20)
 
 covar.in <- c("Desk_dist","AVC_dist","ELI","PGR","UIS","ELL","PDI","ER")
 
 forestplot. <- inla.forestplot.beta(
   models = .mods,  covar.in = covar.in,
-  model_names = c(".Nonspatial", "base ICAR", "base PCAR", "base LCAR", "base BYM",
-                  "S+ ICAR", "S+ PCAR", "S+ LCAR", "S+ BYM"),
+  model_names = c(".Nonspatial", "base ICAR", "base PCAR", "base LCAR",
+                  "S+ ICAR", "S+ PCAR", "S+ LCAR",),
   main = "Credible intervals of covariate effects")
 
 #' !!!!!!!!!!!!!! Warning!! currently saved with dim 9.64 x 6.5 !!!!!!!!!!!!!!!!
@@ -1749,10 +1652,7 @@ mm.tot <- list(nosp= cav_nosp_inla,
                PCAR_PC_s=cav_PMCAR_inla.AR1.PC.strict,
                LCAR_Un = cav_LMCAR_inla.AR1.Unif, 
                LCAR_PC_d=cav_LMCAR_inla.AR1.PC,
-               LCAR_PC_s=cav_LMCAR_inla.AR1.PC.strict,
-               BYM_Un=cav_MBYM_inla.AR1.Unif,
-               BYM_PC_d = cav_MBYM_inla.AR1.PC,
-               BYM_PC__s = cav_MBYM_inla.AR1.PC.strict)
+               LCAR_PC_s=cav_LMCAR_inla.AR1.PC.strict)
 
 #' WAIC comparison with spatial+ treatment.
 #' Ensure all these models have been run, with these eigenvector
@@ -1764,10 +1664,7 @@ mm.tot_s15 <- list(
   PCAR_PC_s=cav_PMCAR_inla.AR1.PC.strict_s15,
   LCAR_Un = cav_LMCAR_inla.AR1.Unif_s15, 
   LCAR_PC_d=cav_LMCAR_inla.AR1.PC_s15,
-  LCAR_PC_s=cav_LMCAR_inla.AR1.PC.strict_s15,
-  BYM_Un=cav_MBYM_inla.AR1.Unif_s15,
-  BYM_PC_d = cav_MBYM_inla.AR1.PC_s15,
-  BYM_PC__s = cav_MBYM_inla.AR1.PC.strict_s15)
+  LCAR_PC_s=cav_LMCAR_inla.AR1.PC.strict_s15)
 
 
 mm.tot_s20 <- list(
@@ -1777,10 +1674,7 @@ mm.tot_s20 <- list(
   PCAR_PC_s=cav_PMCAR_inla.AR1.PC.strict_s20,
   LCAR_Un = cav_LMCAR_inla.AR1.Unif_s20, 
   LCAR_PC_d=cav_LMCAR_inla.AR1.PC_s20,
-  LCAR_PC_s=cav_LMCAR_inla.AR1.PC.strict_s20,
-  BYM_Un=cav_MBYM_inla.AR1.Unif_s20,
-  BYM_PC_d = cav_MBYM_inla.AR1.PC_s20,
-  BYM_PC__s = cav_MBYM_inla.AR1.PC.strict_s20)
+  LCAR_PC_s=cav_LMCAR_inla.AR1.PC.strict_s20)
 
 mm.tot_s25<- list(
   ICAR = cav_IMCAR_inla.AR1_s25, 
@@ -1789,10 +1683,7 @@ mm.tot_s25<- list(
   PCAR_PC_s=cav_PMCAR_inla.AR1.PC.strict_s25,
   LCAR_Un = cav_LMCAR_inla.AR1.Unif_s25, 
   LCAR_PC_d=cav_LMCAR_inla.AR1.PC_s25,
-  LCAR_PC_s=cav_LMCAR_inla.AR1.PC.strict_s25,
-  BYM_Un=cav_MBYM_inla.AR1.Unif_s25,
-  BYM_PC_d = cav_MBYM_inla.AR1.PC_s25,
-  BYM_PC__s = cav_MBYM_inla.AR1.PC.strict_s25)
+  LCAR_PC_s=cav_LMCAR_inla.AR1.PC.strict_s25)
 
 
 

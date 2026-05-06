@@ -2766,7 +2766,7 @@ inla.pc.pmmcar.rho <- function(rho, eigenvalues, alpha = 2/3, U = 1/2){
   return(sum(log.p))
 }
 # #'  PC-prior for AR(1) autocorrelation parameter -----------------------------
-dpc.corr.ar1 <- function(x, t=10, n=1000, alpha=0.6, U=0.3, log=F){
+dpc.corr.ar1 <- function(x, t=k, n=1000, alpha=0.8, U=0.4, log=F){
   x <- pmax(abs(x), 1e-12) * ifelse(x < 0, -1, 1)
   KLD <- function(x, t, n){
     return(n/2 * ( log(1-x^2) + t*x^2/(1-x^2) ))
@@ -2781,6 +2781,7 @@ dpc.corr.ar1 <- function(x, t=10, n=1000, alpha=0.6, U=0.3, log=F){
   
   return(ifelse(log, log(ff), ff))
 }
+
 # #'  sample from scale posterior, adapted from bigDM --------------------------
 
 #' This is basically a bigDM:: function, ie.
