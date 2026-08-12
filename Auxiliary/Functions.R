@@ -1725,7 +1725,7 @@ inla.rgeneric.Mmodel.LCAR <-
       if(PC) {
         eigenvalues <- eigen(L - In, symmetric = T)$values
         rankdef <- n - Matrix::rankMatrix(L, method = "qr")
-        eigenvalues[n - c(0:rankdef)] <- -1
+        eigenvalues[(n - rankdef + 1):n] <- -1
         inla.pc.lmmcar.lambda <- function(lambda, eigenvalues, alpha = 2/3, U = 1/2){
           n <- length(eigenvalues)
           In <- Matrix::Diagonal(n = n, x = 1)
