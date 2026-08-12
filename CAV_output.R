@@ -1,5 +1,5 @@
 #' ---------  Analisi CAV Puglia 2021-24 --------------------------------------#
-##  Input ----------------------------------------------------------------------
+##'  Input ----------------------------------------------------------------------
 
 #' NEVER forget calling magrittr and sf. Never --------------------------------#
 #' 
@@ -184,13 +184,8 @@ suppressWarnings({
 #'  Loop to compute minimal distances
 #'
 #'
-#'
-#'
-#'
 #'  Municipalities hosting a support center:
 #'  
-#'  #' Dubious status: Castrignano de'Greci (Dafne ==> active until 2022 I guess) 
-#'  #' and Cerignola (why missing??)
   munWcav_21 <- c(71024,	71051,
                   72004,	72006,	72011,	72014,	72019,	72021,	72029,	72031,	72035,	
                   73013,	73027,	
@@ -281,6 +276,8 @@ munWdesk <- c(
 #'  dists_desk <- data.frame(rbind(dists_desk, ret))
 #'}
 
+
+##' Load distances from AVCs and help-desks -----------------------------------#
 load(url("https://github.com/lcef97/CAV_Puglia/raw/main/input/dists_th_21.RData"))
 load(url("https://github.com/lcef97/CAV_Puglia/raw/main/input/dists_th_22.RData"))
 load(url("https://github.com/lcef97/CAV_Puglia/raw/main/input/dists_th_23.RData"))
@@ -301,6 +298,8 @@ Centroids_22 <- dplyr::filter(Centroids, PRO_COM %in% munWcav_22)
 Centroids_23 <- dplyr::filter(Centroids, PRO_COM %in% munWcav_23)
 Centroids_24 <- dplyr::filter(Centroids, PRO_COM %in% munWcav_24)
 
+
+##' Plot in figure 1 ----------------------------------------------------------#
 
 ggy21 <- ggplot2::ggplot() +
   ggplot2::geom_sf(data = dplyr::filter(dd, .data$Year == "2021"), 
@@ -370,8 +369,6 @@ dd_con <- dd %>% dplyr::filter(!.data$PRO_COM %in% singletons) %>%
   dplyr::mutate(Area = as.numeric(as.factor(.data$PRO_COM)))
 
 
-##  Model input setup -----------------------------------------------------------
-#' 
 #' Input data are defined; now we need some auxiliary objects -----------------#
 #' 
 #' Number of sites saved here -------------------------------------------------#
@@ -396,11 +393,7 @@ constr <- INLA:::inla.bym.constr.internal(
   Q = Lapl_con, adjust.for.con.comp = T)
 A_constr <- kronecker(Matrix::Diagonal(n=4,x=1), constr$constr$A)
 
-#'  Necessary to constrain the BYM model --------------------------------------#
-constr.BYM <- list(
-  A = cbind(Matrix::Matrix(0, nrow = nrow(A_constr), ncol = ncol(A_constr)), A_constr),
-  e=c(0,0,0,0) )
-
+ 
 
 #' Full GLM --> for model matrix
 glm_all_X <- glm(N_ACC ~ 1 + Desk_dist + AVC_dist + MFI + AES + PDI + ELL + ER +
@@ -509,11 +502,8 @@ inla.forestplot.beta <- function(models, covar.in = NULL, model_names = NULL,
 
 
 #' ----------------------------------------------------------------------------#
-
-##  INLA code for factorisable ST autoregressive models ------------------------
+##'  INLA code for  AR(1) x CAR models  ----------------------------------------
 #'
-#' First of all, recall INLA. Otherwise, what is the whole thing about? -------#
-library(INLA)
 #' Temporal structure is AR(1)-like -------------------------------------------#
 
 ##'    IMCAR model ------------------------------------------------------------#
@@ -523,7 +513,7 @@ inla.IMCAR.AR1  <- function(...){
                              scale.model = TRUE, heteroskedastic = F,
                              alpha.sd = 1/100, U.sd = 1,
                              PC.ar1 = T, alpha.corr = 0.8, U.corr = 0.4,
-                             chisq = FALSE, ...)
+                             ...)
 } 
 
 inla.rgeneric.IMCAR.AR1  <- 
@@ -777,7 +767,7 @@ inla.rgeneric.LMCAR.AR1 <-
         n <- nrow(W)
         eigenvalues <- eigen(L - In, symmetric = T)$values
         rankdef <- n - Matrix::rankMatrix(L, method = "qr")
-        eigenvalues[n - c(0:rankdef)] <- -1
+        eigenvalues[(n - rankdef + 1):n] <- -1
         inla.pc.lmmcar.lambda <- function(lambda, eigenvalues, alpha = 2/3, U = 1/2){
           n <- length(eigenvalues)
           In <- Matrix::Diagonal(n = n, x = 1)
@@ -1134,12 +1124,7 @@ inla.MBYM.AR1 <- function(...) {
 
 
 #' Before more involved analysis let us consider the nonspatial model ---------#
-cav_nosp_glm <- glm(
-  N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 +
-    Desk_dist + AVC_dist + ELI + PGR + UIS + ELL + PDI + ER, 
-  family = "poisson", offset = log(nn), data = dd_con)
 
-#' Model with offset ----------------------------------------------------------#
 cav_nosp_inla <- inla(
   N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 +
   AVC_dist + Desk_dist + ELI + PGR + UIS + ELL + PDI + ER,
@@ -1150,28 +1135,11 @@ cav_nosp_inla <- inla(
   verbose = T)
 
 
-##' Plot distance
 
-Shp %>% dplyr::select(PRO_COM) %>% 
-  dplyr::left_join(dists_th_24) %>% 
-  ggplot2::ggplot()+
-  ggplot2::geom_sf(ggplot2::aes(fill = .data$AVC_dist))+
-  ggplot2::scale_fill_viridis_c(direction = -1)+
-  ggplot2::ggtitle("Distance from closest municipality hosting AVCs, 2024")+
-  ggplot2::theme_classic()
-
-dd  %>% dplyr::filter(.data$Year == "2024") %>%
-  dplyr::select(PRO_COM) %>% 
-  dplyr::left_join(dists_desk) %>% 
-  dplyr::mutate(DDist = ifelse(.data$Desk_dist>0, .data$Desk_dist, NA)) %>% 
-  ggplot2::ggplot()+
-  ggplot2::geom_sf(ggplot2::aes(fill = .data$DDist))+
-  ggplot2::scale_fill_viridis_c(direction = -1, na.value  = "white")+
-  ggplot2::ggtitle("Distance (minutes) from closest help desk")+
-  ggplot2::theme_classic()
 
 ##' Plot covariates -----------------------------------------------------------#
-
+##' EXAMPLE - ELL. Same can be done with other ones. 
+##' 
 dd %>% dplyr::filter(.data$Year == "2024") %>% 
   ggplot2::ggplot()+
   ggplot2::geom_sf(ggplot2::aes( fill = .data$ELL ))+
@@ -1179,48 +1147,21 @@ dd %>% dplyr::filter(.data$Year == "2024") %>%
   ggplot2::ggtitle("Incidence of low education levels")+
   ggplot2::theme_classic()
   
-
-
-##' Tuning a priori -----------------------------------------------------------#
-
-dpc.corr.ar1 <- function(x, t=k, n=1000, alpha=0.8, U=0.4, log=F){
-  x <- pmax(abs(x), 1e-12) * ifelse(x < 0, -1, 1)
-  KLD <- function(x, t, n){
-    return(n/2 * ( log(1-x^2) + t*x^2/(1-x^2) ))
-  }
-  deriv.KLD <- function(x, t, n){
-    return(n*x*( -1/(1-x^2) + t/((1-x^2)^2)  ) )
-  }
-  dist.zero <- sqrt(2*KLD(U, t=t, n=n))
-  rate <- -log(1-alpha)/dist.zero
-  ff <- stats::dexp(x=sqrt(2*KLD(x=x, t=t, n=n)), rate = rate)*
-    1/sqrt(2*KLD(x=x, t=t, n=n)) * abs(deriv.KLD(x=x, t=t, n=n)) / 2
-  
-  return(ifelse(log, log(ff), ff))
-}
-
-
-u <- 0.5; alpha = 0.9
-rhos <- c(-499:-1, 1:499)/500
-ff.r <- Vectorize(function(x) dpc.corr.ar1(x=x, t=4, U=u, alpha = alpha))
-plot(rhos, ff.r(rhos), type = 'l', main = paste0("u = ",u, " alpha = ", alpha))
-abline(v=u)
-integrate(ff.r, 0, u)
-
-u <- 0.4; alpha = 0.8
-rhos <- c(-499:-1, 1:499)/500
-ff.r <- Vectorize(function(x) dpc.corr.ar1(x=x, t=4, U=u, alpha = alpha))
-plot(rhos, ff.r(rhos), type = 'l', main = paste0("u = ",u, " alpha = ", alpha))
-abline(v=u)
-integrate(ff.r, 0, u)
-
+##' This to plot distance from AVCs -------------------------------------------#
+dd %>% 
+  dplyr::left_join(distances, by = c("PRO_COM", "Year"))%>% 
+  dplyr::filter(.data$Year=="2024") %>% 
+  dplyr::mutate(AVC_dist = ifelse(.data$AVC_dist>0, .data$AVC_dist, NA)) %>% 
+  ggplot2::ggplot()+
+  ggplot2::geom_sf(ggplot2::aes( fill = .data$AVC_dist ))+
+  ggplot2::scale_fill_viridis_c(direction=-1, na.value="white")+
+  ggplot2::ggtitle("Distance (minutes) from closest AVC, year 2024")+
+  ggplot2::theme_classic()
 
 
 ##  Spatiotemporal models: AR(1) - ICAR -----------------------------------------
 
  
-
-
 
 cav_IMCAR_inla.AR1 <- inla(
   N_ACC ~ 0 + Y_2021 + Y_2022 + Y_2023 + Y_2024 + 
@@ -1583,7 +1524,7 @@ Omega.LCAR <- function(lambda){
 ##' E[lambda | y] = 0.557, median = 0.559, mode = 0.557
 lambda.marg[which.max(lambda.marg[,2]),1]
 
-exp(mean(log(diag(Omega.LCAR(lambda = 0.557)))))
+exp(mean(log(diag(Omega.LCAR(lambda = 0.558)))))
 
 #' Spatial filter - remove 25 eigenvectors ------------------------------------#
 ##' Uniform prior -------------------------------------------------------------#
@@ -1623,8 +1564,7 @@ cav_LMCAR_inla.AR1.PC.strict_s25 <- inla(
 
 ##  Model comparison -----------------------------------------------------------
 
-
-#' Forest plot for covariate effects, compare spatial and nonspatial models ---#
+#' Forest-plot for covariate effects, compare spatial and nonspatial models ---#
 
 
 .mods <- list(cav_nosp_inla, cav_IMCAR_inla.AR1, cav_PMCAR_inla.AR1.PC.strict,
@@ -1637,7 +1577,7 @@ covar.in <- c("Desk_dist","AVC_dist","ELI","PGR","UIS","ELL","PDI","ER")
 forestplot. <- inla.forestplot.beta(
   models = .mods,  covar.in = covar.in,
   model_names = c(".Nonspatial", "base ICAR", "base PCAR", "base LCAR",
-                  "S+ ICAR", "S+ PCAR", "S+ LCAR",),
+                  "S+ ICAR", "S+ PCAR", "S+ LCAR"),
   main = "Credible intervals of covariate effects")
 
 #' !!!!!!!!!!!!!! Warning!! currently saved with dim 9.64 x 6.5 !!!!!!!!!!!!!!!!
@@ -1716,6 +1656,7 @@ WAICS.all <- dplyr::left_join(WAICS, WAICS_s15, by = "models") %>%
   dplyr::left_join(WAICS_s25, by = "models")
 
 print(xtable::xtable(WAICS.all, n.digits = 3), include.rowname = F)
+
 
 
 

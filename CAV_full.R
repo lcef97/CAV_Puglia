@@ -587,6 +587,28 @@ cav_nosp_inla <- inla(
   control.compute = list(internal.opt = F, cpo = T, waic = T, config = F), 
   verbose = T)
 
+
+##' Check variance proportion explained by low-frequency eigenvectors ---------#
+##' 
+
+check.spat.var <- function(x, n.eigen=20, V = VV){
+  n <- ncol(V)
+  x <- x - mean(x)
+  EE <- V[,-c(1:(n-n.eigen))]
+  .v <- t(EE) %*% as.vector(x)
+  .num <- sum(.v^2)
+  .den <- sum(x^2)
+  return(.num/.den)
+}
+n.eigen <- 15
+check.spat.var(dd$ELI[c(1:256)], n.eigen = n.eigen)
+check.spat.var(dd$PGR[c(1:256)], n.eigen = n.eigen)
+check.spat.var(dd$UIS[c(1:256)], n.eigen = n.eigen)
+check.spat.var(dd$ELL[c(1:256)], n.eigen = n.eigen)
+check.spat.var(dd$PDI[c(1:256)], n.eigen = n.eigen)
+check.spat.var(dd$ER[c(1:256)] , n.eigen = n.eigen)
+
+
 ## Univariate models - are they useful? -----------------------------------------
 #' Univariate models: ICAR
 #' 
@@ -741,7 +763,40 @@ plot(rhos, ff.r(rhos), type = 'l', main = paste0("u = ",u, " alpha = ", alpha))
 abline(v=u)
 
 
+##' Tuning a priori for AR(1) PC-prior  ---------------------------------------#
 
+dpc.corr.ar1 <- function(x, t=k, n=1000, alpha=0.8, U=0.4, log=F){
+  x <- pmax(abs(x), 1e-12) * ifelse(x < 0, -1, 1)
+  KLD <- function(x, t, n){
+    return(n/2 * ( log(1-x^2) + t*x^2/(1-x^2) ))
+  }
+  deriv.KLD <- function(x, t, n){
+    return(n*x*( -1/(1-x^2) + t/((1-x^2)^2)  ) )
+  }
+  dist.zero <- sqrt(2*KLD(U, t=t, n=n))
+  rate <- -log(1-alpha)/dist.zero
+  ff <- stats::dexp(x=sqrt(2*KLD(x=x, t=t, n=n)), rate = rate)*
+    1/sqrt(2*KLD(x=x, t=t, n=n)) * abs(deriv.KLD(x=x, t=t, n=n)) / 2
+  
+  return(ifelse(log, log(ff), ff))
+}
+
+
+u <- 0.5; alpha = 0.9
+rhos <- c(-499:-1, 1:499)/500
+ff.r <- Vectorize(function(x) dpc.corr.ar1(x=x, t=4, U=u, alpha = alpha))
+plot(rhos, ff.r(rhos), type = 'l', main = paste0("u = ",u, " alpha = ", alpha))
+abline(v=u)
+##' does it work?
+integrate(ff.r, 0, u)
+
+u <- 0.4; alpha = 0.8
+rhos <- c(-499:-1, 1:499)/500
+ff.r <- Vectorize(function(x) dpc.corr.ar1(x=x, t=4, U=u, alpha = alpha))
+plot(rhos, ff.r(rhos), type = 'l', main = paste0("u = ",u, " alpha = ", alpha))
+abline(v=u)
+##' does it work?
+integrate(ff.r, 0, u)
 
 
 
