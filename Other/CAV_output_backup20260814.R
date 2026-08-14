@@ -7,6 +7,58 @@ library(magrittr)
 library(sf)
 #' Also INLA is needful here: better to call it -------------------------------#
 library(INLA)
+#'  ---------------------------------------------------------------------------#
+#' 
+#'  Do not delete below ==> Code used to build input data from excel files
+#'  Excel inputs include sensible information which we prefer NOT to share;
+#'  we only leave track of how we aggregate data from individual level
+#'  to municipality level -----------------------------------------------------#
+#'  ---------------------------------------------------------------------------#
+#'
+#'  CAV_report_2022 <- readxl::read_excel("input/cav_2022.xlsx", 
+#'                                       sheet = "Sintesi")
+#'
+#'  CAV_mun_22 <- CAV_report_2022 %>%
+#'    dplyr::filter(.data$ESITO_ACCESSO == "presa in carico") %>% 
+#'    dplyr::rename(PRO_COM = .data$PRO_COM_Residenza_Domicilio) %>% 
+#'    dplyr::group_by(.data$PRO_COM) %>% 
+#'    dplyr::summarise(N_ACC = dplyr::n(),
+#'                     comune = stringr::str_to_title(
+#'                       .data$Comune_Residenza_Domicilio[1L]))%>% 
+#'    dplyr::ungroup()
+#'    
+#'  Same thing for other years  -----------------------------------------------#
+#'  
+#'  
+#'  CAV_mun_21 <- cav_2021_dati %>%
+#'      dplyr::filter(.data$ESITO_ACCESSO == "presa in carico") %>% 
+#'      dplyr::filter(!is.na(.data$PRO_COM_Residenza_Domicilio)) %>% 
+#'      dplyr::rename(PRO_COM = .data$PRO_COM_Residenza_Domicilio) %>% 
+#'      dplyr::group_by(.data$PRO_COM) %>% 
+#'      dplyr::summarise(N_ACC = dplyr::n(),
+#'      comune = stringr::str_to_title(
+#'      .data$Comune_Residenza_Domicilio[1L]))%>%   dplyr::ungroup()
+#'     
+#'  
+#'  CAV_mun_23 <- cav_2023_dati %>%
+#'      dplyr::filter(.data$ESITO_ACCESSO == "presa in carico") %>% 
+#'      dplyr::filter(!is.na(.data$PRO_COM_Residenza_Domicilio)) %>% 
+#'      dplyr::rename(PRO_COM = .data$PRO_COM_Residenza_Domicilio) %>% 
+#'      dplyr::group_by(.data$PRO_COM) %>% 
+#'      dplyr::summarise(N_ACC = dplyr::n(),
+#'      comune = stringr::str_to_title(
+#'      .data$Comune_Residenza_Domicilio[1L]))%>%   dplyr::ungroup()
+#'
+#'
+#'  CAV_mun_24 <- cav_2024 %>%
+#'      dplyr::filter(.data$ESITO_ACCESSO == "presa in carico") %>%
+#'      dplyr::filter(!is.na(.data$PRO_COM)) %>% 
+#'      dplyr::group_by(.data$PRO_COM) %>% 
+#'      dplyr::summarise(N_ACC = dplyr::n(),
+#'      comune = stringr::str_to_title(
+#'      .data$LUOGO_RESIDENZA_DOMICILIO[1L]))%>%   dplyr::ungroup()
+#'
+#'  ---------------------------------------------------------------------------#   
 #'  
 #'  Then we download municipality-level data on accesses to support centers,
 #'  aggregated from individual-level ones:  -----------------------------------#
@@ -15,6 +67,7 @@ load(url("https://github.com/lcef97/CAV_Puglia/raw/main/input/CAV_input_mun_2021
 load(url("https://github.com/lcef97/CAV_Puglia/raw/main/input/CAV_input_mun_2022.RData"))
 load(url("https://github.com/lcef97/CAV_Puglia/raw/main/input/CAV_input_mun_2023.RData"))
 load(url("https://github.com/lcef97/CAV_Puglia/raw/main/input/CAV_input_mun_2024.RData"))
+
 
 CAV_mun_21 <- CAV_mun_21 %>% dplyr::rename(N_ACC_2021 = .data$N_ACC)
 CAV_mun_22 <- CAV_mun_22 %>% dplyr::rename(N_ACC_2022 = .data$N_ACC)
@@ -125,7 +178,13 @@ suppressWarnings({
                   function(x) x[1L] == 0)))]
 })
 
-#'  Municipalities hosting an anti-violence center  ---------------------------#
+
+#'  Mapping municipalities from support centers   ----------------------------#
+#'  
+#'  Loop to compute minimal distances
+#'
+#'
+#'  Municipalities hosting a support center:
 #'  
   munWcav_21 <- c(71024,	71051,
                   72004,	72006,	72011,	72014,	72019,	72021,	72029,	72031,	72035,	
@@ -156,7 +215,33 @@ suppressWarnings({
                   75029, 75035, 75059,
                   110001, 110002, 110009)
   
-#' Municipality hosting a help-desk -------------------------------------------#
+#'  Routine to compute distances from closest municipality
+#'  with an AVC ---------------------------------------------------------------#
+#'  
+#'  Can be replicated for other years of course -------------------------------#
+#'  
+#'  dists_th_24 <- NULL
+#'  dd24 <- dd %>% dplyr::filter(.data$Year == "2024") %>% 
+#'  dplyr::filter(!.data$PRO_COM %in% singletons)
+#'  for (i in c(1:nrow(dd24))){
+#'    X <- dd24$PRO_COM[i]
+#'    dists <- numeric(length(munWcav_24))
+#'    IDs <- numeric(length(munWcav_24))
+#'    for(j in c(1:length(munWcav_24))){
+#'      c.out <- munWcav_24[j]
+#'      id <- paste0(min(X, c.out),
+#'                   " - ", max(X, c.out))
+#'      nn <- which(dist_short$OR_DEST == id)
+#'      dists[j] <- as.numeric(dist_short$TEP_TOT[nn])
+#'      IDs[j] <- dist_short$OR_DEST[nn]
+#'    }
+#'    m <- which.min(dists)
+#'    ret <- c(X, dists[m])
+#'    dists_th_24 <- data.frame(rbind(dists_th_24, ret))
+#'  }
+#'  names(dists_th_24) <- c("PRO_COM", "TEP_th_24")
+
+
 munWdesk <- c(
   71004,  71006,  71008,  71010,  71012,  71020,  71021,  71022,  71024,  
   71025,  71027,  71028,  71035,  71036,  71038,  71041,  71043,  71046,  
@@ -171,6 +256,25 @@ munWdesk <- c(
   75064,  75073,  75077,  75081,  75085,  75086,  75088,  75089,  75093, 
   75097, 110003, 110004, 110005, 110007, 110010)
 
+#'dists_desk <- NULL
+#'dd24 <- dd %>% dplyr::filter(.data$Year == "2024") %>% 
+#'  dplyr::filter(!.data$PRO_COM %in% singletons)
+#'for (i in c(1:nrow(dd24))){
+#'  X <- dd24$PRO_COM[i]
+#'  dists <- numeric(length(munWdesk))
+#'  IDs <- numeric(length(munWdesk))
+#'  for(j in c(1:length(munWdesk))){
+#'    c.out <- munWdesk[j]
+#'    id <- paste0(min(X, c.out),
+#'                 " - ", max(X, c.out))
+#'    nn <- which(dist_short$OR_DEST == id)
+#'    dists[j] <- as.numeric(dist_short$TEP_TOT[nn])
+#'    IDs[j] <- dist_short$OR_DEST[nn]
+#'  }
+#'  m <- which.min(dists)
+#'  ret <- c(X, dists[m])
+#'  dists_desk <- data.frame(rbind(dists_desk, ret))
+#'}
 
 
 ##' Load distances from AVCs and help-desks -----------------------------------#
@@ -301,6 +405,11 @@ X <- model.matrix(glm_all_X)
 
 #' Spatial filtering of Laplacian eigenvectors --------------------------------#
 
+#' Speed-up initialising:
+#covars <- c("MFI", "HMI", "MWR", "PA", "LRA", "LC", "AES", "PDI",
+#            "ELL", "ER", "PGR", "UIS", "ELI","AVC_dist")
+
+#n.eigen <- rep(10, length(covars))
 VV <- eigen(Lapl_con)$vectors
 
 
@@ -1097,7 +1206,28 @@ cav_IMCAR_inla.AR1_s25 <- inla(
       verbose = T)
 
 
- 
+#' Not in the paper but may be useful
+#' This can be done as card(\theta) = 2 ----------------------------------------
+
+jh <- cav_IMCAR_inla.AR1$joint.hyper
+
+names(jh) <- c("AR.corr", "prec", "logpost", "logweight")
+
+jh$dens <- exp(jh$logpost - max(jh$logpost))  # rescale to avoid underflow
+
+
+interp_res <- with(jh,  akima::interp(
+  x = AR.corr,y = prec,z = dens,  duplicate = "mean"))
+
+plotly::plot_ly(x = interp_res$x,
+                 y = interp_res$y,
+                 z = interp_res$z) %>%
+  plotly::add_surface() %>%
+  plotly::layout(
+    scene = list(
+      xaxis = list(title = "AR.corr"),
+      yaxis = list(title = "prec"),
+      zaxis = list(title = "Posterior density")))
 
 ##  Spatiotemporal models: AR(1) - PCAR -----------------------------------------
 

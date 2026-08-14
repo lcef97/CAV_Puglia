@@ -12,28 +12,21 @@ so here are some.
 
 ## Contents of the present GitHub repository 
 
-  - [Slides](https://lcef97.github.io/CAV_Puglia/#1). This clearly serves as a presentation.
+  - R script [`CAV_output`](https://github.com/lcef97/CAV_Puglia/blob/main/CAV_output.R): complete analysis performed over four years, 
+  which is the full information currently available. This is the complete source code of the paper.
+
+  - [Slides](https://lcef97.github.io/CAV_Puglia/#1). Old presentation, a previous and more complex version of the
+  analysis carried out.
   Few, selected models are included here, 
   as they are multivariate ones with 10 -- 14 hyperparameters. This was the presentation at the PRIN workshop
   held in Lecce, Salento, Apulia, Italy, on September 19--20th, 2025. However we moved away from the 
   general multivariate model towards a spatiotemporal one.
   
-  - R script [`CAV_full`](https://github.com/lcef97/CAV_Puglia/blob/main/CAV_full.R): complete analysis performed over four years, 
-  which is the full information currently available.
   
   - R script [`Functions`](https://github.com/lcef97/CAV_Puglia/blob/main/Auxiliary/Functions.R): 
-  R code, compatible with R-INLA, with all the handmade INLA models [(here)]. As this is quite experimental, 
-  if for any reason you use this code and you trust it enough (!) 
-  it would be nice if you cited the source :)
-  However, it is getting a bit too long and clumsy so maybe I'll move the functions to an R package.
-  
-  - [Markdown report](https://github.com/lcef97/CAV_Puglia/blob/main/CAV_panel.pdf) 
-  of 2021-24 data analysis with constant coefficients and spatial effects
-  modelled as multivariate autoregressive models.  I will try providing also an HTML version
-  but don't know to which extent it can be trusted.  
-  More complex models with time - varying regression coefficients are tested in the `R` script 
-  but due to higher complexity yielding no fitting improvement they have been superseded
-  and are not referred to in the report.
+  R code, compatible with R-INLA, with all the handmade INLA models, including spatio-temporal, 
+  block-factorisable multivariate models, and M-models. 
+
   
   - [inputs](https://github.com/lcef97/CAV_Puglia/tree/main/input): all data this analysis is based on. 
   As said before, some datasets are derived by aggregation of sensible data, 
@@ -41,6 +34,6 @@ so here are some.
   
 ## Manuscript
 
- The paper has been submitted to a journal and is now under consideration. While all we can do is hope 
- at this stage, here is the [arXiv preprint](https://arxiv.org/abs/2511.20481).
+ The paper has been submitted to a journal and is now under revision. While all we can do is hope 
+ at this stage, here is the [arXiv draft](https://arxiv.org/abs/2511.20481).
  
